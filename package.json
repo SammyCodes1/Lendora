@@ -1,0 +1,17 @@
+{
+  "name": "arclend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "contracts:compile": "cd contracts && npx hardhat compile",
+    "contracts:test": "cd contracts && npx hardhat test",
+    "contracts:deploy": "cd contracts && npx hardhat run scripts/deploy_all.ts --network arc_testnet",
+    "frontend:dev": "cd frontend && npm run dev",
+    "frontend:build": "cd frontend && npm run build",
+    "dev": "concurrently \"npm run frontend:dev\"",
+    "deploy": "npm run contracts:deploy && npm run frontend:build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

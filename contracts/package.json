@@ -1,0 +1,26 @@
+{
+  "name": "@arclend/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:arc": "hardhat run scripts/deploy_all.ts --network arc_testnet",
+    "deploy:secure": "hardhat run scripts/deploy_secure_all.ts --network arc_testnet",
+    "deploy:secure:finalize": "hardhat run scripts/finalize_secure_deployment.ts --network arc_testnet",
+    "deploy:domain-marketplace": "hardhat run scripts/11_deploy_domain_marketplace.ts --network arc_testnet",
+    "deploy:earn-vaults": "hardhat run scripts/12_deploy_earn_vaults.ts --network arc_testnet",
+    "deploy:earn-referrals": "hardhat run scripts/13_deploy_earn_referrals.ts --network arc_testnet",
+    "verify:deployment": "hardhat run scripts/verify_deployment.ts --network arc_testnet",
+    "export-abi": "hardhat run scripts/export-abis.ts"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "dotenv": "^16.4.7",
+    "hardhat": "^2.22.19",
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.4.0"
+  }
+}

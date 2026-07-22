@@ -1,0 +1,8 @@
+export const ARC_CCTP = {
+  domain: 26,
+  tokenMessengerV2: "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
+  messageTransmitterV2: "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
+  tokenMinterV2: "0xb43db544E2c27092c107639Ad201b3dEfAbcF192",
+  gatewayWallet: "0x0077777d7EBA4688BDeF3E311b846F25870A19B9",
+  gatewayMinter: "0x0022222ABE238Cc2C7Bb1f21003F0a260052475B",
+} as const;
