@@ -100,7 +100,7 @@ function OnchainSwapFlow() {
               return (
                 <motion.div
                   key={step.label}
-                  className="relative z-10 flex gap-3 rounded-xl border border-white/[0.08] bg-[#101416]/90 p-3"
+                  className="relative z-10 flex gap-3 rounded-xl border border-white/[0.08] bg-black/40 backdrop-blur-xl p-3"
                   animate={{
                     borderColor: [
                       "rgba(255,255,255,0.08)",
