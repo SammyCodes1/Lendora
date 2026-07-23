@@ -1,0 +1,12 @@
+# Keep public/ assets (logos, og images). Only exclude build/deps/secrets.
+node_modules
+.next
+.next-dev
+out
+dist
+.env
+.env.*
+!.env.example
+*.log
+.chrome-*
+.edge-*

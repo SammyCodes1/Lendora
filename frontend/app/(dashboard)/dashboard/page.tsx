@@ -220,14 +220,25 @@ function UserSummary({ markets }: { markets: MarketAsset[] }) {
             <div key={market.symbol} className="flex items-start justify-between gap-3">
               <span>a{market.symbol} balance</span>
               <span className="text-right">
-                <span className="block font-mono text-white">{Number(formatUnits(market.userSupply, 6)).toLocaleString(undefined, { maximumFractionDigits: 6 })}</span>
-                <span className="block font-mono text-[10px] text-[#86efac]">+{formatUnits(market.accruedSupply, 6)} pending interest</span>
+                <span className="block font-mono text-white">
+                  {Number(formatUnits(market.settledUserSupply, 6)).toLocaleString(undefined, { maximumFractionDigits: 6 })} a{market.symbol}
+                </span>
+                {market.accruedSupply > 0n ? (
+                  <>
+                    <span className="block font-mono text-[10px] text-[#86efac]">
+                      +{formatUnits(market.accruedSupply, 6)} pending interest
+                    </span>
+                    <span className="block font-mono text-[10px] text-white/40">
+                      total {Number(formatUnits(market.userSupply, 6)).toLocaleString(undefined, { maximumFractionDigits: 6 })}
+                    </span>
+                  </>
+                ) : null}
               </span>
             </div>
           ))}
           <div className="flex justify-between"><span>Total supplied</span><AnimatedNumber className="font-mono text-white" value={Number(formatUnits(projectedSupplyUsd, 8))} prefix="$" decimals={2} /></div>
           <p className="text-[10px] leading-4 text-white/30">
-            Pending supply interest settles into your aToken balance after reserve updates, including new supplies.
+            aToken is settled balance; pending is the live estimate on top. Settled + pending = total position.
           </p>
           <StatBadge label="Weighted Supply APY" value={`${supplyRate.toFixed(2)}%`} tone="positive" />
         </div>

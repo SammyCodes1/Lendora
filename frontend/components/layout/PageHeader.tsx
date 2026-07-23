@@ -49,7 +49,7 @@ export function PageHeader({
           </span>
           <span>ArcLend protocol</span>
         </div>
-        <h1 className="font-display text-4xl font-medium leading-[0.98] text-white sm:text-6xl">
+        <h1 className="font-display text-3xl font-medium leading-[1.02] text-white sm:text-6xl sm:leading-[0.98]">
           {title}
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-white/52 sm:text-base">

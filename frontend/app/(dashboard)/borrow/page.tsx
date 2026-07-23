@@ -78,25 +78,25 @@ function HealthFactorDashboard() {
       ) : isConnected ? (
         <div className="flex flex-col items-center text-center">
           <SectionLabel>Position safety</SectionLabel>
-          <div className="relative mx-auto mt-3 h-64 w-64 sm:h-80 sm:w-80">
-            <HealthFactorRing value={health} size={320} showValue={false} className="origin-center scale-[0.8] sm:scale-100" />
+          <div className="relative mx-auto mt-3 h-52 w-52 sm:h-80 sm:w-80">
+            <HealthFactorRing value={health} size={320} showValue={false} className="origin-center scale-[0.65] sm:scale-100" />
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <HealthFactorValue value={health} className={cn("font-mono text-6xl font-medium sm:text-7xl", healthClass)} />
+              <HealthFactorValue value={health} className={cn("font-mono text-4xl font-medium sm:text-7xl", healthClass)} />
               <p className="mt-2 text-[10px] font-semibold uppercase text-white/35">Health Factor</p>
             </div>
           </div>
-          <div className="mt-2 grid w-full max-w-3xl grid-cols-3 divide-x divide-white/[0.08] rounded-2xl border border-white/[0.08] bg-black/20 py-4">
-            <div className="px-2 sm:px-5">
+          <div className="mt-2 grid w-full max-w-3xl grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-white/[0.08] sm:rounded-2xl sm:border sm:border-white/[0.08] sm:bg-black/20 sm:py-4">
+            <div className="rounded-xl border border-white/[0.08] bg-black/20 px-3 py-3 sm:rounded-none sm:border-0 sm:bg-transparent sm:px-5 sm:py-0">
               <p className="text-[10px] text-white/35 sm:text-xs">Collateral</p>
-              <AnimatedNumber className="mt-2 block font-mono text-sm text-white sm:text-lg" value={Number(formatUnits(accountData?.totalCollateralUSD ?? 0n, 8))} prefix="$" decimals={2} />
+              <AnimatedNumber className="mt-1 block font-mono text-base text-white sm:mt-2 sm:text-lg" value={Number(formatUnits(accountData?.totalCollateralUSD ?? 0n, 8))} prefix="$" decimals={2} />
             </div>
-            <div className="px-2 sm:px-5">
+            <div className="rounded-xl border border-white/[0.08] bg-black/20 px-3 py-3 sm:rounded-none sm:border-0 sm:bg-transparent sm:px-5 sm:py-0">
               <p className="text-[10px] text-white/35 sm:text-xs">Debt</p>
-              <AnimatedNumber className="mt-2 block font-mono text-sm text-white sm:text-lg" value={Number(formatUnits(accountData?.totalDebtUSD ?? 0n, 8))} prefix="$" decimals={2} />
+              <AnimatedNumber className="mt-1 block font-mono text-base text-white sm:mt-2 sm:text-lg" value={Number(formatUnits(accountData?.totalDebtUSD ?? 0n, 8))} prefix="$" decimals={2} />
             </div>
-            <div className="px-2 sm:px-5">
+            <div className="rounded-xl border border-white/[0.08] bg-black/20 px-3 py-3 sm:rounded-none sm:border-0 sm:bg-transparent sm:px-5 sm:py-0">
               <p className="text-[10px] text-white/35 sm:text-xs">Available</p>
-              <AnimatedNumber className="mt-2 block font-mono text-sm text-white sm:text-lg" value={Number(formatUnits(accountData?.availableBorrowsUSD ?? 0n, 8))} prefix="$" decimals={2} />
+              <AnimatedNumber className="mt-1 block font-mono text-base text-white sm:mt-2 sm:text-lg" value={Number(formatUnits(accountData?.availableBorrowsUSD ?? 0n, 8))} prefix="$" decimals={2} />
             </div>
           </div>
         </div>
@@ -232,7 +232,7 @@ function BorrowMarket({
       </div>
       <div className="mt-5">
         <SectionLabel>Borrow APR</SectionLabel>
-        <p className="mt-2 font-mono text-5xl font-medium text-white">
+        <p className="mt-2 font-mono text-4xl font-medium text-white sm:text-5xl">
           <AnimatedNumber value={Number.parseFloat(market.borrowApr)} decimals={2} suffix="%" />
         </p>
       </div>

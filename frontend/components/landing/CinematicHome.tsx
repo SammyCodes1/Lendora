@@ -360,15 +360,26 @@ export function CinematicHome() {
           stagger: 0.04,
           ease: "power4.out",
         });
-        gsap.fromTo(".hero-support", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.7, delay: 0.52, stagger: 0.09, ease: "power3.out" });
+        gsap.fromTo(
+          ".hero-support",
+          { y: 24, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.7, delay: 0.52, stagger: 0.09, ease: "power3.out" },
+        );
+        // Scroll-shrink the wordmark only. The logo mark stays outside this
+        // ref so GSAP can never leave it stuck at opacity 0.
         gsap.to(heroBrandRef.current, {
-          scale: 0.18,
-          xPercent: -38,
-          yPercent: -62,
-          opacity: 0.12,
+          scale: 0.22,
+          xPercent: -12,
+          yPercent: -48,
+          opacity: 0.16,
           transformOrigin: "left top",
           ease: "none",
-          scrollTrigger: { trigger: heroRef.current, start: "top top", end: "bottom top", scrub: 1 },
+          scrollTrigger: {
+            trigger: heroRef.current,
+            start: "top top",
+            end: "bottom top",
+            scrub: 1,
+          },
         });
         gsap.to(miniHeaderRef.current, {
           autoAlpha: 1,
@@ -493,25 +504,48 @@ export function CinematicHome() {
       <SoundToggle />
 
       <header ref={miniHeaderRef} className="pointer-events-none fixed inset-x-0 top-0 z-[110] flex translate-y-[-14px] items-center justify-between border-b border-white/[0.07] bg-black/55 px-5 py-4 opacity-0 backdrop-blur-2xl sm:px-8">
-        <Link href="/" className="pointer-events-auto cinematic-display flex items-center gap-2 text-lg font-medium tracking-[-0.05em]">
-          <img src="/arclend-logo.png" alt="" aria-hidden="true" className="h-6 w-auto object-contain" />
+        <Link href="/" className="pointer-events-auto cinematic-display flex items-center gap-2.5 text-lg font-medium tracking-[-0.05em]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/arclend-mark.png"
+            alt=""
+            width={28}
+            height={28}
+            className="h-7 w-7 object-contain"
+            style={{ opacity: 1, visibility: "visible" }}
+          />
           Arc<span className="text-[#86efac]">Lend</span>
         </Link>
         <Link href="/dashboard" className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-white/15 bg-white px-4 py-2 text-xs font-semibold text-black transition hover:scale-105 active:scale-95">Launch app <ArrowRight className="h-3.5 w-3.5" /></Link>
       </header>
 
-      <section ref={heroRef} className="relative flex min-h-screen items-end overflow-hidden px-4 pb-12 pt-28 sm:px-8 sm:pb-16 lg:px-12">
+      <section ref={heroRef} className="relative flex min-h-screen items-end overflow-x-clip px-4 pb-12 pt-28 sm:px-8 sm:pb-16 lg:px-12">
         <div className="relative z-10 w-full">
           <p className="hero-support mb-5 font-mono text-[10px] uppercase tracking-[0.24em] text-white/35">Credit layer / Arc Network</p>
-          <div className="hero-support flex w-full items-end gap-0">
-            <div ref={heroBrandRef} className="flex items-end gap-0">
-              <img
-                src="/arclend-logo.png"
-                alt="ArcLend"
-                className="mb-[0.5vw] h-[clamp(5.4rem,20vw,19rem)] w-auto shrink-0 object-contain"
-              />
-              <h1 className="hero-brand -ml-[0.08em] min-w-0 overflow-hidden leading-[0.74] tracking-[-0.085em]">
-                <BrandReveal className="text-[clamp(5.4rem,20vw,19rem)] font-medium" />
+          <div className="flex w-full flex-col items-start gap-4 sm:flex-row sm:items-end sm:gap-5 md:gap-7">
+            {/*
+              Logo is outside heroBrandRef and never GSAP-targeted.
+              Transparent mark + fixed heights so it cannot collapse or stay opacity:0.
+            */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/arclend-mark.png"
+              alt="ArcLend logo"
+              width={381}
+              height={259}
+              decoding="sync"
+              fetchPriority="high"
+              className="relative z-30 block h-[88px] w-auto max-w-[min(42vw,220px)] shrink-0 object-contain object-left sm:h-[120px] md:h-[160px] lg:h-[200px]"
+              style={{
+                opacity: 1,
+                visibility: "visible",
+                display: "block",
+                pointerEvents: "none",
+              }}
+            />
+            <div ref={heroBrandRef} className="min-w-0">
+              <h1 className="hero-brand min-w-0 max-w-full overflow-hidden leading-[0.82] tracking-[-0.07em] sm:leading-[0.74] sm:tracking-[-0.085em]">
+                <BrandReveal className="break-words text-[clamp(2.75rem,14vw,19rem)] font-medium sm:text-[clamp(4.2rem,18vw,19rem)]" />
               </h1>
             </div>
           </div>
@@ -584,7 +618,7 @@ export function CinematicHome() {
 
       <section className="about-section relative bg-black px-4 py-28 sm:px-8 lg:px-12 lg:py-40">
         <div className="mx-auto max-w-[1500px]">
-          <p className="editorial-reveal cinematic-editorial max-w-6xl text-[clamp(2.7rem,6.6vw,7.6rem)] leading-[0.98] tracking-[-0.035em] text-white">
+          <p className="editorial-reveal cinematic-editorial max-w-6xl text-[clamp(1.85rem,7.2vw,7.6rem)] leading-[1.05] tracking-[-0.03em] text-white sm:leading-[0.98] sm:tracking-[-0.035em]">
             Instant, non-custodial credit built around the speed and USDC-native architecture of Arc.
           </p>
 
@@ -610,14 +644,18 @@ export function CinematicHome() {
       <section ref={finalRef} className="relative flex min-h-screen items-center border-t border-white/[0.05] bg-black/30 px-4 py-28 sm:px-8 lg:px-12">
         <div className="mx-auto w-full max-w-[1500px]">
           <p className="mb-6 font-mono text-[10px] uppercase tracking-[0.24em] text-white/30">The credit layer is open on</p>
-          <div className="flex items-end overflow-hidden">
+          <div className="flex flex-col items-start gap-4 overflow-visible sm:flex-row sm:items-end sm:gap-5 md:gap-7">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/arclend-logo.png"
+              src="/arclend-mark.png"
               alt="ArcLend"
-              className="mb-[0.5vw] h-[clamp(5rem,16vw,15rem)] w-auto shrink-0 object-contain"
+              width={381}
+              height={259}
+              className="relative z-20 mb-1 block h-16 w-auto shrink-0 object-contain sm:mb-2 sm:h-24 md:h-32 lg:h-40"
+              style={{ opacity: 1, visibility: "visible" }}
             />
-            <h2 className="final-brand -ml-[0.08em] mt-2 min-w-0 overflow-hidden leading-[0.8] tracking-[-0.08em]">
-              <BrandReveal className="text-[clamp(5rem,16vw,15rem)] font-medium" />
+            <h2 className="final-brand mt-0 min-w-0 max-w-full overflow-hidden leading-[0.86] tracking-[-0.06em] sm:mt-2 sm:leading-[0.8] sm:tracking-[-0.08em]">
+              <BrandReveal className="break-words text-[clamp(2.5rem,13vw,15rem)] font-medium sm:text-[clamp(4rem,16vw,15rem)]" />
             </h2>
           </div>
           <Link href="/dashboard" className="mt-12 inline-flex items-center gap-3 border-b border-white pb-2 text-xl font-medium tracking-[-0.03em] transition hover:gap-5 hover:text-white/75 sm:text-3xl">Launch App <ArrowRight className="h-5 w-5 sm:h-7 sm:w-7" /></Link>

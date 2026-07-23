@@ -49,7 +49,14 @@ const links: LinkItem[] = [
 function ArcLogo() {
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src="/arclend-logo.png" alt="ArcLend" width={28} height={28} className="h-7 w-7 object-contain" />
+    <img
+      src="/arclend-mark.png"
+      alt="ArcLend"
+      width={28}
+      height={28}
+      className="h-7 w-7 object-contain"
+      style={{ opacity: 1, visibility: "visible" }}
+    />
   );
 }
 
@@ -185,20 +192,22 @@ export function Navbar() {
   );
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-[80] overflow-visible border-b border-white/[0.08] bg-black/65 shadow-[0_18px_60px_rgba(0,0,0,0.42),inset_0_-1px_0_rgba(255,255,255,0.025)] backdrop-blur-3xl">
-      <div className="mx-auto flex h-[72px] max-w-[1440px] items-center justify-between px-4 sm:px-6 lg:px-8">
+    <header className="safe-top fixed left-0 right-0 top-0 z-[80] overflow-visible border-b border-white/[0.08] bg-black/65 shadow-[0_18px_60px_rgba(0,0,0,0.42),inset_0_-1px_0_rgba(255,255,255,0.025)] backdrop-blur-3xl">
+      <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between gap-2 px-3 sm:h-[72px] sm:px-6 lg:px-8">
         <Link
           href="/"
-          className="flex items-center gap-3 text-white xl:-translate-x-4"
+          className="flex min-w-0 items-center gap-2 text-white sm:gap-3 xl:-translate-x-4"
         >
-          <div className="flex items-center justify-center">
+          <div className="flex shrink-0 items-center justify-center">
             <ArcLogo />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <p className="text-base font-semibold tracking-tight">ArcLend</p>
+              <p className="truncate text-sm font-semibold tracking-tight sm:text-base">ArcLend</p>
             </div>
-            <p className="text-[10px] font-medium uppercase text-white/35">Stablecoin credit</p>
+            <p className="hidden text-[10px] font-medium uppercase text-white/35 sm:block">
+              Stablecoin credit
+            </p>
           </div>
         </Link>
 
@@ -237,7 +246,7 @@ export function Navbar() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 top-[72px] bg-black/70 backdrop-blur-sm xl:hidden"
+            className="fixed inset-0 top-16 bg-black/70 backdrop-blur-sm sm:top-[72px] xl:hidden"
             onClick={() => setOpen(false)}
           >
             <motion.nav
@@ -246,7 +255,7 @@ export function Navbar() {
               exit={{ x: "100%" }}
               transition={{ duration: 0.24, ease: "easeOut" }}
               onClick={(event) => event.stopPropagation()}
-              className="ml-auto flex h-[calc(100vh-72px)] w-[82vw] max-w-sm flex-col gap-3 border-l border-white/10 bg-black/90 px-5 py-6 shadow-[0_0_80px_rgba(0,0,0,0.78)] backdrop-blur-3xl"
+              className="ml-auto flex h-[calc(100dvh-4rem)] w-[min(88vw,22rem)] max-w-sm flex-col gap-3 overflow-y-auto border-l border-white/10 bg-black/90 px-4 py-5 shadow-[0_0_80px_rgba(0,0,0,0.78)] backdrop-blur-3xl safe-bottom sm:h-[calc(100dvh-72px)] sm:px-5 sm:py-6"
             >
               <NavLinks onNavigate={() => setOpen(false)} />
               <div className="flex flex-col gap-3 pt-2">

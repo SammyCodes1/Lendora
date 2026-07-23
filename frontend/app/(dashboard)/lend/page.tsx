@@ -63,12 +63,15 @@ function SuppliedPosition({
   isClaiming: boolean;
   claimHash?: Hash;
 }) {
-  const suppliedAmount = Number(formatUnits(balance.balance, 6));
-  const suppliedValue = suppliedAmount * Number(formatUnits(market.price, market.priceDecimals));
+  // balance.balance is projected userSupply (settled aToken + live pending).
+  // Show settled aToken on the asset line so it correlates with pending:
+  // settled + pending = total position.
+  const totalAmount = Number(formatUnits(balance.balance, 6));
+  const settledAmount = Number(formatUnits(market.settledUserSupply, 6));
   const accruedAmount = Number(formatUnits(market.accruedSupply, 6));
-  const accruedValue =
-    accruedAmount *
-    Number(formatUnits(market.price, market.priceDecimals));
+  const price = Number(formatUnits(market.price, market.priceDecimals));
+  const suppliedValue = totalAmount * price;
+  const accruedValue = accruedAmount * price;
 
   return (
     <div className="rounded-2xl border border-white/[0.09] bg-white/[0.035] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:-translate-y-0.5 hover:border-white/15 hover:bg-white/[0.05]">
@@ -77,7 +80,15 @@ function SuppliedPosition({
           <AssetMark symbol={market.symbol} size="sm" />
           <div>
             <p className="font-medium text-white">{market.name}</p>
-            <p className="font-mono text-sm text-white/55"><AnimatedNumber value={suppliedAmount} decimals={6} /> a{market.symbol}</p>
+            <p className="font-mono text-sm text-white/55">
+              <AnimatedNumber value={settledAmount} decimals={6} /> a{market.symbol}
+            </p>
+            {accruedAmount > 0 ? (
+              <p className="mt-0.5 font-mono text-[11px] text-white/35">
+                Total position{" "}
+                <AnimatedNumber value={totalAmount} decimals={6} /> {market.symbol}
+              </p>
+            ) : null}
           </div>
         </div>
         <StatBadge label="APY" value={market.supplyApy} tone="positive" />
@@ -103,7 +114,7 @@ function SuppliedPosition({
           </span>
         </div>
         <p className="text-[10px] leading-4 text-white/30">
-          This estimate settles into your supplied balance whenever the reserve updates, including after a new supply.
+          a{market.symbol} is your settled on-chain balance. Pending interest is the live estimate not yet written into the reserve index — settled + pending = total position. It settles on any reserve update (including a new supply).
         </p>
       </div>
       {claimHash ? (
@@ -181,7 +192,7 @@ function SuppliedPositions({
             Your Supplied Positions
           </h2>
           <p className="mt-1 text-xs text-white/35">
-            Interest is built into your aToken balance. The pending estimate can settle into supplied balance after any reserve update.
+            aToken shows settled balance; pending interest is the live estimate on top. Together they equal your total position.
           </p>
         </div>
         <GlassButton
@@ -257,14 +268,18 @@ function MarketSupplyCard({
             <p className="text-sm text-white/45">{market.symbol}</p>
           </div>
         </div>
-        <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 font-mono text-xs text-white/50">{market.utilization.toFixed(1)}% utilized</span>
+        <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 font-mono text-[10px] text-white/50 sm:px-3 sm:text-xs">
+          {market.utilization.toFixed(1)}% utilized
+        </span>
       </div>
 
-      <div className="mt-8 grid grid-cols-[130px_1fr] items-center gap-5">
-        <APYGauge value={market.utilization} />
-        <div>
+      <div className="mt-8 grid grid-cols-1 items-center gap-5 sm:grid-cols-[130px_1fr]">
+        <div className="mx-auto w-fit sm:mx-0">
+          <APYGauge value={market.utilization} />
+        </div>
+        <div className="min-w-0 text-center sm:text-left">
           <SectionLabel>Supply APY</SectionLabel>
-          <p className="mt-2 font-mono text-5xl font-medium tracking-tight text-white">
+          <p className="mt-2 font-mono text-4xl font-medium tracking-tight text-white sm:text-5xl">
             <AnimatedNumber value={Number.parseFloat(market.supplyApy)} decimals={2} suffix="%" />
           </p>
         </div>

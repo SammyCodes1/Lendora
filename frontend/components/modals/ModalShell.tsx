@@ -81,7 +81,7 @@ export function ModalShell({ open, title, icon, children, onClose }: ModalShellP
     <AnimatePresence>
       {open ? (
         <motion.div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 sm:items-center sm:p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 safe-bottom sm:items-center sm:p-4"
           initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
           animate={{ opacity: 1, backdropFilter: "blur(24px)" }}
           exit={{ opacity: 0 }}
@@ -109,7 +109,7 @@ export function ModalShell({ open, title, icon, children, onClose }: ModalShellP
               exit={{ opacity: 0, scale: 0.95, y: 28 }}
               transition={{ duration: 0.24, ease: "easeOut" }}
               onMouseDown={(event) => event.stopPropagation()}
-              className="max-h-[92vh] overflow-y-auto rounded-t-2xl bg-black/70 p-5 backdrop-blur-3xl sm:rounded-2xl sm:p-6"
+              className="max-h-[min(92dvh,100%)] overflow-y-auto overscroll-contain rounded-t-2xl bg-black/70 p-4 backdrop-blur-3xl sm:rounded-2xl sm:p-6"
             >
               <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-white/20 sm:hidden" />
               <div className="flex items-center justify-between gap-4">

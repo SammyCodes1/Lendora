@@ -115,7 +115,7 @@ export function AgentChat() {
   return (
     <div
       ref={assistantRef}
-      className="fixed bottom-5 right-4 z-[130] sm:bottom-6 sm:right-6"
+      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(0.75rem,env(safe-area-inset-right))] z-[130] sm:bottom-6 sm:right-6"
     >
       <AnimatePresence>
         {open ? (
@@ -124,9 +124,9 @@ export function AgentChat() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.94, y: 18 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="absolute bottom-16 right-0"
+            className="fixed inset-x-0 bottom-0 sm:absolute sm:inset-auto sm:bottom-16 sm:right-0"
           >
-            <GlassCard className="relative flex h-[min(620px,calc(100vh-7rem))] w-[min(380px,calc(100vw-2rem))] flex-col overflow-hidden border-emerald-200/[0.12] bg-[#090c0e]/96 p-0 shadow-[0_28px_100px_rgba(0,0,0,0.72),0_0_45px_rgba(52,211,153,0.08)] backdrop-blur-xl">
+            <GlassCard className="relative flex h-[min(92dvh,calc(100dvh-env(safe-area-inset-top)-1rem))] w-full flex-col overflow-hidden rounded-b-none border-emerald-200/[0.12] bg-[#090c0e]/96 p-0 shadow-[0_28px_100px_rgba(0,0,0,0.72),0_0_45px_rgba(52,211,153,0.08)] backdrop-blur-xl sm:h-[min(620px,calc(100vh-7rem))] sm:w-[min(380px,calc(100vw-2rem))] sm:rounded-2xl">
               <motion.div
                 aria-hidden="true"
                 className="pointer-events-none absolute -left-24 -top-20 h-52 w-52 rounded-full bg-emerald-300/[0.08] blur-3xl"

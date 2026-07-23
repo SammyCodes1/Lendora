@@ -22,24 +22,28 @@ export function TokenInput({ value, onChange, tokenName, tokenSymbol, balance, i
         error && "border-red-500/30",
       )}
     >
-      <div className="mb-2 flex items-center justify-between text-xs text-white/45">
-        <span>{tokenName}</span>
-        <span>Balance {balance}</span>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-white/45">
+        <span className="min-w-0 truncate">{tokenName}</span>
+        <span className="shrink-0 font-mono">Balance {balance}</span>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <input
           aria-label={`${tokenSymbol} amount`}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           inputMode="decimal"
           placeholder="0.00"
-          className="min-w-0 flex-1 bg-transparent font-mono text-xl text-white outline-none placeholder:text-white/25"
+          className="min-w-0 flex-1 basis-[8rem] bg-transparent font-mono text-xl text-white outline-none placeholder:text-white/25"
         />
-        <div className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.055] px-2 py-1 text-sm text-white">
+        <div className="flex shrink-0 items-center gap-2 rounded-md border border-white/10 bg-white/[0.055] px-2 py-1 text-sm text-white">
           <Icon className="h-4 w-4" />
           {tokenSymbol}
         </div>
-        <button type="button" onClick={onMax} className="rounded-md bg-emerald-200 px-3 py-1.5 text-xs font-semibold text-[#07100c] transition hover:bg-emerald-100">
+        <button
+          type="button"
+          onClick={onMax}
+          className="min-h-9 shrink-0 rounded-md bg-emerald-200 px-3 py-1.5 text-xs font-semibold text-[#07100c] transition hover:bg-emerald-100"
+        >
           MAX
         </button>
       </div>
