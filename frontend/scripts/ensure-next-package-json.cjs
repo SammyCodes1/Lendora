@@ -1,72 +1,111 @@
 /**
- * On Vercel monorepos with Root Directory = "frontend", the clone root is still
- * `/vercel/path0` and the app builds to `/vercel/path0/frontend/.next`.
- * A later packaging step lstats `/vercel/path0/.next/package.json` and fails
- * with ENOENT. Mirror (symlink preferred) the real build output there.
+ * Vercel monorepo packaging bug workaround
+ * -----------------------------------------
+ * With Root Directory = "frontend", the Git clone still lives at:
+ *   /vercel/path0/                 (repo root)
+ *   /vercel/path0/frontend/        (Next app)
+ *
+ * Next builds correctly into frontend/.next, but a later packaging step
+ * resolves paths from /vercel/path0 (repo root), looking for:
+ *   /vercel/path0/.next/package.json
+ *   /vercel/path0/node_modules/next/...
+ *
+ * Mirror the app's build artifacts + node_modules up to the repo root so
+ * those lstats succeed.
  */
 const fs = require("node:fs");
 const path = require("node:path");
 
 const cwd = process.cwd();
-const appNextDir = path.join(cwd, ".next");
-const appPkg = path.join(appNextDir, "package.json");
+const appName = path.basename(cwd);
+
+function log(...args) {
+  console.log("[ensure-next-package-json]", ...args);
+}
 
 function ensurePkg(pkgPath) {
   fs.mkdirSync(path.dirname(pkgPath), { recursive: true });
   if (!fs.existsSync(pkgPath)) {
     fs.writeFileSync(pkgPath, `${JSON.stringify({ type: "commonjs" }, null, 2)}\n`);
-    console.log("[ensure-next-package-json] wrote", pkgPath);
+    log("wrote", pkgPath);
   } else {
-    console.log("[ensure-next-package-json] present", pkgPath);
+    log("present", pkgPath);
   }
 }
 
-ensurePkg(appPkg);
+function linkInto(repoRoot, name) {
+  const target = path.join(cwd, name);
+  const linkPath = path.join(repoRoot, name);
+  if (!fs.existsSync(target)) {
+    log("skip missing", target);
+    return;
+  }
+  if (fs.existsSync(linkPath) || fs.lstatSync(linkPath).isSymbolicLink?.()) {
+    try {
+      const stat = fs.lstatSync(linkPath);
+      if (stat.isSymbolicLink() || stat.isDirectory() || stat.isFile()) {
+        log("already exists", linkPath);
+        return;
+      }
+    } catch {
+      // continue
+    }
+  }
+  try {
+    if (fs.existsSync(linkPath)) {
+      log("already exists", linkPath);
+      return;
+    }
+  } catch {
+    // continue
+  }
 
-// Monorepo layout: cwd is .../frontend
-if (path.basename(cwd) !== "frontend") {
+  const type = fs.statSync(target).isDirectory() ? "dir" : "file";
+  try {
+    fs.symlinkSync(target, linkPath, type);
+    log("symlinked", linkPath, "->", target);
+  } catch (error) {
+    log(
+      "symlink failed for",
+      name,
+      error instanceof Error ? error.message : error,
+    );
+    // File fallback for package.json only
+    if (name === "package.json") {
+      fs.copyFileSync(target, linkPath);
+      log("copied", linkPath);
+    }
+  }
+}
+
+const appNextDir = path.join(cwd, ".next");
+ensurePkg(path.join(appNextDir, "package.json"));
+
+if (appName !== "frontend") {
   process.exit(0);
 }
 
 const repoRoot = path.join(cwd, "..");
-const rootNextDir = path.join(repoRoot, ".next");
 
-try {
-  if (fs.existsSync(rootNextDir)) {
-    const stat = fs.lstatSync(rootNextDir);
-    if (stat.isSymbolicLink() || stat.isDirectory()) {
-      ensurePkg(path.join(rootNextDir, "package.json"));
-      // If it's an empty/partial dir, still try to expose the real build via copy of package.json
-      console.log("[ensure-next-package-json] root .next already exists");
-      process.exit(0);
-    }
-  }
-
-  // Prefer a directory symlink so packaging can read the full Next output.
-  fs.symlinkSync(appNextDir, rootNextDir, "dir");
-  console.log("[ensure-next-package-json] symlinked", rootNextDir, "->", appNextDir);
-} catch (error) {
-  console.warn(
-    "[ensure-next-package-json] symlink failed, falling back to package.json copy:",
-    error instanceof Error ? error.message : error,
-  );
-  ensurePkg(path.join(rootNextDir, "package.json"));
-  // Best-effort: copy critical files if present
-  for (const name of [
-    "BUILD_ID",
-    "build-manifest.json",
-    "routes-manifest.json",
-    "prerender-manifest.json",
-    "required-server-files.json",
-  ]) {
-    const from = path.join(appNextDir, name);
-    const to = path.join(rootNextDir, name);
-    if (fs.existsSync(from) && !fs.existsSync(to)) {
-      try {
-        fs.copyFileSync(from, to);
-      } catch {
-        // ignore
-      }
-    }
-  }
+// Critical paths the packager resolves from the monorepo root:
+for (const name of [".next", "node_modules", "package.json", "next.config.mjs"]) {
+  linkInto(repoRoot, name);
 }
+
+// Double-check root .next/package.json is visible via the symlink
+ensurePkg(path.join(repoRoot, ".next", "package.json"));
+
+const nextSetup = path.join(
+  repoRoot,
+  "node_modules",
+  "next",
+  "dist",
+  "build",
+  "adapter",
+  "setup-node-env.external.js",
+);
+log(
+  fs.existsSync(nextSetup)
+    ? `ok next adapter file: ${nextSetup}`
+    : `MISSING next adapter file: ${nextSetup}`,
+);
