@@ -1,16 +1,20 @@
 /**
  * Vercel monorepo packaging workaround
  *
- * Clone layout with Root Directory = "frontend":
- *   /vercel/path0/                 monorepo root
- *   /vercel/path0/frontend/        Next app (build cwd)
+ * Layout on Vercel (Root Directory NOT set, so repo root = /vercel/path0):
+ *   /vercel/path0/                 monorepo root  (Vercel resolves paths here)
+ *   /vercel/path0/frontend/        Next app        (build cwd)
  *
- * Next builds into frontend/.next, but packaging later resolves many paths
- * from /vercel/path0 (repo root). Mirror the app tree up to the monorepo
- * root (symlink when missing) so those lstats succeed.
+ * Next builds into frontend/.next, but Vercel's packaging later resolves
+ * many paths from /vercel/path0 (repo root). We must COPY (not symlink)
+ * key artefacts up to the repo root so those lstats succeed.
+ *
+ * Previous versions used fs.symlinkSync which silently fails on Vercel's
+ * containerised filesystem, causing ENOENT on .next/package.json.
  */
 const fs = require("node:fs");
 const path = require("node:path");
+const { execSync } = require("node:child_process");
 
 const cwd = process.cwd();
 const appName = path.basename(cwd);
@@ -19,108 +23,125 @@ function log(...args) {
   console.log("[ensure-next-package-json]", ...args);
 }
 
+/** Write a minimal package.json into a directory (creating parents). */
 function ensurePkg(pkgPath) {
   fs.mkdirSync(path.dirname(pkgPath), { recursive: true });
   if (!fs.existsSync(pkgPath)) {
-    fs.writeFileSync(pkgPath, `${JSON.stringify({ type: "commonjs" }, null, 2)}\n`);
+    fs.writeFileSync(
+      pkgPath,
+      `${JSON.stringify({ type: "commonjs" }, null, 2)}\n`,
+    );
     log("wrote", pkgPath);
   }
 }
 
-function linkInto(repoRoot, name) {
-  const target = path.join(cwd, name);
-  const linkPath = path.join(repoRoot, name);
-  if (!fs.existsSync(target)) {
-    return;
-  }
-  if (fs.existsSync(linkPath)) {
-    return;
-  }
-  const type = fs.statSync(target).isDirectory() ? "dir" : "file";
-  try {
-    fs.symlinkSync(target, linkPath, type);
-    log("symlinked", name);
-  } catch (error) {
-    log("symlink failed", name, error instanceof Error ? error.message : error);
-  }
-}
-
-function forceLink(repoRoot, name) {
-  const target = path.join(cwd, name);
-  const linkPath = path.join(repoRoot, name);
-  if (!fs.existsSync(target)) {
-    log("skip missing", name);
-    return;
-  }
-  try {
-    if (fs.existsSync(linkPath)) {
-      const stat = fs.lstatSync(linkPath);
-      if (stat.isSymbolicLink()) {
-        const current = fs.readlinkSync(linkPath);
-        if (path.resolve(path.dirname(linkPath), current) === path.resolve(target)) {
-          log("already linked", name);
-          return;
-        }
-        fs.unlinkSync(linkPath);
-      } else if (name === ".next" || name === "node_modules") {
-        // Do not delete real dirs; only re-link when absent
-        log("real path exists, leave", name);
-        return;
-      } else {
-        return;
-      }
+/**
+ * Recursively copy `src` → `dest`, skipping node_modules inside .next
+ * (they're huge and unnecessary — packaging only needs the package.json
+ * sentinel and the build manifest files).
+ */
+function copyRecursive(src, dest) {
+  const stat = fs.statSync(src);
+  if (stat.isDirectory()) {
+    fs.mkdirSync(dest, { recursive: true });
+    for (const child of fs.readdirSync(src)) {
+      // Skip heavy dirs that packaging doesn't need
+      if (child === "node_modules" || child === "cache") continue;
+      copyRecursive(path.join(src, child), path.join(dest, child));
     }
-  } catch {
-    // create below
-  }
-  const type = fs.statSync(target).isDirectory() ? "dir" : "file";
-  try {
-    fs.symlinkSync(target, linkPath, type);
-    log("force-linked", name);
-  } catch (error) {
-    log("force-link failed", name, error instanceof Error ? error.message : error);
+  } else {
+    fs.copyFileSync(src, dest);
   }
 }
 
+/**
+ * Copy a top-level item from the app dir to the repo root if the
+ * destination doesn't already exist.
+ */
+function copyInto(repoRoot, name) {
+  const src = path.join(cwd, name);
+  const dest = path.join(repoRoot, name);
+  if (!fs.existsSync(src)) return;
+  if (fs.existsSync(dest)) {
+    log("exists, skip", name);
+    return;
+  }
+  try {
+    copyRecursive(src, dest);
+    log("copied", name);
+  } catch (err) {
+    log("copy failed", name, err instanceof Error ? err.message : err);
+  }
+}
+
+// ── Step 1: Always create .next/package.json in the app dir ──
 const appNextDir = path.join(cwd, ".next");
 ensurePkg(path.join(appNextDir, "package.json"));
 
+// If we're NOT in the "frontend" subdirectory the rest doesn't apply.
 if (appName !== "frontend") {
+  log("not in frontend/, done");
   process.exit(0);
 }
 
 const repoRoot = path.join(cwd, "..");
+log("repo root =", repoRoot);
 
-// 1) Always expose build output + deps at monorepo root
-forceLink(repoRoot, ".next");
-forceLink(repoRoot, "node_modules");
+// ── Step 2: Copy .next to repo root ──
+const rootNextDir = path.join(repoRoot, ".next");
+if (!fs.existsSync(rootNextDir)) {
+  log("copying .next → repo root");
+  copyRecursive(appNextDir, rootNextDir);
+} else {
+  log(".next already at repo root");
+}
+// Ensure the sentinel file exists at root too
+ensurePkg(path.join(rootNextDir, "package.json"));
 
-// 2) Expose every other top-level app path packaging may resolve from root
-//    (app/, components/, constants/, public/, …) when not already present.
+// ── Step 3: Expose node_modules at repo root ──
+// Use a symlink for node_modules (it's huge); fall back to skip if it fails.
+const rootNodeModules = path.join(repoRoot, "node_modules");
+const appNodeModules = path.join(cwd, "node_modules");
+if (!fs.existsSync(rootNodeModules) && fs.existsSync(appNodeModules)) {
+  try {
+    fs.symlinkSync(appNodeModules, rootNodeModules, "dir");
+    log("symlinked node_modules");
+  } catch {
+    log("node_modules symlink failed, trying junction");
+    try {
+      fs.symlinkSync(appNodeModules, rootNodeModules, "junction");
+      log("junction node_modules ok");
+    } catch (e2) {
+      log("node_modules link failed entirely:", e2.message);
+    }
+  }
+}
+
+// ── Step 4: Copy other app paths that packaging may resolve from root ──
 for (const name of fs.readdirSync(cwd)) {
-  if (name === ".next" || name === "node_modules") continue;
-  // Never clobber monorepo-owned paths that already exist at root.
+  if (name === ".next" || name === "node_modules" || name.startsWith(".")) {
+    continue;
+  }
+
   if (name === "package.json" || name === "package-lock.json") {
-    // Prefer app package.json for Next packaging if root only has monorepo meta.
-    const rootPkgPath = path.join(repoRoot, "package.json");
+    // Prefer the app package.json over the monorepo one for Next packaging
+    const rootPkgPath = path.join(repoRoot, name);
     try {
       const rootPkg = JSON.parse(fs.readFileSync(rootPkgPath, "utf8"));
       if (!rootPkg.dependencies?.next && !rootPkg.devDependencies?.next) {
-        // Replace monorepo package.json with a symlink to the app package.json
-        // only after backing up is unnecessary on ephemeral Vercel FS.
-        fs.unlinkSync(rootPkgPath);
-        forceLink(repoRoot, "package.json");
+        log("replacing root", name, "with app version");
+        fs.copyFileSync(path.join(cwd, name), rootPkgPath);
       }
     } catch {
-      forceLink(repoRoot, "package.json");
+      fs.copyFileSync(path.join(cwd, name), rootPkgPath);
     }
     continue;
   }
-  linkInto(repoRoot, name);
+
+  copyInto(repoRoot, name);
 }
 
-ensurePkg(path.join(repoRoot, ".next", "package.json"));
-
+// ── Step 5: Verification probes ──
 const probe = path.join(
   repoRoot,
   "node_modules",
@@ -130,6 +151,13 @@ const probe = path.join(
   "adapter",
   "setup-node-env.external.js",
 );
-const constantsProbe = path.join(repoRoot, "constants", "abis", "LendingPool.json");
+const constantsProbe = path.join(
+  repoRoot,
+  "constants",
+  "abis",
+  "LendingPool.json",
+);
+const nextPkgProbe = path.join(repoRoot, ".next", "package.json");
 log(fs.existsSync(probe) ? `ok ${probe}` : `MISSING ${probe}`);
 log(fs.existsSync(constantsProbe) ? `ok ${constantsProbe}` : `MISSING ${constantsProbe}`);
+log(fs.existsSync(nextPkgProbe) ? `ok ${nextPkgProbe}` : `MISSING ${nextPkgProbe}`);
