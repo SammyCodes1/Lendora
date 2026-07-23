@@ -3,21 +3,12 @@ import { fileURLToPath } from "node:url";
 
 const projectRoot = dirname(fileURLToPath(import.meta.url));
 
-// Local `next dev` writes to `.next-dev` so it never clashes with `next build`.
-// On Vercel always use `.next` — the platform looks for `.next/package.json`
-// after the build (ENOENT if distDir is anything else or mis-detected).
-const isVercel = process.env.VERCEL === "1";
-const distDir =
-  isVercel || process.env.NODE_ENV === "production"
-    ? ".next"
-    : process.env.NODE_ENV === "development"
-      ? ".next-dev"
-      : ".next";
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Keep tracing rooted at this package (monorepo-safe on Vercel rootDirectory=frontend).
   outputFileTracingRoot: projectRoot,
-  distDir,
+  // Always default `.next` so Vercel post-build steps can find `.next/package.json`.
+  // Local dev isolation: use `next dev` with a separate command if needed.
   webpack(config) {
     config.resolve = config.resolve ?? {};
     config.resolve.alias = {

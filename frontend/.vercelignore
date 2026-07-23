@@ -1,6 +1,7 @@
-# Keep public/ assets (logos, og images). Only exclude build/deps/secrets.
+# Only exclude source-side junk from upload. Do NOT ignore `.next` —
+# newer Vercel build pipelines can apply ignore rules after `next build`
+# and then fail with: lstat '.../.next/package.json' ENOENT.
 node_modules
-.next
 .next-dev
 out
 dist
