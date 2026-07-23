@@ -734,6 +734,53 @@ export async function validateAgentAction(
       };
     }
 
+    if (action.tool === "setPrimaryDomain") {
+      if (typeof params.domain !== "string") {
+        return hardBlock(walletKey, "Choose a valid .arclend domain to set as primary.");
+      }
+      const domain = normalizeDomainName(params.domain);
+      if (!domain) {
+        return hardBlock(walletKey, "Choose a valid .arclend domain to set as primary.");
+      }
+
+      let tokenId: bigint;
+      let owner: Address;
+      try {
+        tokenId = await arcClient.readContract({
+          address: walletDomainAddress,
+          abi: walletDomainAbi,
+          functionName: "tokenIdOf",
+          args: [domain],
+        });
+        owner = await arcClient.readContract({
+          address: walletDomainAddress,
+          abi: walletDomainAbi,
+          functionName: "ownerOf",
+          args: [tokenId],
+        });
+      } catch {
+        return hardBlock(walletKey, `You don't own ${displayDomainName(domain)}.`);
+      }
+
+      if (owner.toLowerCase() !== walletKey) {
+        return hardBlock(walletKey, `You don't own ${displayDomainName(domain)}.`);
+      }
+
+      return {
+        valid: true,
+        action: {
+          ...action,
+          params: {
+            domain,
+            displayDomain: displayDomainName(domain),
+            tokenId: tokenId.toString(),
+          },
+        },
+        walletAddress: wallet,
+        validatedAt: Date.now(),
+      };
+    }
+
     if (action.tool === "listDomain") {
       if (!domainMarketplaceAddress) {
         return hardBlock(walletKey, "Domain marketplace is not deployed.");

@@ -12,6 +12,7 @@ import {
   SendHorizontal,
   ShoppingCart,
   Sparkles,
+  Star,
 } from "lucide-react";
 import {
   erc20Abi,
@@ -65,6 +66,7 @@ import {
   useArcLendContractWrite,
   type ArcLendContractWriteRequest,
 } from "@/hooks/useArcLendContractWrite";
+import { announcePrimaryDomainChanged } from "@/lib/domainEvents";
 import deployments from "@/constants/deployments.json";
 import {
   ARCANA_MARKETS_ADDRESS,
@@ -124,6 +126,7 @@ const walletDomainAbi = parseAbi([
   "function makeCommitment(string domainName,address owner,bytes32 secret) view returns (bytes32)",
   "function commitDomain(bytes32 commitment) external",
   "function mintDomain(string domainName,bytes32 secret) external returns (uint256)",
+  "function setPrimaryDomain(string domainName) external",
   "function burnDomain(string domainName) external",
 ]);
 const domainMarketplaceAbi = parseAbi([
@@ -154,6 +157,7 @@ function actionIcon(tool: AgentAction["tool"]) {
   if (tool === "predict") return Sparkles;
   if (tool === "mintDomain") return Sparkles;
   if (tool === "burnDomain") return RefreshCw;
+  if (tool === "setPrimaryDomain") return Star;
   if (tool === "listDomain" || tool === "delistDomain" || tool === "buyDomain") return ShoppingCart;
   return RefreshCw;
 }
@@ -537,6 +541,28 @@ export function ActionConfirmCard({
           ],
           detail:
             "Your wallet will permanently burn this ArcLend domain NFT. The name becomes available again after the transaction confirms.",
+        });
+        return;
+      }
+
+      if (action.tool === "setPrimaryDomain") {
+        const displayDomain = String(
+          params.displayDomain ?? params.domain ?? "domain",
+        );
+        setReview({
+          eyebrow: "Primary domain review",
+          title: `Set ${displayDomain} as primary`,
+          amountLabel: "Primary domain",
+          amount: displayDomain,
+          receiveLabel: "Wallet username",
+          receiveAmount: displayDomain,
+          route: [
+            "ArcLend domain registry",
+            displayDomain,
+            "Primary username",
+          ],
+          detail:
+            "Your wallet will call setPrimaryDomain on-chain. This sets your primary username across ArcLend.",
         });
         return;
       }
@@ -956,6 +982,41 @@ export function ActionConfirmCard({
         setReceipt({
           ...review,
           title: `${displayDomain} burned`,
+          transactionHash: hash,
+          explorerUrl: hash ? `https://testnet.arcscan.app/tx/${hash}` : undefined,
+          finalityMs: Math.max(
+            0,
+            Math.round(performance.now() - submittedAt),
+          ),
+        });
+        return;
+      }
+
+      if (action.tool === "setPrimaryDomain") {
+        if (!publicClient) {
+          throw new Error("Arc client unavailable");
+        }
+        if (typeof params.domain !== "string") {
+          throw new Error("Setting primary domain is missing a domain name");
+        }
+        const displayDomain = String(
+          params.displayDomain ?? params.domain ?? "Domain",
+        );
+        const submittedAt = performance.now();
+        const hash = await submitContract({
+          chainId: 5_042_002,
+          address: WALLET_DOMAIN_ADDRESS,
+          abi: walletDomainAbi,
+          functionName: "setPrimaryDomain",
+          args: [params.domain],
+        });
+        await waitForSubmitted(hash);
+        const primaryKey = `arclend:primary:${address.toLowerCase()}`;
+        localStorage.setItem(primaryKey, displayDomain);
+        announcePrimaryDomainChanged(address, displayDomain);
+        setReceipt({
+          ...review,
+          title: `${displayDomain} set as primary`,
           transactionHash: hash,
           explorerUrl: hash ? `https://testnet.arcscan.app/tx/${hash}` : undefined,
           finalityMs: Math.max(

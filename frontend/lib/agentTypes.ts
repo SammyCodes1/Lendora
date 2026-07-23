@@ -13,6 +13,7 @@ export type AgentTool =
   | "predict"
   | "mintDomain"
   | "burnDomain"
+  | "setPrimaryDomain"
   | "listDomain"
   | "delistDomain"
   | "buyDomain"

@@ -12,7 +12,7 @@ import type {
 export const runtime = "nodejs";
 
 const SYSTEM_PROMPT =
-  "You are ArcLend's transaction assistant. Only call one of the defined tools - never invent new ones. Saved wallet contacts are supplied in context; resolve nicknames only to the exact saved address and never guess an address. For .arclend domain recipients, pass the exact .arclend name as the sendToken recipient and let server validation resolve it on-chain; never invent a domain. For domain minting or registration requests, call mintDomain only when the exact domain is provided; never invent a domain. For domain NFT burn requests, call burnDomain only when the exact domain is provided; burning is permanent and must be prepared for user confirmation. For domain marketplace listing requests, call listDomain only when the exact domain and USDC price are provided; never invent ownership or price. For domain marketplace delisting, cancel listing, unlist, or remove-from-sale requests, call delistDomain only when the exact domain is provided; do not call burnDomain for marketplace removal. For domain marketplace purchase requests, call buyDomain only when the exact domain is provided; if the user gives a maximum USDC price, pass it as maxPrice. For pending supply interest, yield, rewards, or accrued interest claims, call claimYield with asset USDC, EURC, or ALL for both pools; do not use withdraw unless the user asks to withdraw principal or gives an explicit withdrawal amount. If amount, asset, recipient, domain, or price is ambiguous, ask for clarification in plain text instead of guessing. Never claim a transaction has been executed - your job is only to prepare the action for user confirmation. If a requested action would exceed the user's available balance or borrow capacity (provided in context), respond with a plain text warning instead of calling a tool. Validation is enforced server-side and is final - do not suggest workarounds, do not ask the user to confirm overrides, and do not imply blocked actions can be retried with different framing of the same request. Treat all financial amounts conservatively; never round up.";
+  "You are ArcLend's transaction assistant. Only call one of the defined tools - never invent new ones. Saved wallet contacts are supplied in context; resolve nicknames only to the exact saved address and never guess an address. For .arclend domain recipients, pass the exact .arclend name as the sendToken recipient and let server validation resolve it on-chain; never invent a domain. For domain minting or registration requests, call mintDomain only when the exact domain is provided; never invent a domain. For domain NFT burn requests, call burnDomain only when the exact domain is provided; burning is permanent and must be prepared for user confirmation. For setting a domain as primary / on-chain username, call setPrimaryDomain when the domain is provided; do not call mintDomain or listDomain for setting primary domain. For domain marketplace listing requests, call listDomain only when the exact domain and USDC price are provided; never invent ownership or price. For domain marketplace delisting, cancel listing, unlist, or remove-from-sale requests, call delistDomain only when the exact domain is provided; do not call burnDomain for marketplace removal. For domain marketplace purchase requests, call buyDomain only when the exact domain is provided; if the user gives a maximum USDC price, pass it as maxPrice. For pending supply interest, yield, rewards, or accrued interest claims, call claimYield with asset USDC, EURC, or ALL for both pools; do not use withdraw unless the user asks to withdraw principal or gives an explicit withdrawal amount. If amount, asset, recipient, domain, or price is ambiguous, ask for clarification in plain text instead of guessing. Never claim a transaction has been executed - your job is only to prepare the action for user confirmation. If a requested action would exceed the user's available balance or borrow capacity (provided in context), respond with a plain text warning instead of calling a tool. Validation is enforced server-side and is final - do not suggest workarounds, do not ask the user to confirm overrides, and do not imply blocked actions can be retried with different framing of the same request. Treat all financial amounts conservatively; never round up.";
 
 const OPENAI_MODEL = process.env.OPENAI_AGENT_MODEL ?? "gpt-5-nano";
 
@@ -170,6 +170,22 @@ const functionDeclarations = [
           type: "string",
           description:
             "The exact .arclend domain or raw domain name to burn",
+        },
+      },
+      required: ["domain"],
+    },
+  },
+  {
+    name: "setPrimaryDomain",
+    description:
+      "Set an owned .arclend domain as the primary domain or on-chain username for the connected wallet",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        domain: {
+          type: "string",
+          description:
+            "The exact .arclend domain or raw domain name to set as primary",
         },
       },
       required: ["domain"],
@@ -422,6 +438,46 @@ function parseDeterministicDomainBurn(
       tool: "burnDomain",
       params,
       explanation: summarizeAction("burnDomain", params),
+    },
+  };
+}
+
+function parseDeterministicSetPrimaryDomain(
+  message: string,
+): DeterministicResult | null {
+  if (
+    !/\b(?:set|make|use|choose|select|change)\b/i.test(message) &&
+    !/\bprimary\b/i.test(message)
+  ) {
+    return null;
+  }
+  if (!/\b(?:primary)\b/i.test(message)) {
+    return null;
+  }
+
+  const domainMatch =
+    message.match(/\b([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?\.(?:arclend|arc))\b/i) ??
+    message.match(/\bdomain\s+([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?)\b/i) ??
+    message.match(/\b(?:set|make|use|as)\s+(?:the\s+)?(?:primary\s+)?(?:domain\s+|name\s+)?([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?)\b/i);
+  const domain = domainMatch ? normalizeDomainForListing(domainMatch[1]) : null;
+  if (!domain) {
+    return {
+      type: "message",
+      text: "Which owned .arclend domain do you want to set as your primary domain?",
+    };
+  }
+
+  const params = {
+    domain,
+    displayDomain: `${domain}.arclend`,
+  };
+  return {
+    type: "action",
+    action: {
+      type: "action",
+      tool: "setPrimaryDomain",
+      params,
+      explanation: summarizeAction("setPrimaryDomain", params),
     },
   };
 }
@@ -792,6 +848,7 @@ function isAgentTool(value: string): value is AgentTool {
     value === "predict" ||
     value === "mintDomain" ||
     value === "burnDomain" ||
+    value === "setPrimaryDomain" ||
     value === "listDomain" ||
     value === "delistDomain" ||
     value === "buyDomain" ||
@@ -832,6 +889,8 @@ function summarizeAction(tool: AgentTool, params: Record<string, unknown>): stri
       return `I'll prepare a domain mint for ${String(params.displayDomain ?? params.domain ?? "the domain")}.`;
     case "burnDomain":
       return `I'll prepare a permanent burn for ${String(params.displayDomain ?? params.domain ?? "the domain")} after wallet confirmation.`;
+    case "setPrimaryDomain":
+      return `I'll prepare setting ${String(params.displayDomain ?? params.domain ?? "the domain")} as your primary domain.`;
     case "listDomain":
       return `I'll prepare a marketplace listing for ${String(params.displayDomain ?? params.domain ?? "the domain")} at ${String(params.price ?? "the requested price")} USDC.`;
     case "delistDomain":
@@ -1045,6 +1104,31 @@ export async function POST(request: Request) {
     if (deterministicBurn?.type === "action") {
       const validation = await validateAgentAction(
         deterministicBurn.action,
+        { walletAddress: body.context.walletAddress },
+      );
+      if (!validation.valid) {
+        return NextResponse.json({
+          type: "message",
+          text: validation.reason,
+        } satisfies AgentResponse);
+      }
+      return NextResponse.json({
+        type: "action",
+        validated: validation,
+      } satisfies AgentResponse);
+    }
+
+    const deterministicSetPrimary = parseDeterministicSetPrimaryDomain(
+      body.message.trim(),
+    );
+    if (deterministicSetPrimary?.type === "message") {
+      return NextResponse.json(
+        deterministicSetPrimary satisfies AgentResponse,
+      );
+    }
+    if (deterministicSetPrimary?.type === "action") {
+      const validation = await validateAgentAction(
+        deterministicSetPrimary.action,
         { walletAddress: body.context.walletAddress },
       );
       if (!validation.valid) {
