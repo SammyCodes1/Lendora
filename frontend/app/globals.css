@@ -225,6 +225,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   padding-top: max(0px, env(safe-area-inset-top, 0px));
 }
 
+/* Keep in-page anchors / scroll targets clear of the fixed navbar. */
+html {
+  scroll-padding-top: calc(6.75rem + env(safe-area-inset-top, 0px));
+}
+@media (min-width: 640px) {
+  html {
+    scroll-padding-top: calc(7rem + env(safe-area-inset-top, 0px));
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after {

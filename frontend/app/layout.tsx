@@ -60,7 +60,7 @@ export default function RootLayout({
           </ClientErrorBoundary>
           <AppChrome />
           <ToastProvider />
-          <main className="relative z-10 min-h-screen pt-[calc(5.5rem+env(safe-area-inset-top,0px))] sm:pt-[calc(6.5rem+env(safe-area-inset-top,0px))]">
+          <main className="relative z-10 min-h-screen pt-[calc(6.75rem+env(safe-area-inset-top,0px))] sm:pt-[calc(7rem+env(safe-area-inset-top,0px))]">
             {children}
           </main>
         </Providers>

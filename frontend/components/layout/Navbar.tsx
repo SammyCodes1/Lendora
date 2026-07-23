@@ -3,15 +3,18 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Droplets, Menu, UserRound, X } from "lucide-react";
-import { useState, useCallback, useEffect, useId } from "react";
+import { useState, useCallback, useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { ConnectWalletButton } from "@/components/wallet/ConnectWalletButton";
 import { NetworkSwitcher } from "@/components/wallet/NetworkSwitcher";
 import { AssetBalanceChips } from "@/components/wallet/AssetBalanceChips";
 import { useDismissibleDropdown } from "@/hooks/useDismissibleDropdown";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
+import {
+  releaseScrollLocks,
+  useCloseOnResume,
+} from "@/hooks/useCloseOnResume";
 import { cn } from "@/lib/utils";
 
 const UnifiedBalanceChip = dynamic(
@@ -59,8 +62,9 @@ function ArcLogo() {
       alt="ArcLend"
       width={28}
       height={28}
-      className="h-7 w-7 object-contain"
+      className="pointer-events-none h-7 w-7 object-contain"
       style={{ opacity: 1, visibility: "visible" }}
+      draggable={false}
     />
   );
 }
@@ -71,6 +75,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 
   const closeDropdown = useCallback(() => setOpenDropdown(null), []);
   const containerRef = useDismissibleDropdown(openDropdown !== null, closeDropdown);
+  useCloseOnResume(closeDropdown, openDropdown !== null);
 
   const toggleDropdown = (label: string) => {
     setOpenDropdown((current) => (current === label ? null : label));
@@ -97,7 +102,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
                 type="button"
                 onClick={() => toggleDropdown(link.label)}
                 className={cn(
-                  "flex w-full items-center justify-between gap-1 rounded-xl px-3 py-2.5 text-sm transition text-white/50 hover:bg-white/[0.055] hover:text-white xl:w-auto xl:justify-start xl:py-2",
+                  "flex w-full touch-manipulation items-center justify-between gap-1 rounded-xl px-3 py-2.5 text-sm transition text-white/50 hover:bg-white/[0.055] hover:text-white xl:w-auto xl:justify-start xl:py-2",
                   isActive && "text-white",
                 )}
               >
@@ -158,19 +163,13 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             prefetch
             onClick={handleNavClick}
             className={cn(
-              "group relative block w-full rounded-xl px-3 py-2.5 text-sm font-medium text-white/50 transition hover:bg-white/[0.055] hover:text-white xl:inline-block xl:w-auto xl:py-2",
+              "group relative block w-full touch-manipulation rounded-xl px-3 py-2.5 text-sm font-medium text-white/50 transition hover:bg-white/[0.055] hover:text-white xl:inline-block xl:w-auto xl:py-2",
               active && "bg-white/[0.07] text-white",
             )}
           >
             {link.label}
             {active ? (
-              <motion.span
-                layoutId="navbar-underline"
-                className="absolute inset-x-3 bottom-0 hidden h-px bg-white/85 shadow-[0_0_14px_rgba(255,255,255,0.45)] xl:block"
-              />
-            ) : null}
-            {!active ? (
-              <motion.span className="absolute inset-x-2 -bottom-1 hidden h-px origin-left scale-x-0 bg-white/40 transition-transform duration-200 group-hover:scale-x-100 xl:block" />
+              <span className="absolute inset-x-3 bottom-0 hidden h-px bg-white/85 shadow-[0_0_14px_rgba(255,255,255,0.45)] xl:block" />
             ) : null}
           </Link>
         );
@@ -185,53 +184,89 @@ export function Navbar() {
   const pathname = usePathname();
   const { isConnected } = useArcLendAccount();
   const menuId = useId();
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Close after route changes (primary close path — safe for Link navigation).
-  useEffect(() => {
+  const closeMenu = useCallback(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
     setOpen(false);
-  }, [pathname]);
+    releaseScrollLocks();
+  }, []);
 
-  // Escape closes the drawer.
+  // Defer unmount slightly so Next.js Link can finish the tap.
+  const closeMenuDeferred = useCallback(() => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(() => {
+      setOpen(false);
+      releaseScrollLocks();
+      closeTimerRef.current = null;
+    }, 80);
+  }, []);
+
+  // Route changes always dismiss + unlock scroll.
+  useEffect(() => {
+    closeMenu();
+  }, [pathname, closeMenu]);
+
+  // Wallet browsers freeze the page; on return, force-close any open drawer.
+  useCloseOnResume(closeMenu, true);
+
+  // Escape
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") closeMenu();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open]);
+  }, [open, closeMenu]);
 
-  // Lock background scroll while open; always restore on cleanup.
+  // Scroll lock while open — always hard-clear on cleanup.
   useEffect(() => {
-    if (!open) return;
-    const { body, documentElement } = document;
-    const previousBody = body.style.overflow;
-    const previousHtml = documentElement.style.overflow;
-    body.style.overflow = "hidden";
-    documentElement.style.overflow = "hidden";
+    if (!open) {
+      releaseScrollLocks();
+      return;
+    }
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
     return () => {
-      body.style.overflow = previousBody;
-      documentElement.style.overflow = previousHtml;
+      releaseScrollLocks();
     };
   }, [open]);
 
-  /**
-   * Defer unmount so Next.js <Link> can finish handling the tap before the
-   * drawer (and the link node) are removed. Immediate unmount was canceling
-   * navigations intermittently on mobile.
-   */
-  const closeMenuDeferred = useCallback(() => {
-    window.setTimeout(() => setOpen(false), 80);
-  }, []);
+  // Close drawer when viewport grows to desktop nav.
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1280px)");
+    const onChange = () => {
+      if (mq.matches) closeMenu();
+    };
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [closeMenu]);
 
-  const closeMenu = useCallback(() => setOpen(false), []);
+  useEffect(
+    () => () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+      releaseScrollLocks();
+    },
+    [],
+  );
 
   const toggleMenu = useCallback(() => {
-    setOpen((value) => !value);
+    setOpen((value) => {
+      if (value) {
+        releaseScrollLocks();
+        return false;
+      }
+      return true;
+    });
   }, []);
 
   const profileLink = isConnected ? (
@@ -242,7 +277,7 @@ export function Navbar() {
       prefetch
       onClick={closeMenuDeferred}
       className={cn(
-        "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.045] text-white/55 transition hover:border-white/20 hover:bg-white/[0.075] hover:text-white",
+        "inline-flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg border border-white/10 bg-white/[0.045] text-white/55 transition hover:border-white/20 hover:bg-white/[0.075] hover:text-white",
         pathname === "/profile" && "border-white/25 bg-white/[0.09] text-white",
       )}
     >
@@ -258,44 +293,49 @@ export function Navbar() {
       aria-label="Open Circle faucet"
       title="Circle faucet"
       onClick={closeMenu}
-      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.045] text-white/55 transition hover:border-white/20 hover:bg-white/[0.075] hover:text-white"
+      className="inline-flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg border border-white/10 bg-white/[0.045] text-white/55 transition hover:border-white/20 hover:bg-white/[0.075] hover:text-white"
     >
       <Droplets className="h-4 w-4" />
     </a>
   );
 
+  // No AnimatePresence / exit animations — those leave invisible full-screen
+  // hit targets stuck in wallet in-app browsers after backgrounding.
   const mobileMenu =
-    mounted &&
-    createPortal(
-      <AnimatePresence>
-        {open ? (
-          <motion.div
-            key="mobile-nav-overlay"
+    mounted && open
+      ? createPortal(
+          <div
             id={menuId}
             role="dialog"
             aria-modal="true"
             aria-label="Navigation menu"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, transition: { duration: 0.16 } }}
-            transition={{ duration: 0.18 }}
+            data-mobile-nav-root
             className={cn(
-              "fixed inset-x-0 bottom-0 z-[90] bg-black/70 backdrop-blur-sm xl:hidden",
+              "fixed inset-x-0 bottom-0 z-[900] xl:hidden",
               MOBILE_BAR_TOP,
             )}
-            onClick={closeMenu}
           >
-            <motion.nav
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              onClick={(event) => event.stopPropagation()}
-              onKeyDown={(event) => event.stopPropagation()}
+            <button
+              type="button"
+              aria-label="Close navigation menu"
+              className="absolute inset-0 z-0 touch-manipulation border-0 bg-black/70 p-0 backdrop-blur-sm"
+              onPointerUp={(event) => {
+                event.preventDefault();
+                closeMenu();
+              }}
+              onClick={(event) => {
+                event.preventDefault();
+                closeMenu();
+              }}
+            />
+
+            <nav
               className={cn(
-                "ml-auto flex w-[min(88vw,22rem)] max-w-sm flex-col gap-3 overflow-y-auto overscroll-contain border-l border-white/10 bg-black/95 px-4 py-5 shadow-[0_0_80px_rgba(0,0,0,0.78)] backdrop-blur-3xl safe-bottom sm:px-5 sm:py-6",
+                "absolute right-0 top-0 z-10 flex w-[min(88vw,22rem)] max-w-sm flex-col gap-3 overflow-y-auto overscroll-contain border-l border-white/10 bg-black/95 px-4 py-5 shadow-[0_0_80px_rgba(0,0,0,0.78)] backdrop-blur-3xl safe-bottom touch-manipulation sm:px-5 sm:py-6",
                 MOBILE_DRAWER_HEIGHT,
               )}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
             >
               <NavLinks onNavigate={closeMenuDeferred} />
               <div className="flex flex-col gap-3 pt-2">
@@ -308,22 +348,27 @@ export function Navbar() {
                   {profileLink}
                 </div>
               </div>
-            </motion.nav>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>,
-      document.body,
-    );
+            </nav>
+          </div>,
+          document.body,
+        )
+      : null;
 
   return (
     <>
-      <header className="safe-top fixed left-0 right-0 top-0 z-[100] border-b border-white/[0.08] bg-black/65 shadow-[0_18px_60px_rgba(0,0,0,0.42),inset_0_-1px_0_rgba(255,255,255,0.025)] backdrop-blur-3xl">
-        {/* Bar stays above the drawer overlay so hamburger / logo always receive taps. */}
-        <div className="relative z-[110] mx-auto flex h-16 max-w-[1440px] items-center justify-between gap-2 px-3 sm:h-[72px] sm:px-6 lg:px-8">
+      {/*
+        High z-index + isolation so residual portal layers from wallet sheets
+        cannot permanently steal taps from the bar / icons.
+      */}
+      <header
+        data-arclend-navbar
+        className="safe-top pointer-events-auto fixed left-0 right-0 top-0 z-[1000] isolate border-b border-white/[0.08] bg-black/80 shadow-[0_18px_60px_rgba(0,0,0,0.42),inset_0_-1px_0_rgba(255,255,255,0.025)] backdrop-blur-3xl"
+      >
+        <div className="relative z-[1001] mx-auto flex h-16 max-w-[1440px] items-center justify-between gap-2 px-3 sm:h-[72px] sm:px-6 lg:px-8">
           <Link
             href="/"
             onClick={closeMenuDeferred}
-            className="relative z-[111] flex min-w-0 items-center gap-2 text-white sm:gap-3 xl:-translate-x-4"
+            className="relative z-[1002] flex min-w-0 touch-manipulation items-center gap-2 text-white sm:gap-3 xl:-translate-x-4"
           >
             <div className="flex shrink-0 items-center justify-center">
               <ArcLogo />
@@ -355,7 +400,7 @@ export function Navbar() {
             {profileLink}
           </div>
 
-          <div className="relative z-[111] flex items-center gap-2 xl:hidden">
+          <div className="relative z-[1002] flex items-center gap-2 xl:hidden">
             <UnifiedBalanceChip />
             {faucetLink}
             <button

@@ -1,6 +1,5 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronDown, Copy, ExternalLink, LogOut, Mail, Wallet } from "lucide-react";
 import { useCallback, useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -13,6 +12,7 @@ import {
   CircleEmailWalletDialog,
 } from "@/components/wallet/CircleEmailWalletDialog";
 import { useCircleEmailWallet } from "@/components/wallet/CircleEmailWalletProvider";
+import { useCloseOnResume } from "@/hooks/useCloseOnResume";
 
 function truncateAddress(address: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -32,6 +32,9 @@ export function ConnectWalletButton() {
   const { disconnect } = useDisconnect();
   const activeAddress = address ?? (emailWallet.wallet?.address as Address | undefined);
   const { primaryDomain } = usePrimaryDomain(activeAddress);
+
+  // Close after wallet sheet / tab freeze so the portal cannot block the navbar.
+  useCloseOnResume(closeDropdown, open);
 
   useEffect(() => {
     if (!open) {
@@ -146,89 +149,88 @@ export function ConnectWalletButton() {
         <ChevronDown className="h-4 w-4" />
       </GlassButton>
 
-      {typeof document !== "undefined"
+      {typeof document !== "undefined" && open && menuPosition
         ? createPortal(
-          <AnimatePresence>
-            {open ? (
-              <motion.div
-                ref={menuRef}
-                role="menu"
-                initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                transition={{ duration: 0.18 }}
-                className="fixed z-[260] w-[260px] rounded-lg border border-white/10 bg-[#090b0d]/98 p-2 shadow-[0_16px_60px_rgba(0,0,0,0.75)] backdrop-blur-2xl"
-                style={{
-                  top: menuPosition?.top ?? -9999,
-                  left: menuPosition?.left ?? -9999,
-                  visibility: menuPosition ? "visible" : "hidden",
-                }}
-              >
-            <div className="border-b border-white/[0.08] px-3 py-2.5">
-              <p className="text-[10px] font-semibold uppercase text-white/35">
-                {emailWallet.wallet && !isConnected ? "Email wallet" : "Connected wallet"}
-              </p>
-              {primaryDomain ? (
-                <div className="mt-1 flex flex-col">
-                  <span className="text-sm font-semibold text-white">{primaryDomain}</span>
-                  <span className="font-mono text-[10px] text-white/50">{truncateAddress(activeAddress)}</span>
-                </div>
-              ) : (
-                <p className="mt-1 font-mono text-xs text-white/75">{truncateAddress(activeAddress)}</p>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={async () => {
-                await navigator.clipboard.writeText(activeAddress);
-                setCopied(true);
-                showToast("success", "Wallet address copied");
-                window.setTimeout(() => setCopied(false), 1600);
+            <div
+              ref={menuRef}
+              role="menu"
+              className="fixed z-[1100] w-[260px] rounded-lg border border-white/10 bg-[#090b0d]/98 p-2 shadow-[0_16px_60px_rgba(0,0,0,0.75)] backdrop-blur-2xl"
+              style={{
+                top: menuPosition.top,
+                left: menuPosition.left,
               }}
-              className="mt-1 flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-left text-sm text-white/70 transition hover:bg-white/[0.07] hover:text-white"
             >
-              {copied ? <Check className="h-4 w-4 text-emerald-200" /> : <Copy className="h-4 w-4" />}
-              {copied ? "Copied" : "Copy wallet address"}
-            </button>
-            <a
-              href={`https://testnet.arcscan.app/address/${activeAddress}`}
-              target="_blank"
-              rel="noreferrer"
-              className="flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-left text-sm text-white/70 transition hover:bg-white/[0.07] hover:text-white"
-              onClick={() => setOpen(false)}
-            >
-              <ExternalLink className="h-4 w-4" />
-              View wallet on ArcScan
-            </a>
-            <button
-              type="button"
-              onClick={() => {
-                if (isConnected) {
-                  disconnect();
-                }
-                emailWallet.clearSession();
-                setOpen(false);
-              }}
-              className="mt-1 flex w-full items-center gap-2 rounded-md border border-red-400/15 bg-red-400/[0.06] px-3 py-2.5 text-left text-sm font-medium text-red-300 transition hover:bg-red-400/12 hover:text-red-200"
-            >
-              <LogOut className="h-4 w-4" />
-              Disconnect
-            </button>
-            {!emailWallet.wallet ? (
+              <div className="border-b border-white/[0.08] px-3 py-2.5">
+                <p className="text-[10px] font-semibold uppercase text-white/35">
+                  {emailWallet.wallet && !isConnected ? "Email wallet" : "Connected wallet"}
+                </p>
+                {primaryDomain ? (
+                  <div className="mt-1 flex flex-col">
+                    <span className="text-sm font-semibold text-white">{primaryDomain}</span>
+                    <span className="font-mono text-[10px] text-white/50">
+                      {truncateAddress(activeAddress)}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="mt-1 font-mono text-xs text-white/75">
+                    {truncateAddress(activeAddress)}
+                  </p>
+                )}
+              </div>
               <button
                 type="button"
-                disabled
-                className="mt-1 flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-left text-sm text-white/40 opacity-40 cursor-not-allowed pointer-events-none"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(activeAddress);
+                  setCopied(true);
+                  showToast("success", "Wallet address copied");
+                  window.setTimeout(() => setCopied(false), 1600);
+                }}
+                className="mt-1 flex w-full touch-manipulation items-center gap-2 rounded-md px-3 py-2.5 text-left text-sm text-white/70 transition hover:bg-white/[0.07] hover:text-white"
               >
-                <Mail className="h-4 w-4" />
-                Sign in with email
+                {copied ? (
+                  <Check className="h-4 w-4 text-emerald-200" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+                {copied ? "Copied" : "Copy wallet address"}
               </button>
-            ) : null}
-              </motion.div>
-            ) : null}
-          </AnimatePresence>,
-          document.body,
-        )
+              <a
+                href={`https://testnet.arcscan.app/address/${activeAddress}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex w-full touch-manipulation items-center gap-2 rounded-md px-3 py-2.5 text-left text-sm text-white/70 transition hover:bg-white/[0.07] hover:text-white"
+                onClick={() => setOpen(false)}
+              >
+                <ExternalLink className="h-4 w-4" />
+                View wallet on ArcScan
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  if (isConnected) {
+                    disconnect();
+                  }
+                  emailWallet.clearSession();
+                  setOpen(false);
+                }}
+                className="mt-1 flex w-full touch-manipulation items-center gap-2 rounded-md border border-red-400/15 bg-red-400/[0.06] px-3 py-2.5 text-left text-sm font-medium text-red-300 transition hover:bg-red-400/12 hover:text-red-200"
+              >
+                <LogOut className="h-4 w-4" />
+                Disconnect
+              </button>
+              {!emailWallet.wallet ? (
+                <button
+                  type="button"
+                  disabled
+                  className="pointer-events-none mt-1 flex w-full cursor-not-allowed items-center gap-2 rounded-md px-3 py-2.5 text-left text-sm text-white/40 opacity-40"
+                >
+                  <Mail className="h-4 w-4" />
+                  Sign in with email
+                </button>
+              ) : null}
+            </div>,
+            document.body,
+          )
         : null}
     </div>
   );

@@ -1,10 +1,10 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
 import { Check, ChevronDown, Loader2 } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useChainId, useSwitchChain } from "wagmi";
 import { useDismissibleDropdown } from "@/hooks/useDismissibleDropdown";
+import { useCloseOnResume } from "@/hooks/useCloseOnResume";
 import { cn } from "@/lib/utils";
 
 const networkNames: Record<number, string> = {
@@ -67,6 +67,7 @@ export function NetworkSwitcher({ mobile = false }: { mobile?: boolean }) {
   const [open, setOpen] = useState(false);
   const closeDropdown = useCallback(() => setOpen(false), []);
   const containerRef = useDismissibleDropdown(open, closeDropdown);
+  useCloseOnResume(closeDropdown, open);
   const chainId = useChainId();
   const { chains, switchChain, isPending } = useSwitchChain();
   const currentName = networkNames[chainId] ?? `Chain ${chainId}`;
@@ -79,7 +80,7 @@ export function NetworkSwitcher({ mobile = false }: { mobile?: boolean }) {
         aria-haspopup="menu"
         onClick={() => setOpen((value) => !value)}
         className={cn(
-          "inline-flex items-center justify-center gap-1.5 px-2 py-2 text-xs text-white/65 transition hover:text-white",
+          "inline-flex touch-manipulation items-center justify-center gap-1.5 px-2 py-2 text-xs text-white/65 transition hover:text-white",
           mobile && "min-h-10 w-full justify-between rounded-lg border border-white/10 bg-white/[0.045] px-3 hover:bg-white/[0.075]",
         )}
       >
@@ -88,42 +89,37 @@ export function NetworkSwitcher({ mobile = false }: { mobile?: boolean }) {
         <ChevronDown className="h-3.5 w-3.5 text-white/40" />
       </button>
 
-      <AnimatePresence>
-        {open ? (
-          <motion.div
-            role="menu"
-            initial={{ y: 7, scale: 0.98 }}
-            animate={{ y: 0, scale: 1 }}
-            exit={{ y: 7, scale: 0.98 }}
-            className={cn(
-              "absolute z-50 mt-2 min-w-56 rounded-lg border border-white/15 bg-[#090b0d] p-1.5 shadow-[0_18px_60px_rgba(0,0,0,0.75)]",
-              mobile ? "left-0 right-0" : "right-0",
-            )}
-          >
-            {chains.map((chain) => {
-              const active = chain.id === chainId;
+      {open ? (
+        <div
+          role="menu"
+          className={cn(
+            "absolute z-50 mt-2 min-w-56 rounded-lg border border-white/15 bg-[#090b0d] p-1.5 shadow-[0_18px_60px_rgba(0,0,0,0.75)]",
+            mobile ? "left-0 right-0" : "right-0",
+          )}
+        >
+          {chains.map((chain) => {
+            const active = chain.id === chainId;
 
-              return (
-                <button
-                  key={chain.id}
-                  type="button"
-                  onClick={() => {
-                    switchChain({ chainId: chain.id });
-                    setOpen(false);
-                  }}
-                  className="flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left text-sm text-white/65 transition hover:bg-white/[0.07] hover:text-white"
-                >
-                  <span className="flex items-center gap-3">
-                    <NetworkLogo chainId={chain.id} className="h-5 w-5" />
-                    {networkNames[chain.id] ?? chain.name}
-                  </span>
-                  {active ? <Check className="h-4 w-4 text-emerald-200" /> : null}
-                </button>
-              );
-            })}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+            return (
+              <button
+                key={chain.id}
+                type="button"
+                onClick={() => {
+                  switchChain({ chainId: chain.id });
+                  setOpen(false);
+                }}
+                className="flex w-full touch-manipulation items-center justify-between rounded-md px-3 py-2.5 text-left text-sm text-white/65 transition hover:bg-white/[0.07] hover:text-white"
+              >
+                <span className="flex items-center gap-3">
+                  <NetworkLogo chainId={chain.id} className="h-5 w-5" />
+                  {networkNames[chain.id] ?? chain.name}
+                </span>
+                {active ? <Check className="h-4 w-4 text-emerald-200" /> : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
   );
 }

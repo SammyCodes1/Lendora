@@ -367,7 +367,7 @@ export default function ProfilePage() {
   if (!isConnected || !address) {
     return (
       <PageTransition>
-        <div className="mx-auto max-w-4xl px-4 pb-12 pt-4 sm:px-6 sm:pt-2">
+        <div className="mx-auto max-w-4xl px-4 pb-12 pt-8 sm:px-6 sm:pt-4">
           <GlassCard className="p-8 text-center">
             <UserRound className="mx-auto h-10 w-10 text-white/45" />
             <h1 className="mt-4 text-2xl font-semibold">Connect your wallet</h1>
@@ -382,14 +382,15 @@ export default function ProfilePage() {
 
   return (
     <PageTransition>
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 pb-12 pt-5 sm:px-6 sm:pt-2 lg:px-8">
-        <section className="border-b border-white/[0.07] pb-8 pt-1 sm:pt-2">
+      {/* Extra mobile top inset so the large avatar never sits under the fixed nav. */}
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 pb-12 pt-10 sm:px-6 sm:pt-6 lg:px-8">
+        <section className="scroll-mt-[calc(6.75rem+env(safe-area-inset-top,0px))] border-b border-white/[0.07] pb-8 pt-2 sm:pt-3">
           <div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
             <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center">
               <button
                 type="button"
                 onClick={() => setPickerOpen((open) => !open)}
-                className="group relative h-32 w-32 shrink-0 overflow-hidden rounded-full border border-white/20 bg-black shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_24px_70px_rgba(0,0,0,0.5)] transition duration-200 hover:-translate-y-1 hover:border-white/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:h-36 sm:w-36"
+                className="group relative mt-1 h-32 w-32 shrink-0 overflow-hidden rounded-full border border-white/20 bg-black shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_24px_70px_rgba(0,0,0,0.5)] transition duration-200 hover:border-white/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:mt-0 sm:h-36 sm:w-36 sm:hover:-translate-y-0.5"
                 aria-label="Choose profile picture"
                 aria-expanded={pickerOpen}
               >
