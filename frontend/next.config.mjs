@@ -7,8 +7,9 @@ const projectRoot = dirname(fileURLToPath(import.meta.url));
 const nextConfig = {
   // Keep tracing rooted at this package (monorepo-safe on Vercel rootDirectory=frontend).
   outputFileTracingRoot: projectRoot,
-  // Always default `.next` so Vercel post-build steps can find `.next/package.json`.
-  // Local dev isolation: use `next dev` with a separate command if needed.
+  // Explicit empty turbopack config so Next 16 doesn't error when a webpack()
+  // function is present (production still uses `next build --webpack`).
+  turbopack: {},
   webpack(config) {
     config.resolve = config.resolve ?? {};
     config.resolve.alias = {
