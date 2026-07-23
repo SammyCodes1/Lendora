@@ -78,9 +78,11 @@ function HealthFactorDashboard() {
       ) : isConnected ? (
         <div className="flex flex-col items-center text-center">
           <SectionLabel>Position safety</SectionLabel>
-          <div className="relative mx-auto mt-3 h-52 w-52 sm:h-80 sm:w-80">
-            <HealthFactorRing value={health} size={320} showValue={false} className="origin-center scale-[0.65] sm:scale-100" />
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <div className="relative mx-auto mt-3 flex h-52 w-52 items-center justify-center overflow-hidden sm:h-80 sm:w-80">
+            <div className="absolute scale-[0.65] sm:scale-100">
+              <HealthFactorRing value={health} size={320} showValue={false} />
+            </div>
+            <div className="relative z-10 flex flex-col items-center justify-center">
               <HealthFactorValue value={health} className={cn("font-mono text-4xl font-medium sm:text-7xl", healthClass)} />
               <p className="mt-2 text-[10px] font-semibold uppercase text-white/35">Health Factor</p>
             </div>
