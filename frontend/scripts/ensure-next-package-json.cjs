@@ -53,7 +53,7 @@ function forceLink(repoRoot, name) {
     return;
   }
   try {
-    if (fs.existsSync(linkPath) || fs.lstatSync(linkPath).isSymbolicLink()) {
+    if (fs.existsSync(linkPath)) {
       const stat = fs.lstatSync(linkPath);
       if (stat.isSymbolicLink()) {
         const current = fs.readlinkSync(linkPath);
