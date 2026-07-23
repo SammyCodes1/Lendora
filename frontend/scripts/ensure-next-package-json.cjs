@@ -1,17 +1,13 @@
 /**
- * Vercel monorepo packaging bug workaround
- * -----------------------------------------
- * With Root Directory = "frontend", the Git clone still lives at:
- *   /vercel/path0/                 (repo root)
- *   /vercel/path0/frontend/        (Next app)
+ * Vercel monorepo packaging workaround
  *
- * Next builds correctly into frontend/.next, but a later packaging step
- * resolves paths from /vercel/path0 (repo root), looking for:
- *   /vercel/path0/.next/package.json
- *   /vercel/path0/node_modules/next/...
+ * Clone layout with Root Directory = "frontend":
+ *   /vercel/path0/                 monorepo root
+ *   /vercel/path0/frontend/        Next app (build cwd)
  *
- * Mirror the app's build artifacts + node_modules up to the repo root so
- * those lstats succeed.
+ * Next builds into frontend/.next, but packaging later resolves many paths
+ * from /vercel/path0 (repo root). Mirror the app tree up to the monorepo
+ * root (symlink when missing) so those lstats succeed.
  */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -28,8 +24,6 @@ function ensurePkg(pkgPath) {
   if (!fs.existsSync(pkgPath)) {
     fs.writeFileSync(pkgPath, `${JSON.stringify({ type: "commonjs" }, null, 2)}\n`);
     log("wrote", pkgPath);
-  } else {
-    log("present", pkgPath);
   }
 }
 
@@ -37,29 +31,54 @@ function linkInto(repoRoot, name) {
   const target = path.join(cwd, name);
   const linkPath = path.join(repoRoot, name);
   if (!fs.existsSync(target)) {
-    log("skip missing", target);
     return;
   }
   if (fs.existsSync(linkPath)) {
-    log("already exists", linkPath);
     return;
   }
-
   const type = fs.statSync(target).isDirectory() ? "dir" : "file";
   try {
     fs.symlinkSync(target, linkPath, type);
-    log("symlinked", linkPath, "->", target);
+    log("symlinked", name);
   } catch (error) {
-    log(
-      "symlink failed for",
-      name,
-      error instanceof Error ? error.message : error,
-    );
-    // File fallback for package.json only
-    if (name === "package.json") {
-      fs.copyFileSync(target, linkPath);
-      log("copied", linkPath);
+    log("symlink failed", name, error instanceof Error ? error.message : error);
+  }
+}
+
+function forceLink(repoRoot, name) {
+  const target = path.join(cwd, name);
+  const linkPath = path.join(repoRoot, name);
+  if (!fs.existsSync(target)) {
+    log("skip missing", name);
+    return;
+  }
+  try {
+    if (fs.existsSync(linkPath) || fs.lstatSync(linkPath).isSymbolicLink()) {
+      const stat = fs.lstatSync(linkPath);
+      if (stat.isSymbolicLink()) {
+        const current = fs.readlinkSync(linkPath);
+        if (path.resolve(path.dirname(linkPath), current) === path.resolve(target)) {
+          log("already linked", name);
+          return;
+        }
+        fs.unlinkSync(linkPath);
+      } else if (name === ".next" || name === "node_modules") {
+        // Do not delete real dirs; only re-link when absent
+        log("real path exists, leave", name);
+        return;
+      } else {
+        return;
+      }
     }
+  } catch {
+    // create below
+  }
+  const type = fs.statSync(target).isDirectory() ? "dir" : "file";
+  try {
+    fs.symlinkSync(target, linkPath, type);
+    log("force-linked", name);
+  } catch (error) {
+    log("force-link failed", name, error instanceof Error ? error.message : error);
   }
 }
 
@@ -72,15 +91,37 @@ if (appName !== "frontend") {
 
 const repoRoot = path.join(cwd, "..");
 
-// Critical paths the packager resolves from the monorepo root:
-for (const name of [".next", "node_modules", "package.json", "next.config.mjs"]) {
+// 1) Always expose build output + deps at monorepo root
+forceLink(repoRoot, ".next");
+forceLink(repoRoot, "node_modules");
+
+// 2) Expose every other top-level app path packaging may resolve from root
+//    (app/, components/, constants/, public/, …) when not already present.
+for (const name of fs.readdirSync(cwd)) {
+  if (name === ".next" || name === "node_modules") continue;
+  // Never clobber monorepo-owned paths that already exist at root.
+  if (name === "package.json" || name === "package-lock.json") {
+    // Prefer app package.json for Next packaging if root only has monorepo meta.
+    const rootPkgPath = path.join(repoRoot, "package.json");
+    try {
+      const rootPkg = JSON.parse(fs.readFileSync(rootPkgPath, "utf8"));
+      if (!rootPkg.dependencies?.next && !rootPkg.devDependencies?.next) {
+        // Replace monorepo package.json with a symlink to the app package.json
+        // only after backing up is unnecessary on ephemeral Vercel FS.
+        fs.unlinkSync(rootPkgPath);
+        forceLink(repoRoot, "package.json");
+      }
+    } catch {
+      forceLink(repoRoot, "package.json");
+    }
+    continue;
+  }
   linkInto(repoRoot, name);
 }
 
-// Double-check root .next/package.json is visible via the symlink
 ensurePkg(path.join(repoRoot, ".next", "package.json"));
 
-const nextSetup = path.join(
+const probe = path.join(
   repoRoot,
   "node_modules",
   "next",
@@ -89,8 +130,6 @@ const nextSetup = path.join(
   "adapter",
   "setup-node-env.external.js",
 );
-log(
-  fs.existsSync(nextSetup)
-    ? `ok next adapter file: ${nextSetup}`
-    : `MISSING next adapter file: ${nextSetup}`,
-);
+const constantsProbe = path.join(repoRoot, "constants", "abis", "LendingPool.json");
+log(fs.existsSync(probe) ? `ok ${probe}` : `MISSING ${probe}`);
+log(fs.existsSync(constantsProbe) ? `ok ${constantsProbe}` : `MISSING ${constantsProbe}`);
