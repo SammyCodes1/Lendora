@@ -111,10 +111,10 @@ function TokenSelector({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        className="flex min-w-28 items-center justify-between gap-2 rounded-xl border border-white/15 bg-[#090b0d] py-1.5 pl-1.5 pr-2 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.07)] transition hover:border-white/30 hover:bg-[#0d1012]"
+        className="flex min-w-28 items-center justify-between gap-2 overflow-hidden rounded-xl border border-white/15 bg-[#090b0d] py-1.5 pl-1.5 pr-2 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.07)] transition hover:border-white/30 hover:bg-[#0d1012]"
       >
-        <span className="flex items-center gap-2">
-          <TokenMark symbol={value} />
+        <span className="flex min-w-0 items-center gap-2">
+          <TokenMark symbol={value} className="h-7 w-7" iconClassName="h-4 w-4" />
           {value}
         </span>
         <ChevronDown
@@ -616,7 +616,7 @@ export function SwapWidget() {
       </div>
 
       <div className="space-y-5 p-5">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]">
+        <div className="rounded-2xl border border-white/10 bg-[#0a0c0e]/90 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]">
           <div className="flex items-center justify-between text-xs text-white/45">
             <span>You pay</span>
             <span>
@@ -665,7 +665,7 @@ export function SwapWidget() {
           </motion.button>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]">
+        <div className="rounded-2xl border border-white/10 bg-[#0a0c0e]/90 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]">
           <div className="flex items-center justify-between text-xs text-white/45">
             <span>You receive</span>
             <span>

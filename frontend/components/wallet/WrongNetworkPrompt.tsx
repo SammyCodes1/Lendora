@@ -2,40 +2,70 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle, ArrowRightLeft, Loader2 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAccount, useChainId, useSwitchChain } from "wagmi";
 
 const ARC_TESTNET_CHAIN_ID = 5042002;
 
+function arcConfiguredStorageKey(address: string) {
+  return `arclend:arc-network-configured:${address.toLowerCase()}`;
+}
+
 /**
- * Full-screen prompt shown when a browser-wallet user is connected to a chain
- * other than Arc Testnet. Offers a single button that calls
- * `switchChainAsync` — the wallet will automatically ask the user to add the
- * network first if it isn't configured yet (standard EIP-3085 behaviour).
+ * Full-screen prompt shown only when a browser-wallet user has not yet
+ * configured Arc Testnet in their wallet. Once Arc has been added / used
+ * with this address, the prompt stays hidden — including when the user
+ * intentionally switches away (e.g. bridging from Sepolia / Base / Amoy).
  *
  * Not rendered for email-wallet users since they don't control network
  * selection.
  */
 export function WrongNetworkPrompt() {
-  const { isConnected, connector } = useAccount();
+  const { address, isConnected, connector } = useAccount();
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
   const [switching, setSwitching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Default true so we never flash the modal before reading storage / chain.
+  const [arcConfigured, setArcConfigured] = useState(true);
 
-  // Only show for injected / browser-extension wallets that are on the wrong
-  // chain.  Email wallets route through Circle and don't expose chain
-  // switching.
+  // Persist "Arc is in this wallet" once we've observed Arc Testnet for the
+  // connected address. Multi-chain flows (bridge) can then leave Arc without
+  // re-triggering the full-screen blocker.
+  useEffect(() => {
+    if (!address || typeof window === "undefined") {
+      setArcConfigured(true);
+      return;
+    }
+
+    const key = arcConfiguredStorageKey(address);
+
+    if (chainId === ARC_TESTNET_CHAIN_ID) {
+      window.localStorage.setItem(key, "1");
+      setArcConfigured(true);
+      return;
+    }
+
+    setArcConfigured(window.localStorage.getItem(key) === "1");
+  }, [address, chainId]);
+
   const isWrongNetwork =
     isConnected &&
+    Boolean(address) &&
     connector?.type !== "circle-email" &&
-    chainId !== ARC_TESTNET_CHAIN_ID;
+    chainId !== ARC_TESTNET_CHAIN_ID &&
+    !arcConfigured;
 
   const handleSwitch = useCallback(async () => {
+    if (!address) return;
     setSwitching(true);
     setError(null);
     try {
       await switchChainAsync({ chainId: ARC_TESTNET_CHAIN_ID });
+      // Successful switch (or add-then-switch via EIP-3085) means Arc is
+      // configured for this wallet — never block on multi-chain use again.
+      window.localStorage.setItem(arcConfiguredStorageKey(address), "1");
+      setArcConfigured(true);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Could not switch network";
@@ -46,7 +76,7 @@ export function WrongNetworkPrompt() {
     } finally {
       setSwitching(false);
     }
-  }, [switchChainAsync]);
+  }, [address, switchChainAsync]);
 
   return (
     <AnimatePresence>
@@ -78,16 +108,17 @@ export function WrongNetworkPrompt() {
               {/* Copy */}
               <div className="space-y-2">
                 <h2 className="text-xl font-semibold text-white">
-                  Wrong Network
+                  Add Arc Testnet
                 </h2>
                 <p className="text-sm leading-relaxed text-white/55">
-                  ArcLend runs on{" "}
+                  ArcLend needs{" "}
                   <span className="font-medium text-white/80">
                     Arc Testnet
-                  </span>
-                  . Switch your wallet to the correct network to continue. If
-                  Arc Testnet isn&apos;t added to your wallet yet, your browser
-                  will prompt you to add it automatically.
+                  </span>{" "}
+                  in your wallet. Switch once to add it — after that you can
+                  freely change networks to bridge without seeing this again.
+                  If Arc Testnet isn&apos;t added yet, your browser will prompt
+                  you to add it automatically.
                 </p>
               </div>
 
