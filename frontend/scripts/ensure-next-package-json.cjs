@@ -40,24 +40,9 @@ function linkInto(repoRoot, name) {
     log("skip missing", target);
     return;
   }
-  if (fs.existsSync(linkPath) || fs.lstatSync(linkPath).isSymbolicLink?.()) {
-    try {
-      const stat = fs.lstatSync(linkPath);
-      if (stat.isSymbolicLink() || stat.isDirectory() || stat.isFile()) {
-        log("already exists", linkPath);
-        return;
-      }
-    } catch {
-      // continue
-    }
-  }
-  try {
-    if (fs.existsSync(linkPath)) {
-      log("already exists", linkPath);
-      return;
-    }
-  } catch {
-    // continue
+  if (fs.existsSync(linkPath)) {
+    log("already exists", linkPath);
+    return;
   }
 
   const type = fs.statSync(target).isDirectory() ? "dir" : "file";
