@@ -421,7 +421,10 @@ export function AgentChat() {
         onClick={toggle}
         whileHover={{ scale: 1.06 }}
         whileTap={{ scale: 0.94 }}
-        className="relative flex h-14 w-14 items-center justify-center rounded-full border border-emerald-100/30 bg-[#0c1513] text-emerald-100 shadow-[0_12px_45px_rgba(0,0,0,0.55),0_0_28px_rgba(110,231,183,0.2)]"
+        className={cn(
+          "relative flex h-14 w-14 items-center justify-center rounded-full border border-emerald-100/30 bg-[#0c1513] text-emerald-100 shadow-[0_12px_45px_rgba(0,0,0,0.55),0_0_28px_rgba(110,231,183,0.2)]",
+          open && "hidden sm:flex",
+        )}
       >
         <motion.span
           aria-hidden="true"
