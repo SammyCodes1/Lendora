@@ -367,7 +367,7 @@ export default function ProfilePage() {
   if (!isConnected || !address) {
     return (
       <PageTransition>
-        <div className="mx-auto max-w-4xl px-4 pb-12 sm:px-6">
+        <div className="mx-auto max-w-4xl px-4 pb-12 pt-4 sm:px-6 sm:pt-2">
           <GlassCard className="p-8 text-center">
             <UserRound className="mx-auto h-10 w-10 text-white/45" />
             <h1 className="mt-4 text-2xl font-semibold">Connect your wallet</h1>
@@ -382,8 +382,8 @@ export default function ProfilePage() {
 
   return (
     <PageTransition>
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 pb-12 sm:px-6 lg:px-8">
-        <section className="border-b border-white/[0.07] pb-8 pt-2">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 pb-12 pt-5 sm:px-6 sm:pt-2 lg:px-8">
+        <section className="border-b border-white/[0.07] pb-8 pt-1 sm:pt-2">
           <div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
             <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center">
               <button
