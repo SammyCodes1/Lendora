@@ -126,7 +126,7 @@ export function AgentChat() {
             transition={{ duration: 0.2, ease: "easeOut" }}
             className="fixed inset-x-0 bottom-0 sm:absolute sm:inset-auto sm:bottom-16 sm:right-0"
           >
-            <GlassCard className="relative flex h-[min(92dvh,calc(100dvh-env(safe-area-inset-top)-1rem))] w-full flex-col overflow-hidden rounded-b-none border-emerald-200/[0.12] bg-[#090c0e]/96 p-0 shadow-[0_28px_100px_rgba(0,0,0,0.72),0_0_45px_rgba(52,211,153,0.08)] backdrop-blur-xl sm:h-[min(620px,calc(100vh-7rem))] sm:w-[min(380px,calc(100vw-2rem))] sm:rounded-2xl">
+            <GlassCard className="relative flex h-[min(78dvh,calc(100dvh-5.5rem-env(safe-area-inset-top,0px)))] w-full flex-col overflow-hidden rounded-b-none border-emerald-200/[0.12] bg-[#090c0e]/96 p-0 shadow-[0_28px_100px_rgba(0,0,0,0.72),0_0_45px_rgba(52,211,153,0.08)] backdrop-blur-xl sm:h-[min(520px,calc(100vh-10.5rem))] sm:w-[min(380px,calc(100vw-2rem))] sm:rounded-2xl">
               <motion.div
                 aria-hidden="true"
                 className="pointer-events-none absolute -left-24 -top-20 h-52 w-52 rounded-full bg-emerald-300/[0.08] blur-3xl"
