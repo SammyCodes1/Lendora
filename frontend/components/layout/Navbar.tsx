@@ -47,7 +47,7 @@ const links: LinkItem[] = [
     sublinks: [
       { href: "/referrals", label: "Referrals", disabled: true },
       { href: "/bridge", label: "Bridge" },
-      { href: "/predictions", label: "Predictions" },
+      { href: "/predictions", label: "Predictions", disabled: true },
       { href: "/liquidate", label: "Liquidate" },
       { href: "/domains", label: "Domain Mints" },
     ],
