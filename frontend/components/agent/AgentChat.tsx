@@ -10,6 +10,8 @@ import {
   Activity,
   BookUser,
   Loader2,
+  Pencil,
+  RotateCcw,
   Send,
   Sparkles,
   X,
@@ -20,6 +22,10 @@ import { ContactBook } from "@/components/agent/ContactBook";
 import { AgentTransactionReceiptCard } from "@/components/agent/AgentTransactionReceiptCard";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { useAgent } from "@/hooks/useAgent";
+import {
+  DEFAULT_AGENT_NAME,
+  useAgentName,
+} from "@/hooks/useAgentName";
 import { cn } from "@/lib/utils";
 
 const suggestions = [
@@ -28,7 +34,13 @@ const suggestions = [
   "Predict 5 USDC YES on market 1",
 ];
 
-function AgentAvatarLetter({ className }: { className?: string }) {
+function AgentAvatarLetter({
+  letter,
+  className,
+}: {
+  letter: string;
+  className?: string;
+}) {
   return (
     <span
       aria-hidden="true"
@@ -37,7 +49,7 @@ function AgentAvatarLetter({ className }: { className?: string }) {
         className,
       )}
     >
-      A
+      {letter}
     </span>
   );
 }
@@ -48,9 +60,21 @@ export function AgentChat() {
   const [input, setInput] = useState("");
   const [showSafety, setShowSafety] = useState(false);
   const [showContacts, setShowContacts] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState(DEFAULT_AGENT_NAME);
+  const [nameError, setNameError] = useState<string | null>(null);
   const [hasOpened, setHasOpened] = useState(false);
   const assistantRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const {
+    agentName,
+    avatarLetter,
+    setName,
+    resetName,
+    isDefault,
+    maxLength,
+  } = useAgentName();
   const {
     messages,
     sendMessage,
@@ -84,12 +108,25 @@ export function AgentChat() {
       ) {
         setOpen(false);
         setShowContacts(false);
+        setRenaming(false);
+        setNameError(null);
       }
     };
 
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [open]);
+
+  useEffect(() => {
+    if (!renaming) return;
+    setNameDraft(agentName);
+    setNameError(null);
+    const id = window.requestAnimationFrame(() => {
+      nameInputRef.current?.focus();
+      nameInputRef.current?.select();
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [renaming, agentName]);
 
   const toggle = () => {
     setOpen((current) => {
@@ -98,8 +135,43 @@ export function AgentChat() {
         setHasOpened(true);
         setShowSafety(true);
       }
+      if (!next) {
+        setRenaming(false);
+        setNameError(null);
+      }
       return next;
     });
+  };
+
+  const startRename = () => {
+    setShowContacts(false);
+    setRenaming(true);
+  };
+
+  const cancelRename = () => {
+    setRenaming(false);
+    setNameDraft(agentName);
+    setNameError(null);
+  };
+
+  const saveRename = (event?: FormEvent) => {
+    event?.preventDefault();
+    setNameError(null);
+    try {
+      setName(nameDraft);
+      setRenaming(false);
+    } catch (caught) {
+      setNameError(
+        caught instanceof Error ? caught.message : "Unable to save that name.",
+      );
+    }
+  };
+
+  const handleResetName = () => {
+    resetName();
+    setNameDraft(DEFAULT_AGENT_NAME);
+    setNameError(null);
+    setRenaming(false);
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -171,7 +243,7 @@ export function AgentChat() {
                       animate={reduceMotion ? undefined : { rotate: 360 }}
                       transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
                     />
-                    <AgentAvatarLetter className="text-lg" />
+                    <AgentAvatarLetter letter={avatarLetter} className="text-lg" />
                     <motion.span
                       className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-[#090c0e] bg-emerald-300"
                       animate={
@@ -182,29 +254,109 @@ export function AgentChat() {
                       transition={{ duration: 1.4, repeat: Infinity }}
                     />
                   </motion.span>
-                  <div>
-                    <h2 className="flex items-center gap-1.5 text-sm font-semibold text-white">
-                      ArcLend Assistant
-                      <Zap className="h-3 w-3 text-emerald-300" />
-                    </h2>
-                    <p className="flex items-center gap-1.5 text-[10px] text-white/40">
-                      <Activity className="h-3 w-3 text-cyan-200/65" />
-                      Live non-custodial agent
-                    </p>
+                  <div className="min-w-0">
+                    {renaming ? (
+                      <form onSubmit={saveRename} className="space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            ref={nameInputRef}
+                            value={nameDraft}
+                            onChange={(event) => {
+                              setNameDraft(event.target.value);
+                              setNameError(null);
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === "Escape") {
+                                event.preventDefault();
+                                cancelRename();
+                              }
+                            }}
+                            maxLength={maxLength}
+                            aria-label="Agent name"
+                            placeholder={DEFAULT_AGENT_NAME}
+                            className="w-[min(11rem,42vw)] rounded-md border border-emerald-200/30 bg-white/[0.06] px-2 py-1 text-sm font-semibold text-white outline-none focus:border-emerald-200/55"
+                          />
+                          <button
+                            type="submit"
+                            className="rounded-md bg-emerald-200 px-2 py-1 text-[10px] font-semibold text-[#07100c] hover:bg-emerald-100"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelRename}
+                            className="rounded-md px-1.5 py-1 text-[10px] text-white/45 hover:text-white"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                        {nameError ? (
+                          <p className="max-w-[14rem] text-[10px] leading-4 text-red-300">
+                            {nameError}
+                          </p>
+                        ) : (
+                          <p className="text-[10px] text-white/35">
+                            Saved in this browser · Esc to cancel
+                          </p>
+                        )}
+                      </form>
+                    ) : (
+                      <>
+                        <h2 className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-white">
+                          <button
+                            type="button"
+                            onClick={startRename}
+                            title="Rename your agent"
+                            aria-label={`Rename agent (currently ${agentName})`}
+                            className="truncate text-left transition hover:text-emerald-100"
+                          >
+                            {agentName}
+                          </button>
+                          <Zap className="h-3 w-3 shrink-0 text-emerald-300" />
+                        </h2>
+                        <p className="flex items-center gap-1.5 text-[10px] text-white/40">
+                          <Activity className="h-3 w-3 text-cyan-200/65" />
+                          Live non-custodial agent
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex shrink-0 items-center gap-1">
+                  {!renaming ? (
+                    <button
+                      type="button"
+                      aria-label="Rename agent"
+                      onClick={startRename}
+                      className="rounded-lg p-2 text-white/45 transition hover:bg-white/[0.06] hover:text-white"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                  ) : !isDefault ? (
+                    <button
+                      type="button"
+                      aria-label={`Reset name to ${DEFAULT_AGENT_NAME}`}
+                      title={`Reset to ${DEFAULT_AGENT_NAME}`}
+                      onClick={handleResetName}
+                      className="rounded-lg p-2 text-white/45 transition hover:bg-white/[0.06] hover:text-white"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     aria-label="Manage wallet contacts"
-                    onClick={() => setShowContacts(true)}
+                    onClick={() => {
+                      setRenaming(false);
+                      setShowContacts(true);
+                    }}
                     className="rounded-lg p-2 text-white/45 transition hover:bg-white/[0.06] hover:text-white"
                   >
                     <BookUser className="h-4 w-4" />
                   </button>
                   <button
                     type="button"
-                    aria-label="Close ArcLend Assistant"
+                    aria-label={`Close ${agentName}`}
                     onClick={() => setOpen(false)}
                     className="rounded-lg p-2 text-white/45 transition hover:bg-white/[0.06] hover:text-white"
                   >
@@ -271,14 +423,14 @@ export function AgentChat() {
                         animate={reduceMotion ? undefined : { rotate: 360 }}
                         transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
                       />
-                      <AgentAvatarLetter className="text-2xl" />
+                      <AgentAvatarLetter letter={avatarLetter} className="text-2xl" />
                     </motion.span>
                     <p className="mt-4 text-sm font-medium text-white">
                       What would you like to do?
                     </p>
                     <p className="mt-1 max-w-64 text-xs leading-5 text-white/40">
-                      I’ll interpret your request and prepare an action for your
-                      review.
+                      I’m {agentName}. I’ll interpret your request and prepare an
+                      action for your review.
                     </p>
                     <div className="mt-4 flex flex-wrap justify-center gap-2">
                       {suggestions.map((suggestion) => (
@@ -416,7 +568,7 @@ export function AgentChat() {
 
       <motion.button
         type="button"
-        aria-label={open ? "Close ArcLend Assistant" : "Open ArcLend Assistant"}
+        aria-label={open ? `Close ${agentName}` : `Open ${agentName}`}
         aria-expanded={open}
         onClick={toggle}
         whileHover={{ scale: 1.06 }}
@@ -445,7 +597,7 @@ export function AgentChat() {
         {open ? (
           <X className="relative h-5 w-5" />
         ) : (
-          <AgentAvatarLetter className="text-2xl" />
+          <AgentAvatarLetter letter={avatarLetter} className="text-2xl" />
         )}
       </motion.button>
     </div>
