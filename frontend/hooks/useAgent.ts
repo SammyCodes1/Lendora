@@ -37,17 +37,28 @@ function rawBalance(value?: bigint, decimals = 6) {
   return value === undefined ? "0" : formatUnits(value, decimals);
 }
 
+const MAX_UINT256 = BigInt(
+  "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+);
+
 function healthFactor(value?: bigint) {
-  if (
-    value === undefined ||
-    value ===
-      BigInt(
-        "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-      )
-  ) {
+  // Distinguish "not loaded" from "no debt / infinite HF" so the agent never
+  // reports a healthy ∞ when account data is simply missing.
+  if (value === undefined) {
+    return "unavailable";
+  }
+  if (value === MAX_UINT256) {
     return "∞";
   }
-  return Number(formatUnits(value, 18)).toFixed(2);
+  const numeric = Number(formatUnits(value, 18));
+  if (!Number.isFinite(numeric)) {
+    return "unavailable";
+  }
+  // Match dashboard HealthFactorValue: values above 9 display as Max.
+  if (numeric > 9) {
+    return "Max";
+  }
+  return numeric.toFixed(2);
 }
 
 function safeContextEntry<T>(

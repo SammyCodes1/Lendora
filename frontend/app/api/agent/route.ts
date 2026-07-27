@@ -819,6 +819,120 @@ function parseDeterministicYieldClaim(
   };
 }
 
+function formatUsdLabel(value: string) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return value;
+  }
+  return `$${numeric.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function formatHealthFactorDisplay(raw: string) {
+  if (raw === "∞" || raw === "Max") {
+    return "Max (∞)";
+  }
+  if (raw === "unavailable") {
+    return null;
+  }
+  const numeric = Number(raw);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  if (numeric > 9) {
+    return "Max (∞)";
+  }
+  return numeric.toFixed(2);
+}
+
+function healthFactorStatusLine(display: string, debtUsd: string) {
+  const debt = Number(debtUsd);
+  const hasDebt = Number.isFinite(debt) && debt > 0;
+
+  if (display.startsWith("Max")) {
+    return hasDebt
+      ? "Very healthy — well above the liquidation threshold."
+      : "You have no open debt.";
+  }
+  if (!hasDebt) {
+    return "You have no open debt.";
+  }
+  const numeric = Number(display);
+  if (Number.isFinite(numeric)) {
+    if (numeric < 1) {
+      return "Below 1.0 — your position is at risk of liquidation.";
+    }
+    if (numeric < 1.1) {
+      return "Below 1.10 — leave a safety buffer; repay or add collateral if you can.";
+    }
+    if (numeric < 1.5) {
+      return "Healthy but tight — watch borrow size and collateral value.";
+    }
+  }
+  return "Healthy — above the liquidation threshold.";
+}
+
+/** Read-only reply from wallet context (never a confirmable action). */
+function buildHealthFactorMessage(context: AgentContext): string {
+  if (!context.walletAddress) {
+    return "Connect your wallet so I can read the health factor for that account.";
+  }
+
+  const display = formatHealthFactorDisplay(context.positions.healthFactor);
+  if (!display) {
+    return "I couldn't load your health factor yet. Wait a moment for account data to sync, then ask again.";
+  }
+
+  const collateral = formatUsdLabel(context.positions.totalCollateralUsd);
+  const debt = formatUsdLabel(context.positions.totalDebtUsd);
+  const available = formatUsdLabel(context.positions.availableBorrowsUsd);
+  const status = healthFactorStatusLine(
+    display,
+    context.positions.totalDebtUsd,
+  );
+
+  return [
+    `Your health factor is ${display}.`,
+    status,
+    `Collateral: ${collateral} · Debt: ${debt} · Available to borrow: ${available}.`,
+  ].join(" ");
+}
+
+function parseDeterministicHealthFactor(message: string): boolean {
+  const normalized = message.trim().toLowerCase();
+  if (!normalized) return false;
+
+  // Exact / short forms (including the AgentChat suggestion chip).
+  if (
+    normalized === "health factor" ||
+    normalized === "hf" ||
+    normalized === "check health factor" ||
+    normalized === "check my health factor" ||
+    normalized === "show health factor" ||
+    normalized === "show my health factor" ||
+    normalized === "what is my health factor" ||
+    normalized === "what's my health factor" ||
+    normalized === "whats my health factor"
+  ) {
+    return true;
+  }
+
+  // Broader natural-language asks about the connected wallet HF.
+  const mentionsHealthFactor =
+    /\bhealth\s*factor\b/.test(normalized) ||
+    (/\bhf\b/.test(normalized) &&
+      /\b(?:check|show|what|get|print|tell|read|my|current)\b/.test(
+        normalized,
+      ));
+  if (!mentionsHealthFactor) return false;
+
+  return /\b(?:check|show|what|whats|what's|get|print|tell|read|how|my|current)\b/.test(
+    normalized,
+  );
+}
+
 function validHistory(value: unknown): value is AgentHistoryTurn[] {
   return (
     Array.isArray(value) &&
@@ -1041,6 +1155,14 @@ export async function POST(request: Request) {
         { type: "message", text: "Invalid agent request." },
         { status: 400 },
       );
+    }
+
+    // Read-only: answer health factor from live wallet context (no LLM / no tx).
+    if (parseDeterministicHealthFactor(body.message.trim())) {
+      return NextResponse.json({
+        type: "message",
+        text: buildHealthFactorMessage(body.context),
+      } satisfies AgentResponse);
     }
 
     const deterministicMint = parseDeterministicDomainMint(
@@ -1327,6 +1449,14 @@ export async function POST(request: Request) {
       return NextResponse.json({
         type: "message",
         text: "I could not safely parse that action. Please try again.",
+      } satisfies AgentResponse);
+    }
+
+    // Read-only tools return a message from wallet context — never a tx confirm card.
+    if (toolName === "checkHealthFactor") {
+      return NextResponse.json({
+        type: "message",
+        text: buildHealthFactorMessage(body.context),
       } satisfies AgentResponse);
     }
 
