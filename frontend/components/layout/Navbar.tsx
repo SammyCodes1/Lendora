@@ -38,13 +38,13 @@ type LinkItem = {
 const links: LinkItem[] = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/lend", label: "Lend" },
-  { href: "/earn", label: "Earn" },
   { href: "/borrow", label: "Borrow" },
   { href: "/positions", label: "Positions" },
   { href: "/swap", label: "Swap" },
   {
     label: "More",
     sublinks: [
+      { href: "/earn", label: "Earn" },
       { href: "/referrals", label: "Referrals", disabled: true },
       { href: "/bridge", label: "Bridge" },
       { href: "/predictions", label: "Predictions", disabled: true },
@@ -368,7 +368,7 @@ export function Navbar() {
           <Link
             href="/"
             onClick={closeMenuDeferred}
-            className="relative z-[1002] flex min-w-0 touch-manipulation items-center gap-2 text-white sm:gap-3 xl:-translate-x-4"
+            className="relative z-[1002] flex shrink-0 touch-manipulation items-center gap-2 text-white sm:gap-3"
           >
             <div className="flex shrink-0 items-center justify-center">
               <ArcLogo />
@@ -385,7 +385,7 @@ export function Navbar() {
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-1 xl:flex">
+          <nav className="hidden items-center gap-1 xl:flex ml-10">
             <NavLinks />
           </nav>
 
