@@ -38,13 +38,13 @@ type LinkItem = {
 const links: LinkItem[] = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/lend", label: "Lend" },
+  { href: "/earn", label: "Earn" },
   { href: "/borrow", label: "Borrow" },
   { href: "/positions", label: "Positions" },
   { href: "/swap", label: "Swap" },
   {
     label: "More",
     sublinks: [
-      { href: "/earn", label: "Earn" },
       { href: "/referrals", label: "Referrals", disabled: true },
       { href: "/bridge", label: "Bridge" },
       { href: "/predictions", label: "Predictions", disabled: true },
