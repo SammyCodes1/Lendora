@@ -1,0 +1,16 @@
+name: Oracle Price Refresh
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Pyth oracle refresh
+        run: |
+          curl -f -sS \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://arclend-alpha.vercel.app/api/oracle/refresh"
