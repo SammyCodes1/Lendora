@@ -5,6 +5,7 @@ import path from "node:path";
 const CONTRACTS = [
   "LendingPool",
   "MockPriceOracle",
+  "PythPriceOracle",
   "AToken",
   "DebtToken",
   "InterestRateModel",
@@ -15,6 +16,7 @@ const CONTRACTS = [
   "DomainMarketplace",
   "EarnVault",
   "EarnReferralController",
+  "RecurringOrderExecutor",
 ] as const;
 
 async function main() {

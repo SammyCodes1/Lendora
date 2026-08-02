@@ -18,6 +18,7 @@
     "@fontsource-variable/space-grotesk": "^5.2.10",
     "@fontsource/dm-serif-display": "^5.2.8",
     "@fontsource/ibm-plex-mono": "^5.2.7",
+    "@pythnetwork/hermes-client": "^3.1.0",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",
     "@solana/wallet-standard-features": "^1.4.0",
@@ -47,7 +48,7 @@
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.2.10",
     "postcss": "^8.5.16",
-    "tailwindcss": "^3.4.17",
+    "tailwindcss": "3.4.19",
     "typescript": "^5.9.3"
   },
   "overrides": {

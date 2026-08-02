@@ -12,7 +12,14 @@
     "deploy:earn-vaults": "hardhat run scripts/12_deploy_earn_vaults.ts --network arc_testnet",
     "deploy:earn-referrals": "hardhat run scripts/13_deploy_earn_referrals.ts --network arc_testnet",
     "verify:deployment": "hardhat run scripts/verify_deployment.ts --network arc_testnet",
-    "export-abi": "hardhat run scripts/export-abis.ts"
+    "export-abi": "hardhat run scripts/export-abis.ts",
+    "setup:executor": "hardhat run scripts/setup_executor.ts --network arc_testnet",
+    "deploy:executor": "hardhat run scripts/14_deploy_recurring_executor.ts --network arc_testnet",
+    "deploy:pyth-oracle": "hardhat run scripts/15_deploy_pyth_oracle.ts --network arc_testnet",
+    "prime:pyth-oracle": "hardhat run scripts/prime_pyth_oracle.ts --network arc_testnet",
+    "switch:pyth-oracle": "hardhat run scripts/16_switch_to_pyth_oracle.ts --network arc_testnet",
+    "relayer": "npx tsx scripts/relayer.ts",
+    "relayer:loop": "npx tsx scripts/relayer.ts --loop --interval 30"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
@@ -21,6 +28,9 @@
     "typescript": "^5.7.2"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^5.4.0"
+    "@chainlink/contracts": "^0.8.0",
+    "@openzeppelin/contracts": "^5.4.0",
+    "@pythnetwork/hermes-client": "^3.1.0",
+    "@pythnetwork/pyth-sdk-solidity": "^4.3.1"
   }
 }
