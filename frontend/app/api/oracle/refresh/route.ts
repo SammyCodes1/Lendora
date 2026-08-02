@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
-import { createPublicClient, createWalletClient, http } from 'viem';
+import {
+  createPublicClient,
+  createWalletClient,
+  http,
+  type TransactionReceipt,
+} from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import deployments from '@/constants/deployments.json';
 
@@ -46,6 +51,10 @@ const PYTH_ORACLE_ABI = [
 ] as const;
 
 const HERMES_URL = process.env.PYTH_HERMES_URL || 'https://hermes.pyth.network';
+
+// Arc testnet RPC can drop transient requests, so give the transport extra
+// retries and allow an override via ARC_TESTNET_RPC_URL.
+const RPC_URL = process.env.ARC_TESTNET_RPC_URL || 'https://rpc.testnet.arc.network';
 
 export async function GET(request: Request) {
   // ── Auth: same CRON_SECRET pattern as DCA keeper ──
@@ -96,16 +105,18 @@ export async function GET(request: Request) {
     );
 
     // ── Set up viem clients ──
+    const transport = http(RPC_URL, { retryCount: 5, retryDelay: 1000 });
+
     const publicClient = createPublicClient({
       chain: arcTestnet,
-      transport: http(),
+      transport,
     });
 
     const account = privateKeyToAccount(`0x${keeperKey.replace('0x', '')}` as `0x${string}`);
     const walletClient = createWalletClient({
       account,
       chain: arcTestnet,
-      transport: http(),
+      transport,
     });
 
     // ── Get update fee ──
@@ -125,12 +136,48 @@ export async function GET(request: Request) {
       value: fee,
     });
 
-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    // waitForTransactionReceipt can throw on a transient RPC error even after
+    // the tx is mined (the poll itself failed). Retry before failing the run.
+    let receipt: TransactionReceipt | null = null;
+    for (let attempt = 1; attempt <= 3 && !receipt; attempt++) {
+      try {
+        receipt = await publicClient.waitForTransactionReceipt({ hash });
+      } catch {
+        if (attempt === 3) {
+          // Final attempt: single direct receipt query. If the RPC is still
+          // down, the tx was nonetheless submitted — report unconfirmed.
+          receipt = await publicClient
+            .getTransactionReceipt({ hash })
+            .catch(() => null);
+        } else {
+          await new Promise((r) => setTimeout(r, 1500 * attempt));
+        }
+      }
+    }
+
+    if (!receipt) {
+      return NextResponse.json({
+        success: true,
+        confirmed: false,
+        txHash: hash,
+        feedsUpdated: PRICE_FEED_IDS.length,
+        feeCharged: fee.toString(),
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    if (receipt.status !== 'success') {
+      return NextResponse.json(
+        { error: 'Refresh transaction reverted', txHash: hash },
+        { status: 500 },
+      );
+    }
 
     console.log(`[Oracle Keeper] Price refresh tx: ${hash}, gas: ${receipt.gasUsed}`);
 
     return NextResponse.json({
       success: true,
+      confirmed: true,
       txHash: hash,
       gasUsed: receipt.gasUsed.toString(),
       feedsUpdated: PRICE_FEED_IDS.length,
