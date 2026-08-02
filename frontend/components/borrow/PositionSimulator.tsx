@@ -69,10 +69,12 @@ export function PositionSimulator({
     [selectedMarket, availableUsd],
   );
 
-  // Reset the slider when switching assets or when nothing can be borrowed.
+  // Reset the slider when switching assets. The borrow amount follows
+  // maxBorrow proportionally as it updates on the market poll, so the drag
+  // position itself must not reset on refetch.
   useEffect(() => {
     setSimPct(0);
-  }, [selectedSymbol, maxBorrow]);
+  }, [selectedSymbol]);
 
   const simulatedAmount = maxBorrow > 0n ? (maxBorrow * BigInt(simPct)) / 1000n : 0n;
   const price = selectedMarket?.price || 1n;
