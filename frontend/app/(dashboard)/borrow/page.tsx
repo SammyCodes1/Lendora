@@ -38,6 +38,7 @@ import { PageTransition } from "@/components/layout/PageTransition";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { BorrowModal } from "@/components/modals/BorrowModal";
 import { RepayModal } from "@/components/modals/RepayModal";
+import { PositionSimulator } from "@/components/borrow/PositionSimulator";
 import type { MarketAsset } from "@/components/modals/types";
 import {
   useRepayAction,
@@ -287,7 +288,7 @@ function BorrowMarket({
 
 export default function BorrowPage() {
   const [modal, setModal] = useState<ModalState>(null);
-  const { address, source } = useArcLendAccount();
+  const { address, isConnected, source } = useArcLendAccount();
   const chainId = useChainId();
   const publicClient = usePublicClient({ chainId: 5042002 });
   const { switchChainAsync } = useSwitchChain();
@@ -508,6 +509,13 @@ export default function BorrowPage() {
         ) : null}
 
         <HealthFactorDashboard />
+
+        <PositionSimulator
+          accountData={accountData}
+          markets={markets}
+          isConnected={isConnected}
+          isPaused={isPaused}
+        />
 
         <div className="grid gap-6 lg:grid-cols-2">
           <GlassCard depth="background" className="p-5 sm:p-6">
