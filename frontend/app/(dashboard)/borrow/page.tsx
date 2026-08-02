@@ -220,6 +220,18 @@ function BorrowMarket({
   onBorrow: (market: MarketAsset) => void;
   disabled?: boolean;
 }) {
+  // Per-asset max borrow, mirroring BorrowModal: convert the wallet's USD
+  // borrowing power into this asset's units, then cap by liquidity & borrow cap.
+  const price = market.price || 1n;
+  const availableByCollateral = (availableUsd * 1_000_000n) / price;
+  let maxBorrow =
+    availableByCollateral < market.availableLiquidity
+      ? availableByCollateral
+      : market.availableLiquidity;
+  if (market.isBorrowCapped && market.remainingBorrowCap < maxBorrow) {
+    maxBorrow = market.remainingBorrowCap;
+  }
+
   return (
     <GlassCard glowOnHover depth="foreground" className="rounded-2xl p-5 sm:p-6">
       <div className="flex items-center justify-between">
@@ -239,7 +251,7 @@ function BorrowMarket({
         </p>
       </div>
       <div className="mt-6 grid gap-3 rounded-2xl border border-white/[0.07] bg-black/20 p-4 text-sm text-white/48">
-        <div className="flex justify-between"><span>Your max borrowable</span><AnimatedNumber className="font-mono text-white" value={Number(formatUnits(availableUsd, 8))} prefix="$" decimals={2} /></div>
+        <div className="flex justify-between"><span>Your max borrowable</span><AnimatedNumber className="font-mono text-white" value={Number(formatUnits(maxBorrow, 6))} suffix={` ${market.symbol}`} decimals={2} /></div>
         <div className="flex justify-between"><span>Maximum LTV</span><span className="text-white">{(market.ltv / 100).toFixed(0)}%</span></div>
         <div className="flex justify-between"><span>Liq. threshold</span><span className="text-white">{(market.liquidationThreshold / 100).toFixed(0)}%</span></div>
         <div className="flex justify-between"><span>Market liquidity</span><AnimatedNumber className="font-mono text-white" value={Number(formatUnits(market.availableLiquidityUsd, 8))} prefix="$" decimals={2} /></div>
