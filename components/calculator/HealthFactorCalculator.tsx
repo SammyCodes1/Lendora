@@ -80,13 +80,19 @@ export function HealthFactorCalculator() {
     if (isConnected) {
       return numericHealthFactor(accountData?.healthFactor);
     }
-    // Manual entry mode
+    // Manual entry mode: weight collateral by asset price and liquidation threshold
     const col = Number.parseFloat(manualCollateral);
     const debt = Number.parseFloat(manualDebt);
     if (!Number.isFinite(col) || !Number.isFinite(debt) || debt <= 0 || col <= 0) return 9.99;
-    // Simple HF: collateral / debt (weighted by average threshold)
-    return col / debt;
-  }, [isConnected, accountData, manualCollateral, manualDebt]);
+
+    const colPrice = selectedCollateralMarket ? Number(formatUnits(selectedCollateralMarket.price, selectedCollateralMarket.priceDecimals)) : 1;
+    const borrowPrice = selectedBorrowMarket ? Number(formatUnits(selectedBorrowMarket.price, selectedBorrowMarket.priceDecimals)) : 1;
+    const colThreshold = selectedCollateralMarket ? selectedCollateralMarket.liquidationThreshold / 10000 : 0.85;
+
+    const weightedColUsd = col * colPrice * colThreshold;
+    const debtUsd = debt * borrowPrice;
+    return debtUsd > 0 ? weightedColUsd / debtUsd : 9.99;
+  }, [isConnected, accountData, manualCollateral, manualDebt, selectedCollateralMarket, selectedBorrowMarket]);
 
   // Per-market collateral data matching the contract's per-reserve iteration
   const collateralMarkets: CollateralMarket[] = useMemo(
@@ -122,22 +128,34 @@ export function HealthFactorCalculator() {
         mode: "connected" as const,
         projectedHealthFactor: hf,
         maxAdditionalBorrowUSD: maxBorrow,
+        manualMaxAdditionalBorrowUSD: 0,
         isRisky: hf < MIN_HEALTH_FACTOR,
       };
     }
 
-    if (!isConnected && borrowAmountNum > 0 && selectedBorrowMarket && selectedCollateralMarket) {
+    if (!isConnected && selectedBorrowMarket && selectedCollateralMarket) {
       const col = Number.parseFloat(manualCollateral);
       const debt = Number.parseFloat(manualDebt);
-      if (Number.isFinite(col) && Number.isFinite(debt) && col > 0) {
-        const addedDebt = borrowAmountNum;
-        const newDebt = debt + addedDebt;
-        const hf = newDebt > 0 ? col / newDebt : 9.99;
+      if (Number.isFinite(col) && col > 0) {
+        const colPrice = Number(formatUnits(selectedCollateralMarket.price, selectedCollateralMarket.priceDecimals));
+        const borrowPrice = Number(formatUnits(selectedBorrowMarket.price, selectedBorrowMarket.priceDecimals));
+        const colThreshold = selectedCollateralMarket.liquidationThreshold / 10000;
+
+        const weightedColUsd = col * colPrice * colThreshold;
+        const currentDebtUsd = (Number.isFinite(debt) && debt > 0 ? debt : 0) * borrowPrice;
+        const addedDebtUsd = borrowAmountNum * borrowPrice;
+        const newDebtUsd = currentDebtUsd + addedDebtUsd;
+        const hf = newDebtUsd > 0 ? weightedColUsd / newDebtUsd : 9.99;
+
+        const maxDebtUsd = weightedColUsd / MIN_HEALTH_FACTOR;
+        const manualMaxAddUsd = maxDebtUsd > currentDebtUsd ? maxDebtUsd - currentDebtUsd : 0;
+
         return {
           mode: "manual" as const,
           projectedHealthFactor: hf,
           maxAdditionalBorrowUSD: 0n,
-          isRisky: col > 0 && newDebt > 0 ? col / newDebt < MIN_HEALTH_FACTOR : false,
+          manualMaxAdditionalBorrowUSD: manualMaxAddUsd,
+          isRisky: borrowAmountNum > 0 && newDebtUsd > 0 ? hf < MIN_HEALTH_FACTOR : false,
         };
       }
     }
@@ -150,12 +168,32 @@ export function HealthFactorCalculator() {
   ]);
 
   const maxBorrowFormatted = useMemo(() => {
-    if (!projInfo || projInfo.mode === "manual") return null;
-    if (!selectedBorrowMarket) return null;
+    if (!projInfo || !selectedBorrowMarket) return null;
     const price = Number(formatUnits(selectedBorrowMarket.price, selectedBorrowMarket.priceDecimals));
-    const maxUsd = Number(formatUnits(projInfo.maxAdditionalBorrowUSD, 8));
     if (price <= 0) return null;
-    const maxAsset = maxUsd / price;
+
+    let maxUsd = 0;
+    if (projInfo.mode === "connected") {
+      maxUsd = Number(formatUnits(projInfo.maxAdditionalBorrowUSD, 8));
+    } else {
+      maxUsd = projInfo.manualMaxAdditionalBorrowUSD;
+    }
+    if (maxUsd <= 0) return null;
+
+    let maxAsset = maxUsd / price;
+
+    // Cap by market available liquidity and remaining borrow cap
+    const liquidityAsset = Number(formatUnits(selectedBorrowMarket.availableLiquidity, 6));
+    if (maxAsset > liquidityAsset) {
+      maxAsset = liquidityAsset;
+    }
+    if (selectedBorrowMarket.isBorrowCapped) {
+      const capRemainingAsset = Number(formatUnits(selectedBorrowMarket.remainingBorrowCap, 6));
+      if (maxAsset > capRemainingAsset) {
+        maxAsset = capRemainingAsset;
+      }
+    }
+
     return maxAsset.toLocaleString(undefined, { maximumFractionDigits: 2 });
   }, [projInfo, selectedBorrowMarket]);
 

@@ -103,9 +103,13 @@ export function LendingCalculator() {
         onChange={setAmount}
         tokenName={asset === "USDC" ? "USD Coin" : "Euro Coin"}
         tokenSymbol={asset}
-        balance="—"
+        balance={userSupply > 0n ? `${userSupplyFormatted} ${asset}` : "—"}
         icon={tokenIconComponent(asset)}
-        onMax={() => {}}
+        onMax={() => {
+          if (userSupply > 0n) {
+            setAmount(formatUnits(userSupply, 6));
+          }
+        }}
       />
 
       {/* Existing position context */}
