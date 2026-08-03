@@ -834,7 +834,13 @@ async function buildStats() {
       },
       totalVolume: {
         valueUsdMicro: volume.lifetime.toString(),
-        trend: trend(volume.latest24h, volume.previous24h, "24h vs prior 24h"),
+        trend: trend(
+          volume.lifetime,
+          volume.lifetime > volume.latest24h
+            ? volume.lifetime - volume.latest24h
+            : 0n,
+          "vs 24h ago",
+        ),
       },
       totalBorrowed: {
         valueUsdMicro: currentSnapshot.borrowed.toString(),
