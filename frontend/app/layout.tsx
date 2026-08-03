@@ -7,7 +7,7 @@ import "@fontsource/ibm-plex-mono/latin-500.css";
 import "@fontsource/ibm-plex-mono/latin-600.css";
 import "./globals.css";
 import { Providers } from "./providers";
-import { BackgroundCanvas } from "@/components/background/BackgroundCanvas";
+import { BackgroundCanvasGate } from "@/components/background/BackgroundCanvasGate";
 import { ToastProvider } from "@/components/ui/ToastProvider";
 import { ClientErrorBoundary } from "@/components/layout/ClientErrorBoundary";
 import { AppChrome } from "@/components/layout/AppChrome";
@@ -56,7 +56,7 @@ export default function RootLayout({
         <Providers>
           <div className="jitter-grid pointer-events-none fixed inset-0 z-0" aria-hidden="true" />
           <ClientErrorBoundary label="background canvas">
-            <BackgroundCanvas />
+            <BackgroundCanvasGate />
           </ClientErrorBoundary>
           <AppChrome />
           <ToastProvider />

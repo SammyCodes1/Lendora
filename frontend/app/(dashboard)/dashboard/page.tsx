@@ -36,6 +36,7 @@ import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { HealthFactorValue } from "@/components/ui/HealthFactorValue";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { AssetMark, SectionLabel, UtilizationBar } from "@/components/ui/MarketVisuals";
+import { PythAttribution } from "@/components/PythAttribution";
 import { useCircleEmailWallet } from "@/components/wallet/CircleEmailWalletProvider";
 
 type ActionModal = "supply" | "borrow" | "repay" | "withdraw" | null;
@@ -130,9 +131,12 @@ function ProtocolStatsBar({
     <GlassCard depth="foreground" className="p-5 sm:p-6">
       <div className="mb-4 flex min-w-0 flex-wrap items-center justify-between gap-3">
         <SectionLabel>Protocol overview</SectionLabel>
-        <span className="rounded-full border border-white/[0.08] bg-white/[0.035] px-3 py-1 text-[10px] uppercase text-white/42">
-          Live Arc Testnet reserves
-        </span>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <PythAttribution />
+          <span className="rounded-full border border-white/[0.08] bg-white/[0.035] px-3 py-1 text-[10px] uppercase text-white/42">
+            Live Arc Testnet reserves
+          </span>
+        </div>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map((stat) => {

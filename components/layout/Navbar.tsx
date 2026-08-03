@@ -3,7 +3,7 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Droplets, Menu, UserRound, X } from "lucide-react";
+import { Calculator, ChevronDown, Droplets, Menu, UserRound, X } from "lucide-react";
 import { useState, useCallback, useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { ConnectWalletButton } from "@/components/wallet/ConnectWalletButton";
@@ -40,8 +40,10 @@ const links: LinkItem[] = [
   { href: "/lend", label: "Lend" },
   { href: "/earn", label: "Earn" },
   { href: "/borrow", label: "Borrow" },
+  { href: "/calculator", label: "Calculator" },
   { href: "/positions", label: "Positions" },
   { href: "/swap", label: "Swap" },
+  { href: "/orders", label: "Orders" },
   {
     label: "More",
     sublinks: [

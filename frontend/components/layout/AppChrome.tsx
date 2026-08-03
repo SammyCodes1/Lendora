@@ -10,6 +10,7 @@ export function AppChrome() {
   const pathname = usePathname();
 
   if (pathname === "/") return null;
+  if (pathname.startsWith("/telegram")) return null;
 
   return (
     <>

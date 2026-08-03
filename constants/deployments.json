@@ -1,0 +1,60 @@
+{
+  "chainId": 5042002,
+  "deploymentBlock": 52118513,
+  "deployer": "0x48d38B9311294DdC4Aa4c3CB21E84B865FFB9438",
+  "addressesProvider": "0xC48674acd3CafDd5746A94B5144eA57672592bF3",
+  "lendingPool": "0x1D1d19F958cDB6FA2e6C7E5DC16F0a39fe066c9f",
+  "priceOracle": "0x5D401B38686245B57Efb682828877a3124d36653",
+  "fallbackPriceOracle": "0x39f74EB42C061E7eCA04232063DeE66E7CD1358B",
+  "interestRateModel": "0x635C19a64bbcd09E5D70eFFE06484eb1E4D70190",
+  "markets": {
+    "USDC": {
+      "asset": "0x3600000000000000000000000000000000000000",
+      "aToken": "0x6BAD029528233595D856f03D31f19F9dC10B68D1",
+      "debtToken": "0xfd9Bb99809eA2d6d8F06381EA90a5B195EC93cF9"
+    },
+    "EURC": {
+      "asset": "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
+      "aToken": "0xA97374A23f9D18422446c9cBF53D06c986091b61",
+      "debtToken": "0xa45792794d8CfB8dCF8EE78713596513155bA51f"
+    }
+  },
+  "riskConfiguration": {
+    "USDC": {
+      "ltv": 7000,
+      "liquidationThreshold": 8000,
+      "liquidationBonus": 500,
+      "supplyCap": "1000000000000",
+      "borrowCap": "700000000000"
+    },
+    "EURC": {
+      "ltv": 6000,
+      "liquidationThreshold": 7800,
+      "liquidationBonus": 600,
+      "supplyCap": "1000000000000",
+      "borrowCap": "700000000000"
+    },
+    "primaryMaxPriceAge": "86400",
+    "fallbackMaxPriceAge": "604800"
+  },
+  "PositionNFT": "0xf0d0713609171173616c4167732a05Bf3982F8a9",
+  "PositionManager": "0xa5CA2C82D5DC01E067E0F0337c8f73454C74a93F",
+  "WalletDomain": "0x29850FCb158C7f27Df180d7844e5B0D51Da9D20C",
+  "walletDomainDeploymentBlock": 52118852,
+  "DomainMarketplace": "0xFeEebE745101BBE3CBf2f983Ba1606Bc86c541C6",
+  "domainMarketplaceDeploymentBlock": 52118867,
+  "earnVaults": {
+    "USDC": "0xAA127DEB9c3f72f8D5364B49458f6b14F0540D5b",
+    "EURC": "0x57FA5403192657ed5B950C1CD4F06f361F38B14A"
+  },
+  "earnVaultDeploymentBlock": 52118878,
+  "EarnReferralController": "0xc9D5aD567a2ca40697161823eFC49Fef193A25EC",
+  "earnReferralControllerDeploymentBlock": 52118920,
+  "artifactRuntimeHashes": {
+    "LendingPool": "0x0fce1f3c8c4cdc8f715b1074dd8dbbad61654861ae80d641d4c087e5abcaaf91",
+    "MockPriceOracle": "0xdca44601e1ed75abdeab0310917b821b86f29c5f4d33292b84c7003ac002d446",
+    "InterestRateModel": "0xe039010bb89adb6f2f9e56a65d1db60591a7ac05c05e0d9d2b3f700c69237f44",
+    "LendingPoolAddressesProvider": "0x7e30e43f031e4ae2320c9f10069ec16aead52774bc2102a4a220629ce2c96187"
+  },
+  "RecurringOrderExecutor": "0x884C8C2E3F4a2232797C54be029a8a87e31d75e4"
+}

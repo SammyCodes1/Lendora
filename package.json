@@ -1,17 +1,59 @@
 {
-  "name": "arclend",
+  "name": "@arclend/frontend",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "contracts:compile": "cd contracts && npx hardhat compile",
-    "contracts:test": "cd contracts && npx hardhat test",
-    "contracts:deploy": "cd contracts && npx hardhat run scripts/deploy_all.ts --network arc_testnet",
-    "frontend:dev": "cd frontend && npm run dev",
-    "frontend:build": "cd frontend && npm run build",
-    "dev": "concurrently \"npm run frontend:dev\"",
-    "deploy": "npm run contracts:deploy && npm run frontend:build"
+    "dev": "next dev --webpack",
+    "build": "next build --webpack && node ./scripts/ensure-next-package-json.cjs",
+    "start": "next start",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@circle-fin/adapter-solana": "^1.6.2",
+    "@circle-fin/adapter-viem-v2": "^1.13.0",
+    "@circle-fin/app-kit": "^1.9.0",
+    "@circle-fin/user-controlled-wallets": "^10.8.0",
+    "@circle-fin/w3s-pw-web-sdk": "^1.1.11",
+    "@fontsource-variable/manrope": "^5.2.8",
+    "@fontsource-variable/space-grotesk": "^5.2.10",
+    "@fontsource/dm-serif-display": "^5.2.8",
+    "@fontsource/ibm-plex-mono": "^5.2.7",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
+    "@solana/wallet-standard-features": "^1.4.0",
+    "@solana/web3.js": "^1.98.4",
+    "@tanstack/react-query": "^5.62.8",
+    "@upstash/redis": "^1.38.1",
+    "@wallet-standard/app": "^1.1.1",
+    "@wallet-standard/base": "^1.1.1",
+    "@wallet-standard/features": "^1.1.1",
+    "@walletconnect/ethereum-provider": "^2.23.10",
+    "clsx": "^2.1.1",
+    "framer-motion": "^11.15.0",
+    "gsap": "^3.15.0",
+    "lucide-react": "^0.468.0",
+    "next": "^16.2.10",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "resend": "^6.17.2",
+    "tailwind-merge": "^2.5.5",
+    "three": "^0.171.0",
+    "viem": "^2.55.0",
+    "wagmi": "^3.7.1"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.2.10",
+    "postcss": "^8.5.16",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "undici": "6.27.0",
+    "uuid": "11.1.1"
   }
 }

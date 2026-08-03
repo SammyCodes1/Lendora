@@ -25,3 +25,5 @@ frontend/scripts/check-withdraw.*
 
 diff.txt
 old_DomainMinting.tsx
+.vercel/
+*.png
