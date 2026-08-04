@@ -68,8 +68,9 @@ export function LendingCalculator() {
       })()
     : periodToDays(period);
 
-  const simpleProj = simpleEarnings(amountNum, supplyApy, days);
-  const compoundedProj = compoundedEarnings(amountNum, supplyApy, days);
+  const safeApy = Number.isFinite(supplyApy) ? supplyApy : 0;
+  const simpleProj = simpleEarnings(amountNum, safeApy, days);
+  const compoundedProj = compoundedEarnings(amountNum, safeApy, days);
 
   const priceNum = useMemo(() => {
     if (!selectedMarket?.price) return 0;
@@ -209,7 +210,7 @@ export function LendingCalculator() {
               <span className="text-white/45">Ending balance: </span>
               <span className="font-mono text-white/80">
                 <AnimatedNumber
-                  value={endingBalanceSimple(amountNum, supplyApy, days)}
+                  value={endingBalanceSimple(amountNum, safeApy, days)}
                   decimals={2}
                   suffix={` ${asset}`}
                 />
@@ -218,7 +219,7 @@ export function LendingCalculator() {
 
             {/* Disclaimer */}
             <p className="mt-4 text-[10px] leading-4 text-white/28">
-              Based on the current {supplyApy.toFixed(2)}% APY — rates change with
+              Based on the current {safeApy.toFixed(2)}% APY — rates change with
               pool utilization. This is an estimate, not a guarantee.
             </p>
           </>
