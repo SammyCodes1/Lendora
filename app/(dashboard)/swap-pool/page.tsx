@@ -466,7 +466,7 @@ export default function SwapPoolPage() {
 
             <GlassButton
               type="button"
-              variant="secondary"
+              variant="ghost"
               className="w-full"
               disabled={
                 !isConnected ||

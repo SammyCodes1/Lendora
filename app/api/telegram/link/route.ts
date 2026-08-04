@@ -2,14 +2,11 @@ import { isAddress, recoverMessageAddress } from "viem";
 import { NextResponse } from "next/server";
 import { getRedis } from "@/lib/server/redis";
 import { verifyTelegramInitData } from "@/lib/server/telegramAuth";
+import { linkMessage } from "@/lib/telegramLinkMessage";
 
 export const runtime = "nodejs";
 
 const WALLET_LINK_TTL_SECONDS = 90 * 24 * 60 * 60;
-
-function linkMessage(userId: number, nonce: string) {
-  return `Link Telegram account ${userId} to ArcLend wallet\n\nNonce: ${nonce}`;
-}
 
 export async function POST(request: Request) {
   const botToken = process.env.TELEGRAM_BOT_TOKEN ?? "";
@@ -95,5 +92,3 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ ok: true });
 }
-
-export { linkMessage };
