@@ -14,7 +14,6 @@ import domainMarketplaceJson from "@/constants/abis/DomainMarketplace.json";
 import earnVaultJson from "@/constants/abis/EarnVault.json";
 import lendingPoolJson from "@/constants/abis/LendingPool.json";
 import priceOracleJson from "@/constants/abis/MockPriceOracle.json";
-import swapPoolJson from "@/constants/abis/SwapPool.json";
 import { ARC_DEX_TOKENS } from "@/lib/arcDex";
 import { enforceRateLimit } from "@/lib/server/rateLimit";
 
@@ -29,15 +28,13 @@ const lendingPoolAbi = lendingPoolJson as Abi;
 const earnVaultAbi = earnVaultJson as Abi;
 const domainMarketplaceAbi = domainMarketplaceJson as Abi;
 const priceOracleAbi = priceOracleJson as Abi;
-const swapPoolAbi = swapPoolJson as Abi;
 
 type CategoryId =
   | "lending"
   | "borrowing"
   | "earn"
   | "liquidations"
-  | "marketplace"
-  | "swap";
+  | "marketplace";
 
 type TokenMeta = {
   address: Address;
@@ -91,7 +88,6 @@ const CATEGORY_ORDER: CategoryId[] = [
   "earn",
   "liquidations",
   "marketplace",
-  "swap",
 ];
 
 const CATEGORY_LABELS: Record<CategoryId, string> = {
@@ -100,7 +96,6 @@ const CATEGORY_LABELS: Record<CategoryId, string> = {
   earn: "Earn pools",
   liquidations: "Liquidations",
   marketplace: "Marketplace",
-  swap: "Swap pool",
 };
 
 const STABLECOIN_SYMBOLS = new Set(["USDC", "EURC", "USDT"]);
@@ -474,35 +469,6 @@ export async function GET(
       user: address,
       userTopic: 3,
     }),
-    // ArcLend-native SwapPool — attributed to ArcLend (not shared public routers).
-    ...(deployments.SwapPool && deployments.swapPoolDeploymentBlock
-      ? [
-          queryLogs({
-            contract: deployments.SwapPool as Address,
-            abi: swapPoolAbi,
-            eventName: "Swap",
-            fromBlock: deployments.swapPoolDeploymentBlock,
-            user: address,
-            userTopic: 1,
-          }),
-          queryLogs({
-            contract: deployments.SwapPool as Address,
-            abi: swapPoolAbi,
-            eventName: "LiquidityAdded",
-            fromBlock: deployments.swapPoolDeploymentBlock,
-            user: address,
-            userTopic: 1,
-          }),
-          queryLogs({
-            contract: deployments.SwapPool as Address,
-            abi: swapPoolAbi,
-            eventName: "LiquidityRemoved",
-            fromBlock: deployments.swapPoolDeploymentBlock,
-            user: address,
-            userTopic: 1,
-          }),
-        ]
-      : []),
   ];
 
   let logHistoryComplete = true;
@@ -593,63 +559,6 @@ export async function GET(
           if (amount !== null) {
             addVolume("marketplace", actionId, NATIVE_USDC, amount, blockNumber);
           }
-          return;
-        }
-
-        if (query.abi === swapPoolAbi && query.eventName === "Swap") {
-          const tokenIn = addressArg(args, "tokenIn");
-          const amountIn = bigintArg(args, "amountIn");
-          const token = tokenIn ? tokenForAddress(tokenIn) : null;
-          if (token && amountIn !== null) {
-            addVolume("swap", actionId, token, amountIn, blockNumber);
-          }
-          return;
-        }
-
-        if (
-          query.abi === swapPoolAbi &&
-          (query.eventName === "LiquidityAdded" ||
-            query.eventName === "LiquidityRemoved")
-        ) {
-          const amountA = bigintArg(args, "amountA");
-          const amountB = bigintArg(args, "amountB");
-          // One LP action; sum both asset notionals into volume.
-          if (amountA !== null && amountA > 0n) {
-            addVolume("swap", actionId, ARC_DEX_TOKENS.USDC, amountA, blockNumber);
-          }
-          if (amountB !== null && amountB > 0n) {
-            // Second leg: credit EURC without double-counting the action id.
-            const secondaryId = actionId + ":B";
-            if (!seenActions.has(secondaryId) && amountB > 0n) {
-              seenActions.add(secondaryId);
-              const category = categories.get("swap")!;
-              const price = priceAtBlock(
-                priceHistories,
-                ARC_DEX_TOKENS.EURC,
-                blockNumber,
-              );
-              const usdMicro = price
-                ? toUsdMicro(amountB, ARC_DEX_TOKENS.EURC, price)
-                : 0n;
-              if (!price) {
-                category.unpricedActions += 1;
-                valuationComplete = false;
-              }
-              category.usdMicro += usdMicro;
-              const asset =
-                assets.get("EURC") ??
-                {
-                  symbol: "EURC",
-                  amountMicro: 0n,
-                  usdMicro: 0n,
-                  actions: new Set<string>(),
-                };
-              asset.amountMicro += toTokenMicro(amountB, 6);
-              asset.usdMicro += usdMicro;
-              asset.actions.add(actionId);
-              assets.set("EURC", asset);
-            }
-          }
         }
       } catch {
         logHistoryComplete = false;
@@ -715,14 +624,15 @@ export async function GET(
       oracleHistoryComplete,
       valuationComplete,
       methodology:
-        "Gross lifetime notional counts one amount for every successful ArcLend protocol event: supply, withdraw, borrow, repay, earn deposit, earn withdrawal, liquidation, marketplace purchase, and ArcLend SwapPool swap / LP add / LP remove. Entry and exit actions are both counted, so this is activity volume rather than net deposits or TVL.",
+        "Gross lifetime notional counts one amount for every successful ArcLend protocol event: supply, withdraw, borrow, repay, earn deposit, earn withdrawal, liquidation, and marketplace purchase. Entry and exit actions are both counted, so this is activity volume rather than net deposits or TVL.",
       valuation:
         "USDC, EURC, and USDT use a $1 stablecoin convention. Other assets use the latest ArcLend oracle price available at that action's block.",
       scope:
-        "Only ArcLend-deployed contracts are counted. Shared public DEX routers (Curve, Xylo, Tower, Synthra) and bridges are excluded because they cannot be reliably attributed to ArcLend alone.",
+        "Only ArcLend lending, earn, liquidation, and marketplace contracts are counted. Swaps (including ArcLend SwapPool), bridges, and shared public DEX routers are excluded.",
       exclusions: [
         "Wallet transfers unrelated to ArcLend",
-        "Swaps and bridges through shared public routes (Curve, Xylo, Tower, Synthra, CCTP)",
+        "Swaps through ArcLend SwapPool or shared public routes (Curve, Xylo, Tower, Synthra)",
+        "Bridges (including CCTP / Gateway)",
         "Approvals, fees, aToken/debt-token minting, and internal transfers",
         "The collateral side of a liquidation",
         "Failed or reverted transactions",
