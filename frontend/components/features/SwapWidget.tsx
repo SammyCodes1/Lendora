@@ -40,7 +40,9 @@ import {
   ARC_DEX_TOKENS,
   CURVE_ABI,
   encodeTowerAdapterSwapCalldata,
+  isArcLendSwapPair,
   isStableSwapPair,
+  SWAP_POOL_ABI,
   synthraV3FeesForPair,
   TOWER_ABI,
   TOWER_ADAPTER_ABI,
@@ -53,7 +55,7 @@ import { showToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 type TokenSymbol = keyof typeof ARC_DEX_TOKENS;
-type RouteKey = "curve" | "xylo" | "v3" | "tower";
+type RouteKey = "curve" | "xylo" | "v3" | "tower" | "arclend";
 type Quote = {
   key: RouteKey;
   label: string;
@@ -71,6 +73,7 @@ type SwapProgressStep = {
 };
 
 const routeMeta: Record<RouteKey, { label: string; detail: string }> = {
+  arclend: { label: "ArcLend", detail: "Native USDC/EURC pool" },
   curve: { label: "Curve", detail: "Stable pool" },
   xylo: { label: "Xylo", detail: "V2 router" },
   v3: { label: "Synthra V3", detail: "Concentrated liquidity" },
@@ -311,12 +314,14 @@ export function SwapWidget() {
     setError(null);
     const path = [fromToken.address, toToken.address] as Address[];
     const stablePair = isStableSwapPair(fromSymbol, toSymbol);
+    const arcLendPair = isArcLendSwapPair(fromSymbol, toSymbol);
     const v3Fees = synthraV3FeesForPair(fromSymbol, toSymbol);
     // Tower takes 0.25% on input; quote the adapter with the post-fee amount.
     const towerAmountIn = towerSwapAmountIn(parsedAmount);
 
     try {
-      const [[curve, xylo, tower], v3Quotes] = await Promise.all([
+      // Peer quotes only — ArcLend does not wrap Curve/Xylo/V3/Tower.
+      const [[curve, xylo, tower, arclend], v3Quotes] = await Promise.all([
         Promise.allSettled([
           stablePair
             ? publicClient.readContract({
@@ -350,6 +355,14 @@ export function SwapWidget() {
                 ],
               })
             : Promise.resolve(null),
+          arcLendPair
+            ? publicClient.readContract({
+                address: ARC_DEX_ROUTERS.arclend,
+                abi: SWAP_POOL_ABI,
+                functionName: "getQuote",
+                args: [fromToken.address, parsedAmount],
+              })
+            : Promise.resolve(null),
         ]),
         Promise.allSettled(
           v3Fees.map((fee) =>
@@ -372,6 +385,18 @@ export function SwapWidget() {
       ]);
 
       const nextQuotes: Quote[] = [];
+      if (
+        arclend.status === "fulfilled" &&
+        arclend.value !== null &&
+        arclend.value > 0n
+      ) {
+        nextQuotes.push({
+          key: "arclend",
+          label: routeMeta.arclend.label,
+          output: arclend.value,
+          router: ARC_DEX_ROUTERS.arclend,
+        });
+      }
       if (
         curve.status === "fulfilled" &&
         curve.value !== null &&
@@ -605,6 +630,14 @@ export function SwapWidget() {
             },
           ],
         });
+      } else if (activeRoute.key === "arclend") {
+        hash = await writeContractAsync({
+          chainId: 5042002,
+          address: ARC_DEX_ROUTERS.arclend,
+          abi: SWAP_POOL_ABI,
+          functionName: "swap",
+          args: [fromToken.address, parsedAmount, minimumOutput],
+        });
       } else {
         if (activeRoute.fee === undefined) {
           throw new Error("Synthra V3 fee tier is unavailable");
@@ -785,7 +818,7 @@ export function SwapWidget() {
             </div>
           </div>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {(Object.keys(routeMeta) as RouteKey[]).map((key) => {
               const quote = quotes.find((item) => item.key === key);
               const selected = activeRoute?.key === key;

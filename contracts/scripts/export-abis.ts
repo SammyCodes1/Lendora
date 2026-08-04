@@ -17,18 +17,31 @@ const CONTRACTS = [
   "EarnVault",
   "EarnReferralController",
   "RecurringOrderExecutor",
+  "SwapPool",
 ] as const;
 
 async function main() {
-  const outputDirectory = path.resolve(__dirname, "../../frontend/constants/abis");
-  await mkdir(outputDirectory, { recursive: true });
+  const outputDirectories = [
+    path.resolve(__dirname, "../../frontend/constants/abis"),
+    path.resolve(__dirname, "../../constants/abis"),
+  ];
+
+  for (const outputDirectory of outputDirectories) {
+    await mkdir(outputDirectory, { recursive: true });
+  }
 
   await Promise.all(
-    CONTRACTS.map(async (contractName) => {
-      const artifact = await artifacts.readArtifact(contractName);
-      const outputPath = path.join(outputDirectory, `${contractName}.json`);
-      await writeFile(outputPath, `${JSON.stringify(artifact.abi, null, 2)}\n`, "utf8");
-    }),
+    CONTRACTS.flatMap((contractName) =>
+      outputDirectories.map(async (outputDirectory) => {
+        const artifact = await artifacts.readArtifact(contractName);
+        const outputPath = path.join(outputDirectory, `${contractName}.json`);
+        await writeFile(
+          outputPath,
+          `${JSON.stringify(artifact.abi, null, 2)}\n`,
+          "utf8",
+        );
+      }),
+    ),
   );
 }
 

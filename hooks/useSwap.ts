@@ -19,7 +19,9 @@ import {
   ARC_DEX_TOKENS,
   CURVE_ABI,
   encodeTowerAdapterSwapCalldata,
+  isArcLendSwapPair,
   isStableSwapPair,
+  SWAP_POOL_ABI,
   synthraV3FeesForPair,
   TOWER_ABI,
   TOWER_ADAPTER_ABI,
@@ -32,7 +34,7 @@ import {
 export type SwapToken = keyof typeof ARC_DEX_TOKENS;
 
 export type SwapRouteQuote = {
-  key: "curve" | "xylo" | "v3" | "tower";
+  key: "curve" | "xylo" | "v3" | "tower" | "arclend";
   output: bigint;
   router: Address;
   fee?: number;
@@ -76,11 +78,13 @@ export function useSwap() {
 
       const path = [fromToken.address, toToken.address] as Address[];
       const stablePair = isStableSwapPair(tokenIn, tokenOut);
+      const arcLendPair = isArcLendSwapPair(tokenIn, tokenOut);
       const v3Fees = synthraV3FeesForPair(tokenIn, tokenOut);
       // Tower takes fee on input; quote adapter with the post-fee amount.
       const towerAmountIn = towerSwapAmountIn(parsedAmount);
 
-      const [[curve, xylo, tower], v3Quotes] = await Promise.all([
+      // Each DEX is quoted independently — ArcLend is one peer route, not a meta-router.
+      const [[curve, xylo, tower, arclend], v3Quotes] = await Promise.all([
         Promise.allSettled([
           stablePair
             ? publicClient.readContract({
@@ -112,6 +116,14 @@ export function useSwap() {
                   toToken.address,
                   towerAmountIn,
                 ],
+              })
+            : Promise.resolve(null),
+          arcLendPair
+            ? publicClient.readContract({
+                address: ARC_DEX_ROUTERS.arclend,
+                abi: SWAP_POOL_ABI,
+                functionName: "getQuote",
+                args: [fromToken.address, parsedAmount],
               })
             : Promise.resolve(null),
         ]),
@@ -168,6 +180,17 @@ export function useSwap() {
           key: "tower",
           output: tower.value,
           router: ARC_DEX_ROUTERS.tower,
+        });
+      }
+      if (
+        arclend.status === "fulfilled" &&
+        arclend.value !== null &&
+        arclend.value > 0n
+      ) {
+        quotes.push({
+          key: "arclend",
+          output: arclend.value,
+          router: ARC_DEX_ROUTERS.arclend,
         });
       }
       const bestV3 = v3Quotes.reduce<SwapRouteQuote | null>(
@@ -324,6 +347,14 @@ export function useSwap() {
                 routeCalldata,
               },
             ],
+          });
+        } else if (best.key === "arclend") {
+          hash = await writeContractAsync({
+            chainId: 5042002,
+            address: ARC_DEX_ROUTERS.arclend,
+            abi: SWAP_POOL_ABI,
+            functionName: "swap",
+            args: [fromToken.address, parsedAmount, minimumOutput],
           });
         } else {
           if (best.fee === undefined) {

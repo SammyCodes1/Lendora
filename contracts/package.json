@@ -18,6 +18,8 @@
     "deploy:pyth-oracle": "hardhat run scripts/15_deploy_pyth_oracle.ts --network arc_testnet",
     "prime:pyth-oracle": "hardhat run scripts/prime_pyth_oracle.ts --network arc_testnet",
     "switch:pyth-oracle": "hardhat run scripts/16_switch_to_pyth_oracle.ts --network arc_testnet",
+    "deploy:swap-pool": "hardhat run scripts/17_deploy_swap_pool.ts --network arc_testnet",
+    "seed:swap-pool": "hardhat run scripts/seed_swap_pool.ts --network arc_testnet",
     "relayer": "npx tsx scripts/relayer.ts",
     "relayer:loop": "npx tsx scripts/relayer.ts --loop --interval 30"
   },

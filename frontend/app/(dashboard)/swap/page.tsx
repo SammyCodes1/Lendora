@@ -62,8 +62,9 @@ function OnchainSwapFlow() {
           </h2>
         </div>
         <p className="mt-2 text-sm leading-6 text-white/45">
-          One signed transaction moves through the router and liquidity pool,
-          then settles directly back to your wallet.
+          Quotes are compared across peer venues (including ArcLend&apos;s own
+          USDC/EURC pool). You pick a route; one signed transaction settles
+          output directly back to your wallet.
         </p>
 
         <div className="mt-6 flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-3">

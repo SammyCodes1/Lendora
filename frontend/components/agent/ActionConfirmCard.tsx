@@ -111,6 +111,7 @@ const arcDestination: BridgeNetwork = {
 };
 
 const swapRouteLabels: Record<SwapRouteQuote["key"], string> = {
+  arclend: "ArcLend native pool",
   curve: "Curve stable pool",
   xylo: "Xylo V2 router",
   v3: "Synthra V3 router",

@@ -56,5 +56,7 @@
     "InterestRateModel": "0xe039010bb89adb6f2f9e56a65d1db60591a7ac05c05e0d9d2b3f700c69237f44",
     "LendingPoolAddressesProvider": "0x7e30e43f031e4ae2320c9f10069ec16aead52774bc2102a4a220629ce2c96187"
   },
-  "RecurringOrderExecutor": "0x884C8C2E3F4a2232797C54be029a8a87e31d75e4"
+  "RecurringOrderExecutor": "0x884C8C2E3F4a2232797C54be029a8a87e31d75e4",
+  "SwapPool": "0x49FD6464Ebbe659aaF55034441B134E5030A4A4A",
+  "swapPoolDeploymentBlock": 55192926
 }

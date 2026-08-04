@@ -27,6 +27,11 @@ export const ARC_DEX_TOKENS = {
 >;
 
 export const ARC_DEX_ROUTERS = {
+  /**
+   * ArcLend native constant-product pool (USDC/EURC).
+   * Peer route — does not wrap or replace other DEX routers.
+   */
+  arclend: "0x49FD6464Ebbe659aaF55034441B134E5030A4A4A",
   /** TowerSwapExecutor — separate swap entrypoint (not Xylo/Curve/V3). */
   tower: "0x2De8906a641d65d490bC60A4179d961d59742bCb",
   /** TowerDexAdapter — route target called by Tower.executeSwap. */
@@ -76,6 +81,14 @@ export function isStableSwapPair(
 ) {
   const pair = new Set([tokenIn, tokenOut]);
   return pair.has("USDC") && pair.has("EURC");
+}
+
+/** ArcLend SwapPool only supports the USDC/EURC pair. */
+export function isArcLendSwapPair(
+  tokenIn: keyof typeof ARC_DEX_TOKENS,
+  tokenOut: keyof typeof ARC_DEX_TOKENS,
+) {
+  return isStableSwapPair(tokenIn, tokenOut);
 }
 
 export const CURVE_ABI = [
@@ -267,3 +280,102 @@ export function encodeTowerAdapterSwapCalldata(args: {
     ],
   });
 }
+
+/** ArcLend native SwapPool ABI (peer route for USDC/EURC). */
+export const SWAP_POOL_ABI = [
+  {
+    name: "getQuote",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      { name: "tokenIn", type: "address" },
+      { name: "amountIn", type: "uint256" },
+    ],
+    outputs: [{ name: "amountOut", type: "uint256" }],
+  },
+  {
+    name: "swap",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "tokenIn", type: "address" },
+      { name: "amountIn", type: "uint256" },
+      { name: "minAmountOut", type: "uint256" },
+    ],
+    outputs: [{ name: "amountOut", type: "uint256" }],
+  },
+  {
+    name: "addLiquidity",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "amountADesired", type: "uint256" },
+      { name: "amountBDesired", type: "uint256" },
+      { name: "minLpTokens", type: "uint256" },
+    ],
+    outputs: [{ name: "lpTokens", type: "uint256" }],
+  },
+  {
+    name: "removeLiquidity",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "lpTokens", type: "uint256" },
+      { name: "minAmountA", type: "uint256" },
+      { name: "minAmountB", type: "uint256" },
+    ],
+    outputs: [
+      { name: "amountA", type: "uint256" },
+      { name: "amountB", type: "uint256" },
+    ],
+  },
+  {
+    name: "reserveA",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "reserveB",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "feeBps",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "totalSupply",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "balanceOf",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "tokenA",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+  },
+  {
+    name: "tokenB",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+  },
+] as const;
