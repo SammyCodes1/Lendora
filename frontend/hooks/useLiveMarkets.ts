@@ -453,8 +453,7 @@ export function useLiveMarkets(
       resultAt(baseReads.data, activeDefinitions.length * CALLS_PER_MARKET),
     ),
     // Use isLoading (pending + fetching), not isPending alone. Disabled rate
-    // queries stay isPending forever with no data (TanStack Query v5), which
-    // froze calculator / market UIs on an infinite skeleton.
+    // queries stay isPending forever with no data (TanStack Query v5).
     isLoading: baseReads.isLoading || rateReads.isLoading,
     isError: baseReads.isError || rateReads.isError || baseFailed || ratesFailed,
     refetch: async () => {
