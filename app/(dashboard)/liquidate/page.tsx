@@ -188,14 +188,6 @@ export default function LiquidatePage() {
           icon={<AlertTriangle />}
           title="Liquidations"
           description="Scan recent borrowers for under-collateralized positions, review health factor, and act when liquidation criteria are met."
-          stats={[
-            {
-              label: "At-risk",
-              value: positions.length.toString(),
-              tone: positions.length > 0 ? "warning" : "positive",
-            },
-            { label: "Close factor", value: "50%" },
-          ]}
         />
 
         <GlassCard glowOnHover className="p-5">

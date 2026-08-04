@@ -24,10 +24,6 @@ export default function BridgePage() {
           icon={<ArrowLeftRight />}
           title="Bridge USDC"
           description="Move testnet USDC between Arc and supported networks, then inspect unified balances before returning to lending."
-          stats={[
-            { label: "Networks", value: "5", tone: "positive" },
-            { label: "Asset", value: "USDC" },
-          ]}
         />
 
         <div className="grid gap-5 lg:grid-cols-[1.08fr_0.92fr]">

@@ -12,7 +12,6 @@ import {
   Loader2,
   Route,
   Settings2,
-  ShieldCheck,
   X,
   XCircle,
 } from "lucide-react";
@@ -703,10 +702,6 @@ export function SwapWidget() {
             <h2 className="mt-1 text-xl font-semibold text-white">
               Swap assets
             </h2>
-          </div>
-          <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/50">
-            <ShieldCheck className="h-4 w-4 text-white/60" />
-            Arc DEX routes only
           </div>
         </div>
       </div>

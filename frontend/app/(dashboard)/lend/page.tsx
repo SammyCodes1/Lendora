@@ -350,11 +350,6 @@ export default function LendPage() {
       ),
     [markets],
   );
-  const totalSupplyUsd = markets.reduce(
-    (sum, market) => sum + market.totalSupplyUsd,
-    0n,
-  );
-  const suppliedPositions = markets.filter((market) => market.userSupply > 0n).length;
 
   const ensureArc = useCallback(async () => {
     if (!address) {
@@ -470,22 +465,6 @@ export default function LendPage() {
           icon={<Wallet />}
           title="Lend"
           description="Supply USDC and EURC into ArcLend reserves, monitor accrued yield, and withdraw balances without leaving the lending surface. Suppliers share protocol risk: in a bad-debt event the owner may socialize losses by reducing aToken index."
-          stats={[
-            {
-              label: "Total supplied",
-              value: `$${Number(formatUnits(totalSupplyUsd, 8)).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
-              tone: "positive",
-            },
-            {
-              label: "Your positions",
-              value: suppliedPositions.toString(),
-            },
-            {
-              label: "Yield claims",
-              value: claimableMarkets.length.toString(),
-              tone: claimableMarkets.length > 0 ? "positive" : "neutral",
-            },
-          ]}
         />
 
         {isError ? (

@@ -152,10 +152,6 @@ export default function SwapPage() {
           icon={<Route />}
           title="Swap"
           description="Exchange Arc stablecoins through a precise, transparent route with slippage and settlement visible before signing."
-          stats={[
-            { label: "Router", value: "Arc DEX" },
-            { label: "Settlement", value: "Atomic", tone: "positive" },
-          ]}
         />
 
         <div className="grid gap-5 lg:grid-cols-[1.08fr_0.92fr]">

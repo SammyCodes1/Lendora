@@ -42,12 +42,10 @@ const links: LinkItem[] = [
   { href: "/borrow", label: "Borrow" },
   { href: "/positions", label: "Positions" },
   { href: "/swap", label: "Swap" },
-  { href: "/orders", label: "Orders" },
   {
     label: "More",
     sublinks: [
       { href: "/calculator", label: "Calculator" },
-      { href: "/swap-pool", label: "Swap Pool LP" },
       { href: "/referrals", label: "Referrals", disabled: true },
       { href: "/bridge", label: "Bridge" },
       { href: "/predictions", label: "Predictions", disabled: true },

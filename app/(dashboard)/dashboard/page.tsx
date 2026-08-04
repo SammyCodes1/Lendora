@@ -130,9 +130,6 @@ function ProtocolStatsBar({
     <GlassCard depth="foreground" className="p-5 sm:p-6">
       <div className="mb-4 flex min-w-0 flex-wrap items-center justify-between gap-3">
         <SectionLabel>Protocol overview</SectionLabel>
-        <span className="rounded-full border border-white/[0.08] bg-white/[0.035] px-3 py-1 text-[10px] uppercase text-white/42">
-          Live Arc Testnet reserves
-        </span>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map((stat) => {
@@ -549,8 +546,6 @@ export default function DashboardPage() {
   const [activeModal, setActiveModal] = useState<ActionModal>(null);
   const [selectedMarket, setSelectedMarket] = useState<MarketAsset | null>(null);
   const { markets, isPaused, isError } = useLiveMarkets();
-  const totalSupply = markets.reduce((sum, market) => sum + market.totalSupplyUsd, 0n);
-  const totalBorrow = markets.reduce((sum, market) => sum + market.totalBorrowUsd, 0n);
 
   const closeModal = useCallback(() => setActiveModal(null), []);
   const openModal = useCallback((modal: ActionModal, market: MarketAsset) => {
@@ -570,22 +565,6 @@ export default function DashboardPage() {
         icon={<BarChart2 />}
         title="ArcLend Markets"
         description="A single view of stablecoin liquidity, live rates, and your lending position across Arc Network."
-        stats={[
-          {
-            label: "TVL",
-            value: `$${Number(formatUnits(totalSupply, 8)).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
-            tone: "positive",
-          },
-          {
-            label: "Borrowed",
-            value: `$${Number(formatUnits(totalBorrow, 8)).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
-          },
-          {
-            label: "Status",
-            value: isPaused ? "Paused" : "Live",
-            tone: isPaused ? "warning" : "positive",
-          },
-        ]}
       />
       {isError ? (
         <div
