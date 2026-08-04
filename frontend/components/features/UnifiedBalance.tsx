@@ -2,19 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Layers, Loader2, RefreshCw } from "lucide-react";
+import { ChevronDown, Layers, RefreshCw } from "lucide-react";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
-import { GlassButton } from "@/components/ui/GlassButton";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useUnifiedBalance } from "@/hooks/useAppKit";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
 import { useCloseOnResume } from "@/hooks/useCloseOnResume";
-import { showToast } from "@/lib/toast";
 
 export function UnifiedBalance() {
-  const { isConnected, source } = useArcLendAccount();
-  const [amount, setAmount] = useState("");
   const balance = useUnifiedBalance();
 
   return (
@@ -26,7 +22,9 @@ export function UnifiedBalance() {
           </div>
           <div>
             <h2 className="font-semibold text-white">Unified USDC Balance</h2>
-            <p className="mt-1 text-xs text-white/45">Wallet and Circle Gateway USDC across supported testnets</p>
+            <p className="mt-1 text-xs text-white/45">
+              Wallet and Circle Gateway USDC across supported testnets
+            </p>
           </div>
         </div>
         <button
@@ -35,7 +33,11 @@ export function UnifiedBalance() {
           onClick={() => void balance.refresh()}
           className="rounded-lg border border-white/[0.08] bg-white/[0.04] p-2 text-white/45 transition hover:text-white"
         >
-          <RefreshCw className={balance.status === "loading" ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
+          <RefreshCw
+            className={
+              balance.status === "loading" ? "h-4 w-4 animate-spin" : "h-4 w-4"
+            }
+          />
         </button>
       </div>
 
@@ -56,7 +58,10 @@ export function UnifiedBalance() {
           ["Gateway", balance.gatewayTotal],
           ["Arc Wallet", balance.walletBreakdown.arc],
         ].map(([label, value]) => (
-          <div key={label} className="min-w-0 rounded-xl border border-white/[0.08] bg-white/[0.035] p-3">
+          <div
+            key={label}
+            className="min-w-0 rounded-xl border border-white/[0.08] bg-white/[0.035] p-3"
+          >
             <p className="truncate text-white/40">{label}</p>
             <p className="mt-1 font-mono text-white">
               <AnimatedNumber value={Number(value)} prefix="$" decimals={2} />
@@ -65,42 +70,9 @@ export function UnifiedBalance() {
         ))}
       </div>
 
-      <div className="mt-4 flex gap-2">
-        <input
-          aria-label="Unified USDC amount to move to Arc"
-          value={amount}
-          onChange={(event) => setAmount(event.target.value)}
-          inputMode="decimal"
-          placeholder="0.00"
-          className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.05] px-3 font-mono text-sm text-white outline-none focus:border-white/30"
-        />
-        <GlassButton
-          type="button"
-          variant="primary"
-          className="shrink-0 px-4"
-          disabled={
-            !isConnected ||
-            source !== "wallet" ||
-            !amount ||
-            Number(amount) <= 0 ||
-            balance.isLoading
-          }
-          onClick={async () => {
-            try {
-              await balance.moveToArc(amount);
-              showToast("success", "Unified USDC moved to Arc Testnet");
-              setAmount("");
-            } catch (error) {
-              showToast("error", error instanceof Error ? error.message : "Unified Balance transfer failed");
-            }
-          }}
-        >
-          {balance.status === "confirming" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          {source === "email" ? "Use browser wallet" : "Deposit to Arc"}
-        </GlassButton>
-      </div>
-
-      {balance.error ? <p className="mt-3 text-xs text-red-300">{balance.error.message}</p> : null}
+      {balance.error ? (
+        <p className="mt-3 text-xs text-red-300">{balance.error.message}</p>
+      ) : null}
     </GlassCard>
   );
 }
