@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   Sparkles,
   Store,
+  ArrowLeftRight,
   Trash2,
   UserRound,
   Vault,
@@ -52,7 +53,8 @@ type VolumeCategoryId =
   | "borrowing"
   | "earn"
   | "liquidations"
-  | "marketplace";
+  | "marketplace"
+  | "swap";
 
 type ProfileVolume = {
   address: string;
@@ -92,6 +94,7 @@ const volumeCategoryIcons: Record<VolumeCategoryId, LucideIcon> = {
   earn: Vault,
   liquidations: Scale,
   marketplace: Store,
+  swap: ArrowLeftRight,
 };
 
 const defaultAvatar: AvatarChoice = { kind: "preset", id: "classic" };
