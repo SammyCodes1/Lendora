@@ -42,9 +42,11 @@ const links: LinkItem[] = [
   { href: "/borrow", label: "Borrow" },
   { href: "/positions", label: "Positions" },
   { href: "/swap", label: "Swap" },
+  { href: "/orders", label: "Orders" },
   {
     label: "More",
     sublinks: [
+      { href: "/calculator", label: "Calculator" },
       { href: "/referrals", label: "Referrals", disabled: true },
       { href: "/bridge", label: "Bridge" },
       { href: "/predictions", label: "Predictions", disabled: true },
@@ -269,6 +271,8 @@ export function Navbar() {
     });
   }, []);
 
+  // Always keep profile in a fixed-size, non-shrinking control so dense
+  // balance chips / wallet buttons cannot push it off-screen.
   const profileLink = isConnected ? (
     <Link
       href="/profile"
@@ -277,11 +281,11 @@ export function Navbar() {
       prefetch
       onClick={closeMenuDeferred}
       className={cn(
-        "inline-flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg border border-white/10 bg-white/[0.045] text-white/55 transition hover:border-white/20 hover:bg-white/[0.075] hover:text-white",
-        pathname === "/profile" && "border-white/25 bg-white/[0.09] text-white",
+        "relative z-[1003] inline-flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg border border-white/15 bg-white/[0.07] text-white/80 transition hover:border-white/30 hover:bg-white/[0.12] hover:text-white",
+        pathname === "/profile" && "border-white/30 bg-white/[0.12] text-white",
       )}
     >
-      <UserRound className="h-4 w-4" />
+      <UserRound className="h-4 w-4" strokeWidth={2} />
     </Link>
   ) : null;
 
@@ -293,7 +297,7 @@ export function Navbar() {
       aria-label="Open Circle faucet"
       title="Circle faucet"
       onClick={closeMenu}
-      className="inline-flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg border border-white/10 bg-white/[0.045] text-white/55 transition hover:border-white/20 hover:bg-white/[0.075] hover:text-white"
+      className="relative z-[1003] inline-flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg border border-white/10 bg-white/[0.045] text-white/55 transition hover:border-white/20 hover:bg-white/[0.075] hover:text-white"
     >
       <Droplets className="h-4 w-4" />
     </a>
@@ -389,27 +393,37 @@ export function Navbar() {
             <NavLinks />
           </nav>
 
-          <div className="hidden items-center gap-3 xl:flex">
-            <div className="shrink-0">
+          {/*
+            Desktop actions: USDC/EURC chips always visible when connected.
+            Profile + wallet stay shrink-0 so they are not pushed off-screen.
+          */}
+          <div className="hidden items-center gap-2 xl:flex">
+            <div className="hidden shrink-0 2xl:block">
               <UnifiedBalanceChip />
             </div>
             <AssetBalanceChips />
             <NetworkSwitcher />
-            <ConnectWalletButton />
-            {faucetLink}
-            {profileLink}
+            <div className="flex shrink-0 items-center gap-2">
+              <ConnectWalletButton />
+              {faucetLink}
+              {profileLink}
+            </div>
           </div>
 
-          <div className="relative z-[1002] flex items-center gap-2 xl:hidden">
-            <UnifiedBalanceChip />
+          {/* Mobile top bar — profile icon lives here (not only inside the drawer). */}
+          <div className="relative z-[1002] flex shrink-0 items-center gap-2 xl:hidden">
+            <div className="hidden min-[400px]:block">
+              <UnifiedBalanceChip />
+            </div>
             {faucetLink}
+            {profileLink}
             <button
               type="button"
               aria-label={open ? "Close navigation menu" : "Open navigation menu"}
               aria-expanded={open}
               aria-controls={menuId}
               onClick={toggleMenu}
-              className="inline-flex h-11 w-11 touch-manipulation items-center justify-center rounded-md border border-white/10 bg-white/[0.045] text-white"
+              className="inline-flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center rounded-md border border-white/10 bg-white/[0.045] text-white"
             >
               {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>

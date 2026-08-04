@@ -39,8 +39,12 @@ import {
   ARC_DEX_ROUTERS,
   ARC_DEX_TOKENS,
   CURVE_ABI,
+  encodeTowerAdapterSwapCalldata,
   isStableSwapPair,
   synthraV3FeesForPair,
+  TOWER_ABI,
+  TOWER_ADAPTER_ABI,
+  towerSwapAmountIn,
   V2_ROUTER_ABI,
   V3_QUOTER_ABI,
   V3_ROUTER_ABI,
@@ -49,7 +53,7 @@ import { showToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 type TokenSymbol = keyof typeof ARC_DEX_TOKENS;
-type RouteKey = "curve" | "xylo" | "v3";
+type RouteKey = "curve" | "xylo" | "v3" | "tower";
 type Quote = {
   key: RouteKey;
   label: string;
@@ -70,6 +74,7 @@ const routeMeta: Record<RouteKey, { label: string; detail: string }> = {
   curve: { label: "Curve", detail: "Stable pool" },
   xylo: { label: "Xylo", detail: "V2 router" },
   v3: { label: "Synthra V3", detail: "Concentrated liquidity" },
+  tower: { label: "Tower", detail: "Tower executor + DEX adapter" },
 };
 
 const tokenSymbols = Object.keys(ARC_DEX_TOKENS) as TokenSymbol[];
@@ -307,9 +312,11 @@ export function SwapWidget() {
     const path = [fromToken.address, toToken.address] as Address[];
     const stablePair = isStableSwapPair(fromSymbol, toSymbol);
     const v3Fees = synthraV3FeesForPair(fromSymbol, toSymbol);
+    // Tower takes 0.25% on input; quote the adapter with the post-fee amount.
+    const towerAmountIn = towerSwapAmountIn(parsedAmount);
 
     try {
-      const [[curve, xylo], v3Quotes] = await Promise.all([
+      const [[curve, xylo, tower], v3Quotes] = await Promise.all([
         Promise.allSettled([
           stablePair
             ? publicClient.readContract({
@@ -329,6 +336,18 @@ export function SwapWidget() {
                 abi: V2_ROUTER_ABI,
                 functionName: "getAmountsOut",
                 args: [parsedAmount, path],
+              })
+            : Promise.resolve(null),
+          towerAmountIn > 0n
+            ? publicClient.readContract({
+                address: ARC_DEX_ROUTERS.towerAdapter,
+                abi: TOWER_ADAPTER_ABI,
+                functionName: "getAmountOut",
+                args: [
+                  fromToken.address,
+                  toToken.address,
+                  towerAmountIn,
+                ],
               })
             : Promise.resolve(null),
         ]),
@@ -376,6 +395,18 @@ export function SwapWidget() {
           label: routeMeta.xylo.label,
           output: xylo.value[1],
           router: ARC_DEX_ROUTERS.xylo,
+        });
+      }
+      if (
+        tower.status === "fulfilled" &&
+        tower.value !== null &&
+        tower.value > 0n
+      ) {
+        nextQuotes.push({
+          key: "tower",
+          label: routeMeta.tower.label,
+          output: tower.value,
+          router: ARC_DEX_ROUTERS.tower,
         });
       }
       const bestV3 = v3Quotes.reduce<Quote | null>(
@@ -540,6 +571,38 @@ export function SwapWidget() {
             [fromToken.address, toToken.address],
             address,
             BigInt(Math.floor(Date.now() / 1000) + 20 * 60),
+          ],
+        });
+      } else if (activeRoute.key === "tower") {
+        const swapAmountIn = towerSwapAmountIn(parsedAmount);
+        if (swapAmountIn <= 0n) {
+          throw new Error("Swap amount too small after Tower fee");
+        }
+        const deadline = BigInt(Math.floor(Date.now() / 1000) + 20 * 60);
+        const routeCalldata = encodeTowerAdapterSwapCalldata({
+          tokenIn: fromToken.address,
+          tokenOut: toToken.address,
+          amountIn: swapAmountIn,
+          minAmountOut: minimumOutput,
+          deadline,
+        });
+
+        hash = await writeContractAsync({
+          chainId: 5042002,
+          address: ARC_DEX_ROUTERS.tower,
+          abi: TOWER_ABI,
+          functionName: "executeSwap",
+          args: [
+            {
+              tokenIn: fromToken.address,
+              tokenOut: toToken.address,
+              amountIn: parsedAmount,
+              minAmountOut: minimumOutput,
+              recipient: address,
+              routeTarget: ARC_DEX_ROUTERS.towerAdapter,
+              approvalSpender: ARC_DEX_ROUTERS.towerAdapter,
+              routeCalldata,
+            },
           ],
         });
       } else {
@@ -722,7 +785,7 @@ export function SwapWidget() {
             </div>
           </div>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {(Object.keys(routeMeta) as RouteKey[]).map((key) => {
               const quote = quotes.find((item) => item.key === key);
               const selected = activeRoute?.key === key;

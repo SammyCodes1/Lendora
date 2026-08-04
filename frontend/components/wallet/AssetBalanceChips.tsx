@@ -67,7 +67,7 @@ function NetworkTokenBalanceChip({
   }, [balance.data]);
 
   return (
-    <span className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 text-xs text-white/60">
+    <span className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 text-xs text-white/60">
       <TokenIcon symbol={symbol} />
       <span className="leading-tight">
         <span className="block font-mono text-xs text-white">
@@ -91,8 +91,8 @@ export function AssetBalanceChips({ mobile = false }: { mobile?: boolean }) {
   return (
     <span
       className={cn(
-        "flex items-center gap-2",
-        mobile && "grid grid-cols-2",
+        "flex shrink-0 items-center gap-2",
+        mobile && "grid w-full grid-cols-2",
       )}
     >
       <NetworkTokenBalanceChip symbol="USDC" contracts={usdcByChain} />

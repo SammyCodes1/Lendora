@@ -18,8 +18,12 @@ import {
   ARC_DEX_ROUTERS,
   ARC_DEX_TOKENS,
   CURVE_ABI,
+  encodeTowerAdapterSwapCalldata,
   isStableSwapPair,
   synthraV3FeesForPair,
+  TOWER_ABI,
+  TOWER_ADAPTER_ABI,
+  towerSwapAmountIn,
   V2_ROUTER_ABI,
   V3_QUOTER_ABI,
   V3_ROUTER_ABI,
@@ -28,7 +32,7 @@ import {
 export type SwapToken = keyof typeof ARC_DEX_TOKENS;
 
 export type SwapRouteQuote = {
-  key: "curve" | "xylo" | "v3";
+  key: "curve" | "xylo" | "v3" | "tower";
   output: bigint;
   router: Address;
   fee?: number;
@@ -73,7 +77,10 @@ export function useSwap() {
       const path = [fromToken.address, toToken.address] as Address[];
       const stablePair = isStableSwapPair(tokenIn, tokenOut);
       const v3Fees = synthraV3FeesForPair(tokenIn, tokenOut);
-      const [[curve, xylo], v3Quotes] = await Promise.all([
+      // Tower takes fee on input; quote adapter with the post-fee amount.
+      const towerAmountIn = towerSwapAmountIn(parsedAmount);
+
+      const [[curve, xylo, tower], v3Quotes] = await Promise.all([
         Promise.allSettled([
           stablePair
             ? publicClient.readContract({
@@ -93,6 +100,18 @@ export function useSwap() {
                 abi: V2_ROUTER_ABI,
                 functionName: "getAmountsOut",
                 args: [parsedAmount, path],
+              })
+            : Promise.resolve(null),
+          towerAmountIn > 0n
+            ? publicClient.readContract({
+                address: ARC_DEX_ROUTERS.towerAdapter,
+                abi: TOWER_ADAPTER_ABI,
+                functionName: "getAmountOut",
+                args: [
+                  fromToken.address,
+                  toToken.address,
+                  towerAmountIn,
+                ],
               })
             : Promise.resolve(null),
         ]),
@@ -138,6 +157,17 @@ export function useSwap() {
           key: "xylo",
           output: xylo.value[1],
           router: ARC_DEX_ROUTERS.xylo,
+        });
+      }
+      if (
+        tower.status === "fulfilled" &&
+        tower.value !== null &&
+        tower.value > 0n
+      ) {
+        quotes.push({
+          key: "tower",
+          output: tower.value,
+          router: ARC_DEX_ROUTERS.tower,
         });
       }
       const bestV3 = v3Quotes.reduce<SwapRouteQuote | null>(
@@ -261,6 +291,38 @@ export function useSwap() {
               path,
               address,
               BigInt(Math.floor(Date.now() / 1000) + 20 * 60),
+            ],
+          });
+        } else if (best.key === "tower") {
+          const swapAmountIn = towerSwapAmountIn(parsedAmount);
+          if (swapAmountIn <= 0n) {
+            throw new Error("Swap amount too small after Tower fee");
+          }
+          const deadline = BigInt(Math.floor(Date.now() / 1000) + 20 * 60);
+          const routeCalldata = encodeTowerAdapterSwapCalldata({
+            tokenIn: fromToken.address,
+            tokenOut: toToken.address,
+            amountIn: swapAmountIn,
+            minAmountOut: minimumOutput,
+            deadline,
+          });
+
+          hash = await writeContractAsync({
+            chainId: 5042002,
+            address: ARC_DEX_ROUTERS.tower,
+            abi: TOWER_ABI,
+            functionName: "executeSwap",
+            args: [
+              {
+                tokenIn: fromToken.address,
+                tokenOut: toToken.address,
+                amountIn: parsedAmount,
+                minAmountOut: minimumOutput,
+                recipient: address,
+                routeTarget: ARC_DEX_ROUTERS.towerAdapter,
+                approvalSpender: ARC_DEX_ROUTERS.towerAdapter,
+                routeCalldata,
+              },
             ],
           });
         } else {

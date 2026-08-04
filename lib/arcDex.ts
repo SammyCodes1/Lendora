@@ -1,4 +1,4 @@
-import type { Address } from "viem";
+import { encodeFunctionData, type Address, type Hex } from "viem";
 
 export const ARC_DEX_TOKENS = {
   USDC: {
@@ -27,11 +27,28 @@ export const ARC_DEX_TOKENS = {
 >;
 
 export const ARC_DEX_ROUTERS = {
+  /** TowerSwapExecutor — separate swap entrypoint (not Xylo/Curve/V3). */
+  tower: "0x2De8906a641d65d490bC60A4179d961d59742bCb",
+  /** TowerDexAdapter — route target called by Tower.executeSwap. */
+  towerAdapter: "0xAF076A2DaA8fA1B30e51CEE5C9eed989f9f3BD58",
   curve: "0x2d84d79c852f6842abe0304b70bbaa1506add457",
   xylo: "0x73742278c31a76dBb0D2587d03ef92E6E2141023",
   v3: "0xA545bCB1Bd7985c59ea162aB1748A0803434C31b",
   v3Quoter: "0x3Ce954107b1A675826B33bF23060Dd655e3758fE",
 } as const satisfies Record<string, Address>;
+
+/** On-chain Tower platform fee (25 bps = 0.25% of input). */
+export const TOWER_PLATFORM_FEE_BPS = 25n;
+export const TOWER_BPS_DENOMINATOR = 10_000n;
+
+/** Amount sent to the adapter after Tower takes its input fee. */
+export function towerSwapAmountIn(
+  amountIn: bigint,
+  feeBps: bigint = TOWER_PLATFORM_FEE_BPS,
+): bigint {
+  const feeAmount = (amountIn * feeBps) / TOWER_BPS_DENOMINATOR;
+  return amountIn - feeAmount;
+}
 
 export const SYNTHRA_V3_POOLS = {
   usdcCirBtc: {
@@ -163,3 +180,90 @@ export const V3_QUOTER_ABI = [
     ],
   },
 ] as const;
+
+export const TOWER_ADAPTER_ABI = [
+  {
+    name: "getAmountOut",
+    type: "function",
+    stateMutability: "view",
+    inputs: [
+      { name: "tokenIn", type: "address" },
+      { name: "tokenOut", type: "address" },
+      { name: "amountIn", type: "uint256" },
+    ],
+    outputs: [{ name: "amountOut", type: "uint256" }],
+  },
+  {
+    name: "swap",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "tokenIn", type: "address" },
+      { name: "tokenOut", type: "address" },
+      { name: "amountIn", type: "uint256" },
+      { name: "minAmountOut", type: "uint256" },
+      { name: "recipient", type: "address" },
+      { name: "deadline", type: "uint256" },
+    ],
+    outputs: [{ name: "amountOut", type: "uint256" }],
+  },
+] as const;
+
+export const TOWER_ABI = [
+  {
+    name: "executeSwap",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      {
+        name: "params",
+        type: "tuple",
+        components: [
+          { name: "tokenIn", type: "address" },
+          { name: "tokenOut", type: "address" },
+          { name: "amountIn", type: "uint256" },
+          { name: "minAmountOut", type: "uint256" },
+          { name: "recipient", type: "address" },
+          { name: "routeTarget", type: "address" },
+          { name: "approvalSpender", type: "address" },
+          { name: "routeCalldata", type: "bytes" },
+        ],
+      },
+    ],
+    outputs: [
+      { name: "amountOut", type: "uint256" },
+      { name: "feeAmount", type: "uint256" },
+      { name: "inputRefund", type: "uint256" },
+    ],
+  },
+  {
+    name: "platformFeeBps",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+] as const;
+
+/** Encode TowerDexAdapter.swap calldata for Tower.executeSwap routeCalldata. */
+export function encodeTowerAdapterSwapCalldata(args: {
+  tokenIn: Address;
+  tokenOut: Address;
+  amountIn: bigint;
+  minAmountOut: bigint;
+  deadline: bigint;
+}): Hex {
+  return encodeFunctionData({
+    abi: TOWER_ADAPTER_ABI,
+    functionName: "swap",
+    args: [
+      args.tokenIn,
+      args.tokenOut,
+      args.amountIn,
+      args.minAmountOut,
+      // Output must return to Tower so it can forward to the user.
+      ARC_DEX_ROUTERS.tower,
+      args.deadline,
+    ],
+  });
+}

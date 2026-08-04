@@ -114,6 +114,7 @@ const swapRouteLabels: Record<SwapRouteQuote["key"], string> = {
   curve: "Curve stable pool",
   xylo: "Xylo V2 router",
   v3: "Synthra V3 router",
+  tower: "Tower router",
 };
 const WALLET_DOMAIN_ADDRESS = deployments.WalletDomain as Address;
 const MARKET_USDC_ADDRESS = deployments.markets.USDC.asset as Address;
