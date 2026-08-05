@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
+  encodeFunctionData,
   erc20Abi,
   formatUnits,
   type Abi,
@@ -13,7 +14,9 @@ import {
 } from "wagmi";
 import positionManagerAbi from "@/constants/abis/PositionManager.json";
 import positionNFTAbi from "@/constants/abis/PositionNFT.json";
+import multicall3Abi from "@/constants/abis/Multicall3.json";
 import deployments from "@/constants/deployments.json";
+import { MULTICALL3 } from "@/constants/contracts";
 import { marketDefinitions } from "@/lib/markets";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
 import {
@@ -161,15 +164,11 @@ export function useClosePosition() {
 }
 
 export type BurnAllProgress = {
-  current: number;
   total: number;
-  tokenId: bigint;
-  symbol: string;
-  typeLabel: string;
 };
 
 export function useBurnAllPositions() {
-  const closeAction = useClosePosition();
+  const write = useArcLendContractWrite();
   const [isBurning, setIsBurning] = useState(false);
   const [progress, setProgress] = useState<BurnAllProgress | null>(null);
   const [results, setResults] = useState<
@@ -181,44 +180,58 @@ export function useBurnAllPositions() {
       if (isBurning || positions.length === 0) return results;
 
       setIsBurning(true);
-      const newResults: Array<{
-        tokenId: bigint;
-        success: boolean;
-        error?: string;
-      }> = [];
+      setResults([]);
+      setProgress({ total: positions.length });
 
-      for (let index = 0; index < positions.length; index++) {
-        const position = positions[index];
-        setProgress({
-          current: index + 1,
-          total: positions.length,
-          tokenId: position.tokenId,
-          symbol: position.symbol,
-          typeLabel: position.typeLabel,
-        });
+      try {
+        const calls = positions.map((p) => ({
+          target: managerAddress,
+          allowFailure: true,
+          callData: encodeFunctionData({
+            abi: managerAbi,
+            functionName: "closePosition",
+            args: [p.asset, p.positionType],
+          }),
+        }));
 
-        try {
-          await closeAction.closePosition(
-            position.asset,
-            position.positionType,
-          );
-          newResults.push({ tokenId: position.tokenId, success: true });
-        } catch (error) {
-          newResults.push({
-            tokenId: position.tokenId,
-            success: false,
-            error:
-              error instanceof Error ? error.message : "Unknown error",
-          });
+        const hash = resultHash(
+          await write.writeContractAsync({
+            chainId: 5042002,
+            address: MULTICALL3 as Address,
+            abi: multicall3Abi as Abi,
+            functionName: "aggregate3",
+            args: [calls],
+          }),
+        );
+
+        if (!hash) {
+          throw new Error("Transaction was not submitted.");
         }
-      }
 
-      setResults(newResults);
-      setProgress(null);
-      setIsBurning(false);
-      return newResults;
+        const newResults = positions.map((p) => ({
+          tokenId: p.tokenId,
+          success: true,
+        }));
+
+        setResults(newResults);
+        setProgress(null);
+        setIsBurning(false);
+        return newResults;
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+        const newResults = positions.map((p) => ({
+          tokenId: p.tokenId,
+          success: false,
+          error: errorMessage,
+        }));
+        setResults(newResults);
+        setProgress(null);
+        setIsBurning(false);
+        return newResults;
+      }
     },
-    [closeAction, isBurning, results],
+    [isBurning, results, write],
   );
 
   const reset = useCallback(() => {

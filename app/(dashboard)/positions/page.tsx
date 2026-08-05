@@ -295,10 +295,8 @@ export default function PositionsPage() {
               {burnAllAction.isBurning ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Burning{" "}
-                  {burnAllAction.progress
-                    ? `${burnAllAction.progress.current}/${burnAllAction.progress.total}`
-                    : "..."}
+                  Burning {burnAllAction.progress?.total ?? 0} receipt
+                  {(burnAllAction.progress?.total ?? 0) !== 1 ? "s" : ""}…
                 </>
               ) : (
                 <>
