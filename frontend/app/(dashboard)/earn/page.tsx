@@ -135,6 +135,7 @@ function VaultCard({
 
   const approve = useCallback(async () => {
     if (!canApprove || hasDepositApproval) return;
+    approveWrite.reset();
     try {
       await ensureArc();
       const hash = resultHash(await approveWrite.writeContractAsync({
@@ -152,8 +153,10 @@ function VaultCard({
       );
       await allowanceRead.refetch();
       setLastHash(hash ?? null);
+      approveWrite.reset();
       showToast("success", `${vault.symbol} approved for Earn Vault`);
     } catch (error) {
+      approveWrite.reset();
       showToast(
         "error",
         error instanceof Error
