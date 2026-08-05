@@ -76,6 +76,11 @@ export default function PositionsPage() {
     const results = await burnAllAction.burnAll(burnablePositions);
     const succeeded = results.filter((r) => r.success).length;
     const failed = results.filter((r) => !r.success).length;
+    // Wait a short time for the last transaction to confirm on-chain
+    // before refetching, since each position requires its own wallet signature.
+    if (succeeded > 0) {
+      await new Promise((r) => setTimeout(r, 2_000));
+    }
     await receipts.refetch();
     burnAllAction.reset();
     if (failed === 0) {
@@ -294,8 +299,10 @@ export default function PositionsPage() {
               {burnAllAction.isBurning ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Burning {burnAllAction.progress?.total ?? 0} receipt
-                  {(burnAllAction.progress?.total ?? 0) !== 1 ? "s" : ""}…
+                  Signing{" "}
+                  {burnAllAction.progress
+                    ? `${burnAllAction.progress.current}/${burnAllAction.progress.total}`
+                    : "..."}
                 </>
               ) : (
                 <>
