@@ -257,6 +257,7 @@ export function useEarnVaultAction() {
     isPending: write.isPending,
     isSuccess: write.isSuccess,
     error: write.error,
+    reset: write.reset,
     deposit: (vault: Address, assets: bigint, receiver: Address, minShares: bigint) =>
       write.writeContractAsync({
         chainId: 5042002,
