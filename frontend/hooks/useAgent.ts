@@ -122,7 +122,9 @@ export function useAgent() {
   const usdcReserve = useReserveData(usdc.address, usdcIsLive);
   const eurcReserve = useReserveData(eurc.address, eurcIsLive);
   const usdcWallet = useUserBalance(usdc.address, usdcIsLive);
-  const eurcWallet = useUserBalance(eurc.address, eurcIsLive);
+  // Wallet balance of the underlying token exists independently of the lending
+  // pool reserve, so always fetch it — don't gate on eurcIsLive.
+  const eurcWallet = useUserBalance(eurc.address);
   const usdcSupply = useUserBalance(usdc.aToken, usdcIsLive);
   const eurcSupply = useUserBalance(eurc.aToken, eurcIsLive);
   const usdcDebt = useUserBalance(usdc.debtToken, usdcIsLive);
