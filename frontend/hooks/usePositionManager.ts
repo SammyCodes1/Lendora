@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   erc20Abi,
@@ -156,6 +157,82 @@ export function useClosePosition() {
       asset: Address,
       positionType: PositionType,
     ) => action.execute([asset, positionType]),
+  };
+}
+
+export type BurnAllProgress = {
+  current: number;
+  total: number;
+  tokenId: bigint;
+  symbol: string;
+  typeLabel: string;
+};
+
+export function useBurnAllPositions() {
+  const closeAction = useClosePosition();
+  const [isBurning, setIsBurning] = useState(false);
+  const [progress, setProgress] = useState<BurnAllProgress | null>(null);
+  const [results, setResults] = useState<
+    Array<{ tokenId: bigint; success: boolean; error?: string }>
+  >([]);
+
+  const burnAll = useCallback(
+    async (positions: UserPositionNFT[]) => {
+      if (isBurning || positions.length === 0) return results;
+
+      setIsBurning(true);
+      const newResults: Array<{
+        tokenId: bigint;
+        success: boolean;
+        error?: string;
+      }> = [];
+
+      for (let index = 0; index < positions.length; index++) {
+        const position = positions[index];
+        setProgress({
+          current: index + 1,
+          total: positions.length,
+          tokenId: position.tokenId,
+          symbol: position.symbol,
+          typeLabel: position.typeLabel,
+        });
+
+        try {
+          await closeAction.closePosition(
+            position.asset,
+            position.positionType,
+          );
+          newResults.push({ tokenId: position.tokenId, success: true });
+        } catch (error) {
+          newResults.push({
+            tokenId: position.tokenId,
+            success: false,
+            error:
+              error instanceof Error ? error.message : "Unknown error",
+          });
+        }
+      }
+
+      setResults(newResults);
+      setProgress(null);
+      setIsBurning(false);
+      return newResults;
+    },
+    [closeAction, isBurning, results],
+  );
+
+  const reset = useCallback(() => {
+    setIsBurning(false);
+    setProgress(null);
+    setResults([]);
+  }, []);
+
+  return {
+    burnAll,
+    isBurning,
+    progress,
+    results,
+    reset,
   };
 }
 
