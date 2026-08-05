@@ -44,6 +44,7 @@ import { showToast } from "@/lib/toast";
 import {
   ARCSCAN_TX,
   errorMessage,
+  formatExactTokenAmount,
   formatTokenAmount,
   parseTokenAmount,
 } from "@/components/modals/modalUtils";
@@ -178,6 +179,7 @@ function VaultCard({
 
   const submit = useCallback(async () => {
     if (!canSubmit || !address) return;
+    vaultAction.reset();
     try {
       await ensureArc();
       const expectedShares =
@@ -217,6 +219,7 @@ function VaultCard({
       }
       setLastHash(hash ?? null);
       setAmount("");
+      vaultAction.reset();
       showToast(
         "success",
         `${formatUnits(parsedAmount, 6)} ${vault.symbol} ${
@@ -225,6 +228,7 @@ function VaultCard({
       );
       await onRefresh();
     } catch (error) {
+      vaultAction.reset();
       showToast(
         "error",
         error instanceof Error
@@ -266,14 +270,20 @@ function VaultCard({
 
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
         <div className="rounded-md border border-white/[0.08] bg-black/15 p-3">
-          <p className="text-xs text-white/40">Vault assets</p>
-          <p className="mt-1 font-mono text-lg text-white">
-            {totalAssetsUsd.toLocaleString(undefined, { maximumFractionDigits: 6 })}
-          </p>
-        </div>
-        <div className="rounded-md border border-white/[0.08] bg-black/15 p-3">
           <p className="text-xs text-white/40">Your vault assets</p>
           <p className="mt-1 font-mono text-lg text-white">{userAssetsLabel}</p>
+        </div>
+        <div className="rounded-md border border-white/[0.08] bg-black/15 p-3">
+          <p className="text-xs text-white/40">Available to withdraw</p>
+          <p className="mt-1 font-mono text-lg text-white">
+            {formatTokenAmount(
+              vault.userAssets < vault.availableAssets
+                ? vault.userAssets
+                : vault.availableAssets,
+              2,
+            )}{" "}
+            {vault.symbol}
+          </p>
         </div>
         <div className="rounded-md border border-white/[0.08] bg-black/15 p-3">
           <p className="text-xs text-white/40">Assets per share</p>
@@ -320,7 +330,12 @@ function VaultCard({
             setAmount(
               mode === "deposit"
                 ? walletBalance.formatted.replace(/,/g, "")
-                : formatTokenAmount(vault.userAssets, 6).replace(/,/g, ""),
+                : formatExactTokenAmount(
+                    vault.userAssets < vault.availableAssets
+                      ? vault.userAssets
+                      : vault.availableAssets,
+                    6,
+                  ),
             )
           }
         />

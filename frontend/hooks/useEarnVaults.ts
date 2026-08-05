@@ -30,6 +30,7 @@ export type EarnVaultMarket = {
   totalShares: bigint;
   userShares: bigint;
   userAssets: bigint;
+  availableAssets: bigint;
   assetsPerShare: number;
   pendingReferralRewards: bigint;
   referredVolume: bigint;
@@ -87,6 +88,12 @@ export function useEarnVaultMarkets() {
         abi,
         functionName: "balanceOf",
         args: [address ?? ZERO_ADDRESS],
+      },
+      {
+        chainId: 5042002,
+        address: market.vault,
+        abi,
+        functionName: "availableAssets",
       },
     ]),
     query: {
@@ -176,17 +183,19 @@ export function useEarnVaultMarkets() {
           totalShares: 0n,
           userShares: 0n,
           userAssets: 0n,
+          availableAssets: 0n,
           assetsPerShare: 1,
           pendingReferralRewards,
           referredVolume,
         };
       }
 
-      const offset = deployedIndex * 3;
+      const offset = deployedIndex * 4;
       deployedIndex += 1;
       const totalAssets = bigintResult(reads.data?.[offset]?.result);
       const totalShares = bigintResult(reads.data?.[offset + 1]?.result);
       const userShares = bigintResult(reads.data?.[offset + 2]?.result);
+      const availableAssets = bigintResult(reads.data?.[offset + 3]?.result);
       const userAssets =
         totalShares > 0n ? (userShares * totalAssets) / totalShares : userShares;
       const assetsPerShare =
@@ -205,6 +214,7 @@ export function useEarnVaultMarkets() {
         totalShares,
         userShares,
         userAssets,
+        availableAssets,
         assetsPerShare,
         pendingReferralRewards,
         referredVolume,
