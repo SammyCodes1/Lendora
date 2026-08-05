@@ -16,7 +16,9 @@ import positionManagerAbi from "@/constants/abis/PositionManager.json";
 import positionNFTAbi from "@/constants/abis/PositionNFT.json";
 import multicall3Abi from "@/constants/abis/Multicall3.json";
 import deployments from "@/constants/deployments.json";
-import { MULTICALL3 } from "@/constants/contracts";
+import { ARC_TESTNET_CONTRACTS } from "@/constants/contracts";
+
+const MULTICALL3 = ARC_TESTNET_CONTRACTS.MULTICALL3;
 import { marketDefinitions } from "@/lib/markets";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
 import {
