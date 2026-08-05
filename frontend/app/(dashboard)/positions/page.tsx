@@ -23,6 +23,7 @@ import { GlassButton } from "@/components/ui/GlassButton";
 import { GlassCard } from "@/components/ui/GlassCard";
 import {
   useClosePosition,
+  useBurnAllPositions,
   useClaimExistingPosition,
   useUserPositionNFTs,
   type ClaimablePositionReceipt,
@@ -44,8 +45,48 @@ export default function PositionsPage() {
   const receipts = useUserPositionNFTs();
   const claimAction = useClaimExistingPosition();
   const closeAction = useClosePosition();
+  const burnAllAction = useBurnAllPositions();
+  const burnablePositions = receipts.positions.filter(
+    (p) => p.liveBalance === 0n,
+  );
   const [claimingKey, setClaimingKey] = useState<string | null>(null);
   const [closingTokenId, setClosingTokenId] = useState<bigint | null>(null);
+
+  const burnAllReceipts = async () => {
+    if (!address) {
+      showToast("error", "Connect your wallet before burning receipts.");
+      return;
+    }
+    if (!publicClient) {
+      showToast("error", "Arc client is unavailable.");
+      return;
+    }
+    if (burnablePositions.length === 0) {
+      showToast("error", "No receipts ready to burn.");
+      return;
+    }
+    if (source !== "email" && chainId !== 5042002) {
+      try {
+        await switchChainAsync({ chainId: 5042002 });
+      } catch {
+        showToast("error", "Switch to Arc Testnet to continue.");
+        return;
+      }
+    }
+    const results = await burnAllAction.burnAll(burnablePositions);
+    const succeeded = results.filter((r) => r.success).length;
+    const failed = results.filter((r) => !r.success).length;
+    await receipts.refetch();
+    burnAllAction.reset();
+    if (failed === 0) {
+      showToast("success", `Burned ${succeeded} receipt${succeeded !== 1 ? "s" : ""}.`);
+    } else {
+      showToast(
+        "error",
+        `Burned ${succeeded}, ${failed} failed. Check the console for details.`,
+      );
+    }
+  };
 
   const claimReceipt = async (
     claimable: ClaimablePositionReceipt,
@@ -231,6 +272,40 @@ export default function PositionsPage() {
             <p className="mt-2 text-sm text-white/45">
               Supply or borrow an asset to mint your first one.
             </p>
+          </GlassCard>
+        ) : null}
+
+        {burnablePositions.length > 0 ? (
+          <GlassCard depth="foreground" className="flex flex-col items-start justify-between gap-4 p-5 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="text-lg font-semibold text-white">
+                {burnablePositions.length} receipt{burnablePositions.length !== 1 ? "s" : ""} ready to burn
+              </h2>
+              <p className="mt-1 text-xs text-white/40">
+                These positions have been closed — burn their receipts to clean up
+                your portfolio.
+              </p>
+            </div>
+            <GlassButton
+              variant="danger"
+              disabled={burnAllAction.isBurning}
+              onClick={() => void burnAllReceipts()}
+            >
+              {burnAllAction.isBurning ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Burning{" "}
+                  {burnAllAction.progress
+                    ? `${burnAllAction.progress.current}/${burnAllAction.progress.total}`
+                    : "..."}
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4" />
+                  Burn All Receipts
+                </>
+              )}
+            </GlassButton>
           </GlassCard>
         ) : null}
 

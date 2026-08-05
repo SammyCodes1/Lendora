@@ -142,7 +142,7 @@ export default function PositionsPage() {
       return;
     }
     if (burnablePositions.length === 0) {
-      showToast("info", "No receipts ready to burn.");
+      showToast("error", "No receipts ready to burn.");
       return;
     }
     if (source !== "email" && chainId !== 5042002) {
