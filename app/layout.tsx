@@ -27,13 +27,13 @@ export const metadata: Metadata = {
     title: "ArcLend — Stablecoin credit on Arc Network",
     description: "Supply, borrow, swap, and manage risk through ArcLend's isolated stablecoin markets.",
     type: "website",
-    images: [{ url: "/og.png", width: 1200, height: 630, alt: "ArcLend — Stablecoin credit on Arc Network" }],
+    images: [{ url: "/og.jpg", width: 1200, height: 630, alt: "ArcLend — Stablecoin credit on Arc Network" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "ArcLend — Stablecoin credit on Arc Network",
     description: "Supply, borrow, swap, and manage risk through ArcLend's isolated stablecoin markets.",
-    images: ["/og.png"],
+    images: ["/og.jpg"],
   },
 };
 
