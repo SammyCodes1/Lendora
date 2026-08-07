@@ -47,6 +47,11 @@ export async function POST(request: Request) {
     return NextResponse.json(response.data ?? {});
   } catch (error) {
     const details = circleErrorDetails(error);
-    return NextResponse.json(details, { status: 500 });
+    const status = details.code === 401 ? 401 : 500;
+    if (details.code === 401) {
+      details.message =
+        "Circle API key is invalid or expired. Please check your CIRCLE_API_KEY environment variable.";
+    }
+    return NextResponse.json(details, { status });
   }
 }

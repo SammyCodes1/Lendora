@@ -107,8 +107,9 @@ export function ConnectWalletButton() {
           </GlassButton>
           <GlassButton
             variant="ghost"
-            onClick={() => setEmailWalletOpen(true)}
-            title="Sign in with Circle email wallet"
+            disabled
+            className="opacity-50 pointer-events-none cursor-not-allowed"
+            title="Email wallet disabled"
           >
             <Mail className="h-4 w-4" />
             Email
