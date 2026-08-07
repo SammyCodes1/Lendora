@@ -65,7 +65,8 @@ function useTreasuryBalances(address?: Address) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!address) {
+    const treasuryAddr = address as Address;
+    if (!treasuryAddr) {
       setIsLoading(false);
       return;
     }
@@ -76,13 +77,13 @@ function useTreasuryBalances(address?: Address) {
       try {
         const [usdc, eurc] = await Promise.all([
           publicClient.readContract({
-            address,
+            address: treasuryAddr,
             abi: TREASURY_ABI,
             functionName: "getBalance",
             args: [USDC],
           }),
           publicClient.readContract({
-            address,
+            address: treasuryAddr,
             abi: TREASURY_ABI,
             functionName: "getBalance",
             args: [EURC],
@@ -120,7 +121,8 @@ function useRevenueBreakdown(address?: Address) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!address) {
+    const treasuryAddr = address as Address;
+    if (!treasuryAddr) {
       setIsLoading(false);
       return;
     }
@@ -134,7 +136,7 @@ function useRevenueBreakdown(address?: Address) {
         const fromBlock = latestBlock - BigInt(2_000_000); // ~3 months on Arc
 
         const logs = await publicClient.getLogs({
-          address,
+          address: treasuryAddr,
           event: depositedEvent,
           fromBlock: fromBlock < 0n ? 0n : fromBlock,
           toBlock: latestBlock,
@@ -143,9 +145,9 @@ function useRevenueBreakdown(address?: Address) {
         const bySource = new Map<string, bigint>();
         for (const log of logs) {
           const { source, amount } = log.args;
-          if (!source) continue;
+          if (!source || amount == null) continue;
           const prev = bySource.get(source) ?? 0n;
-          bySource.set(source, prev + amount);
+          bySource.set(source, prev + (amount as bigint));
         }
 
         const entries = Array.from(bySource.entries())
