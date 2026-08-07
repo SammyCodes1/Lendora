@@ -7,6 +7,14 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
+interface ITreasury {
+    function deposit(
+        address asset,
+        uint256 amount,
+        string calldata source
+    ) external;
+}
+
 /// @title ArcLend SwapPool
 /// @notice Constant-product AMM (x * y = k) for a single USDC/EURC pair.
 ///         Completely independent of LendingPool / FlashLoanPool reserves.
@@ -17,6 +25,8 @@ contract SwapPool is ERC20, Ownable, ReentrancyGuard {
     uint256 public constant BPS_DENOMINATOR = 10_000;
     /// @notice Hard cap for swap fee (1.00%). Matches FlashLoanPool-style sanity bound.
     uint256 public constant MAX_FEE_BPS = 100;
+    /// @notice Maximum treasury share: 50% (protects LP yield).
+    uint256 public constant MAX_TREASURY_SHARE_BPS = 5_000;
 
     IERC20 public immutable tokenA; // USDC
     IERC20 public immutable tokenB; // EURC
@@ -25,6 +35,18 @@ contract SwapPool is ERC20, Ownable, ReentrancyGuard {
     uint256 public reserveB;
     /// @notice Swap fee in basis points. Default 30 = 0.30%.
     uint256 public feeBps = 30;
+
+    // ─── Treasury ─────────────────────────────────────────────────────
+
+    /// @notice Protocol treasury address for fee revenue.
+    address public treasury;
+    /// @notice Share of swap fees routed to Treasury.
+    ///         Default 1500 = 15% of the fee. Slightly lower than
+    ///         FlashLoanPool because swap LPs take on more ongoing
+    ///         impermanent-loss-style risk than flash loan LPs do.
+    uint256 public treasuryShareBps = 1500;
+
+    // ─── Events ───────────────────────────────────────────────────────
 
     event LiquidityAdded(
         address indexed provider,
@@ -46,6 +68,8 @@ contract SwapPool is ERC20, Ownable, ReentrancyGuard {
         uint256 amountOut
     );
     event FeeBpsUpdated(uint256 feeBps);
+    event TreasuryUpdated(address treasury);
+    event TreasuryShareUpdated(uint256 treasuryShareBps);
 
     constructor(
         address _tokenA,
@@ -63,6 +87,27 @@ contract SwapPool is ERC20, Ownable, ReentrancyGuard {
     function decimals() public pure override returns (uint8) {
         return 6;
     }
+
+    // ─── Owner administration ─────────────────────────────────────────
+
+    function setFeeBps(uint256 newFeeBps) external onlyOwner {
+        require(newFeeBps <= MAX_FEE_BPS, "SwapPool: fee too high");
+        feeBps = newFeeBps;
+        emit FeeBpsUpdated(newFeeBps);
+    }
+
+    function setTreasury(address _treasury) external onlyOwner {
+        treasury = _treasury;
+        emit TreasuryUpdated(_treasury);
+    }
+
+    function setTreasuryShareBps(uint256 newShareBps) external onlyOwner {
+        require(newShareBps <= MAX_TREASURY_SHARE_BPS, "Cannot exceed 50%");
+        treasuryShareBps = newShareBps;
+        emit TreasuryShareUpdated(newShareBps);
+    }
+
+    // ─── Liquidity ────────────────────────────────────────────────────
 
     /// @notice Deposit both assets and mint LP shares.
     /// @dev Subsequent deposits must match the current reserve ratio. Excess of
@@ -135,7 +180,11 @@ contract SwapPool is ERC20, Ownable, ReentrancyGuard {
         emit LiquidityRemoved(msg.sender, amountA, amountB, lpTokens);
     }
 
+    // ─── Swap ─────────────────────────────────────────────────────────
+
     /// @notice Swap exact input for the other asset, subject to minAmountOut.
+    ///         A share of the collected fee is routed to the protocol Treasury;
+    ///         the rest stays in the pool for LPs.
     function swap(
         address tokenIn,
         uint256 amountIn,
@@ -154,23 +203,44 @@ contract SwapPool is ERC20, Ownable, ReentrancyGuard {
         require(amountOut >= minAmountOut, "Slippage: output below minimum");
         require(amountOut < reserveOut, "SwapPool: insufficient liquidity");
 
+        // Transfer tokens.
         IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
         address tokenOut = isTokenA ? address(tokenB) : address(tokenA);
         IERC20(tokenOut).safeTransfer(msg.sender, amountOut);
 
+        // ─── Fee split: treasury vs LPs ──────────────────────────────
+        // The fee is collected implicitly (less tokenOut for the same
+        // tokenIn). We route the treasury's share from the input-side
+        // reserve so the pool invariant stays consistent.
+        uint256 fee = (amountIn * feeBps) / BPS_DENOMINATOR;
+        uint256 treasuryCut = (fee * treasuryShareBps) / BPS_DENOMINATOR;
+
+        if (treasuryCut > 0 && treasury != address(0)) {
+            IERC20(tokenIn).approve(treasury, treasuryCut);
+            ITreasury(treasury).deposit(tokenIn, treasuryCut, "SwapPool");
+        }
+
+        // Update reserves. The treasury cut is deducted from the input
+        // side because it was forwarded out of the pool. The LP share
+        // of the fee (fee - treasuryCut) stays in reserves, increasing k.
         if (isTokenA) {
-            reserveA += amountIn;
+            reserveA = reserveA + amountIn - treasuryCut;
             reserveB -= amountOut;
         } else {
-            reserveB += amountIn;
+            reserveB = reserveB + amountIn - treasuryCut;
             reserveA -= amountOut;
         }
 
-        // Invariant: reserves product must not decrease (k is non-decreasing after fees).
-        require(reserveA * reserveB >= reserveIn * reserveOut, "SwapPool: K");
+        // Invariant: reserves product must not decrease (k is non-decreasing
+        // after fees minus treasury cut). The LP share of the fee ensures
+        // this still holds.
+        uint256 kBefore = reserveIn * reserveOut;
+        require(reserveA * reserveB >= kBefore, "SwapPool: K");
 
         emit Swap(msg.sender, tokenIn, amountIn, tokenOut, amountOut);
     }
+
+    // ─── Views ────────────────────────────────────────────────────────
 
     /// @notice View quote for an exact-input swap (frontend / routing).
     function getQuote(address tokenIn, uint256 amountIn) external view returns (uint256 amountOut) {
@@ -187,11 +257,7 @@ contract SwapPool is ERC20, Ownable, ReentrancyGuard {
         if (amountOut >= reserveOut) return 0;
     }
 
-    function setFeeBps(uint256 newFeeBps) external onlyOwner {
-        require(newFeeBps <= MAX_FEE_BPS, "SwapPool: fee too high");
-        feeBps = newFeeBps;
-        emit FeeBpsUpdated(newFeeBps);
-    }
+    // ─── Internals ────────────────────────────────────────────────────
 
     function _getAmountOut(
         uint256 amountIn,
