@@ -18,7 +18,11 @@ function truncateAddress(address: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
-export function ConnectWalletButton() {
+export function ConnectWalletButton({
+  onSignInOpen,
+}: {
+  onSignInOpen?: () => void;
+} = {}) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [emailWalletOpen, setEmailWalletOpen] = useState(false);
@@ -121,7 +125,10 @@ export function ConnectWalletButton() {
           </GlassButton>
           <GlassButton
             variant="ghost"
-            onClick={() => setEmailWalletOpen(true)}
+            onClick={() => {
+              onSignInOpen?.();
+              setEmailWalletOpen(true);
+            }}
           >
             <Mail className="h-4 w-4" />
             Sign in
@@ -232,6 +239,7 @@ export function ConnectWalletButton() {
                 <button
                   type="button"
                   onClick={() => {
+                    onSignInOpen?.();
                     setEmailWalletOpen(true);
                     setOpen(false);
                   }}

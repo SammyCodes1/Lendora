@@ -333,7 +333,7 @@ export function CircleEmailWalletDialog({
   if (!open || !mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[1200] isolate flex items-center justify-center bg-black/70 p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-sm">
       <div className="w-full max-w-lg rounded-lg border border-white/10 bg-[#090b0d] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.6)]">
         <div className="flex items-start justify-between gap-4">
           <div>
