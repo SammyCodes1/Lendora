@@ -4,7 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckCircle2, Copy, Loader2, Mail, Wallet, X } from "lucide-react";
 import { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
-import type { EmailLoginResult } from "@circle-fin/w3s-pw-web-sdk/dist/src/types";
+import { SocialLoginProvider } from "@circle-fin/w3s-pw-web-sdk/dist/src/types";
+import type {
+  EmailLoginResult,
+  SocialLoginResult,
+} from "@circle-fin/w3s-pw-web-sdk/dist/src/types";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { showToast } from "@/lib/toast";
 import type {
@@ -36,8 +40,18 @@ type CircleEmailWalletDialogProps = {
 };
 
 const circleAppId = process.env.NEXT_PUBLIC_CIRCLE_APP_ID ?? "";
+const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 const walletLoadRetryCount = 6;
 const walletLoadRetryDelayMs = 1_500;
+
+/** LocalStorage key that persists the social-login device tokens across the
+ *  full-page OAuth redirect so the SDK can rehydrate and finish the login. */
+const SOCIAL_OAUTH_STORAGE_KEY = "arclend:social-oauth";
+
+type SocialOAuthState = {
+  deviceToken: string;
+  deviceEncryptionKey: string;
+};
 
 function apiError(data: CircleWalletResponse, fallback: string) {
   return data.error ?? data.message ?? fallback;
@@ -60,7 +74,7 @@ export function CircleEmailWalletDialog({
   const [deviceId, setDeviceId] = useState("");
   const [email, setEmail] = useState("");
   const [otpTokens, setOtpTokens] = useState<OtpTokens | null>(null);
-  const [auth, setAuth] = useState<EmailLoginResult | null>(null);
+  const [auth, setAuth] = useState<CircleEmailWalletAuth | null>(null);
   const [challengeId, setChallengeId] = useState<string | null>(null);
   const [wallets, setWallets] = useState<CircleEmailWallet[]>([]);
   const [status, setStatus] = useState("Enter your email to start.");
@@ -126,39 +140,77 @@ export function CircleEmailWalletDialog({
     const onLoginComplete = (error: unknown, result: unknown) => {
       if (error) {
         const message =
-          error instanceof Error ? error.message : "Email verification failed.";
+          error instanceof Error ? error.message : "Sign in failed.";
         setStatus(message);
         showToast("error", message);
+        // Clear stale social-login state so a failed redirect doesn't linger.
+        window.localStorage.removeItem(SOCIAL_OAUTH_STORAGE_KEY);
         return;
       }
 
-      const loginResult = result as EmailLoginResult | undefined;
+      const loginResult = result as
+        | EmailLoginResult
+        | SocialLoginResult
+        | undefined;
       if (!loginResult?.userToken || !loginResult.encryptionKey) {
-        setStatus("Email verification did not return a Circle session.");
-        showToast("error", "Email verification did not return a Circle session.");
+        setStatus("Sign in did not return a Circle session.");
+        showToast("error", "Sign in did not return a Circle session.");
         return;
       }
 
-      setAuth(loginResult);
-      setStatus("Email verified. Checking for an Arc wallet…");
+      // Login completed — the persisted device tokens are no longer needed.
+      window.localStorage.removeItem(SOCIAL_OAUTH_STORAGE_KEY);
+
+      setAuth({
+        userToken: loginResult.userToken,
+        encryptionKey: loginResult.encryptionKey,
+      });
+      setStatus("Sign in verified. Checking for an Arc wallet…");
       void loadWalletsRef.current(loginResult).catch((caught) => {
         const message =
           caught instanceof Error
             ? caught.message
-            : "Email verified. Load or create your Arc wallet.";
+            : "Sign in verified. Load or create your Arc wallet.";
         setStatus(message);
       });
     };
 
+    // Rehydrate a pending social login after the OAuth redirect. If a device
+    // token was persisted before the redirect, init the SDK with the full
+    // Google config so `execSocialLoginStatusCheck` auto-completes the flow
+    // when the URL hash carries the OAuth response.
+    let savedOAuth: SocialOAuthState | null = null;
+    try {
+      const raw = window.localStorage.getItem(SOCIAL_OAUTH_STORAGE_KEY);
+      if (raw) savedOAuth = JSON.parse(raw) as SocialOAuthState;
+    } catch {
+      savedOAuth = null;
+    }
+
+    const loginConfigs =
+      savedOAuth && googleClientId
+        ? {
+            deviceToken: savedOAuth.deviceToken,
+            deviceEncryptionKey: savedOAuth.deviceEncryptionKey,
+            google: {
+              clientId: googleClientId,
+              redirectUri: window.location.origin,
+              selectAccountPrompt: true,
+            },
+          }
+        : undefined;
+
     const sdk = new W3SSdk(
-      { appSettings: { appId: circleAppId } },
+      loginConfigs
+        ? { appSettings: { appId: circleAppId }, loginConfigs }
+        : { appSettings: { appId: circleAppId } },
       onLoginComplete,
     );
     sdkRef.current = sdk;
     void sdk
       .getDeviceId()
       .then(setDeviceId)
-      .catch(() => setStatus("Could not initialize Circle email wallet."));
+      .catch(() => setStatus("Could not initialize Circle wallet."));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [circleAppId]);
 
@@ -216,6 +268,66 @@ export function CircleEmailWalletDialog({
     if (!otpTokens || !sdkRef.current) return;
     sdkRef.current.verifyOtp();
   }, [otpTokens]);
+
+  const requestGoogleLogin = useCallback(async () => {
+    if (!deviceId) {
+      setStatus("Circle wallet is still initializing. Try again in a moment.");
+      return;
+    }
+    if (!googleClientId) {
+      setStatus("NEXT_PUBLIC_GOOGLE_CLIENT_ID is not configured.");
+      return;
+    }
+
+    setIsBusy(true);
+    try {
+      const response = await fetch("/api/circle-wallet/social-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deviceId }),
+      });
+      const data = (await response.json()) as SocialOAuthState &
+        CircleWalletResponse;
+      if (!response.ok) {
+        throw new Error(apiError(data, "Could not start Google sign in."));
+      }
+      if (!data.deviceToken || !data.deviceEncryptionKey) {
+        throw new Error("Circle did not return social login tokens.");
+      }
+
+      // Persist the device tokens so the SDK can rehydrate + finish the login
+      // after the full-page OAuth redirect back to this origin.
+      window.localStorage.setItem(
+        SOCIAL_OAUTH_STORAGE_KEY,
+        JSON.stringify({
+          deviceToken: data.deviceToken,
+          deviceEncryptionKey: data.deviceEncryptionKey,
+        }),
+      );
+
+      sdkRef.current?.updateConfigs({
+        appSettings: { appId: circleAppId },
+        loginConfigs: {
+          deviceToken: data.deviceToken,
+          deviceEncryptionKey: data.deviceEncryptionKey,
+          google: {
+            clientId: googleClientId,
+            redirectUri: window.location.origin,
+            selectAccountPrompt: true,
+          },
+        },
+      });
+
+      setStatus("Redirecting to Google…");
+      await sdkRef.current?.performLogin(SocialLoginProvider.GOOGLE);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Could not start Google sign in.";
+      setStatus(message);
+      showToast("error", message);
+      setIsBusy(false);
+    }
+  }, [deviceId]);
 
   const initializeWallet = useCallback(async () => {
     if (!auth?.userToken) return;
@@ -297,13 +409,14 @@ export function CircleEmailWalletDialog({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-200/60">
-              Circle email wallet
+              Circle wallet
             </p>
             <h2 className="mt-1 text-xl font-semibold text-white">
-              Sign in with email
+              Sign in
             </h2>
             <p className="mt-2 text-sm leading-6 text-white/50">
-              Verify your email with Circle, then create or load an Arc Testnet wallet.
+              Continue with Google, or verify your email with Circle, to create
+              or load an Arc Testnet wallet.
             </p>
           </div>
           <button
@@ -316,7 +429,49 @@ export function CircleEmailWalletDialog({
           </button>
         </div>
 
-        <div className="mt-5 rounded-md border border-white/[0.08] bg-white/[0.04] p-3">
+        <div className="mt-5">
+          <GlassButton
+            type="button"
+            variant="primary"
+            className="w-full"
+            disabled={!googleClientId || !circleAppId || !deviceId || isBusy}
+            onClick={() => void requestGoogleLogin()}
+          >
+            {isBusy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
+                <path
+                  fill="#4285F4"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l3.66-2.84z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                />
+              </svg>
+            )}
+            Sign in with Google
+          </GlassButton>
+        </div>
+
+        <div className="my-4 flex items-center gap-3">
+          <span className="h-px flex-1 bg-white/[0.08]" />
+          <span className="text-xs uppercase tracking-wide text-white/30">
+            or
+          </span>
+          <span className="h-px flex-1 bg-white/[0.08]" />
+        </div>
+
+        <div className="rounded-md border border-white/[0.08] bg-white/[0.04] p-3">
           <p className="text-xs text-white/40">Email address</p>
           <div className="mt-2 flex gap-2">
             <input

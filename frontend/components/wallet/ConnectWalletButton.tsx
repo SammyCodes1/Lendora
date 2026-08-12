@@ -115,12 +115,10 @@ export function ConnectWalletButton() {
           </GlassButton>
           <GlassButton
             variant="ghost"
-            disabled
-            title="Coming soon"
-            className="pointer-events-none opacity-40"
+            onClick={() => setEmailWalletOpen(true)}
           >
             <Mail className="h-4 w-4" />
-            Email
+            Sign in
           </GlassButton>
         </div>
         <CircleEmailWalletDialog
@@ -227,12 +225,14 @@ export function ConnectWalletButton() {
               {!emailWallet.wallet ? (
                 <button
                   type="button"
-                  disabled
-                  title="Coming soon"
-                  className="pointer-events-none mt-1 flex w-full cursor-not-allowed items-center gap-2 rounded-md px-3 py-2.5 text-left text-sm text-white/40 opacity-40"
+                  onClick={() => {
+                    setEmailWalletOpen(true);
+                    setOpen(false);
+                  }}
+                  className="mt-1 flex w-full touch-manipulation items-center gap-2 rounded-md px-3 py-2.5 text-left text-sm text-white/70 transition hover:bg-white/[0.07] hover:text-white"
                 >
                   <Mail className="h-4 w-4" />
-                  Sign in with email
+                  Sign in
                 </button>
               ) : null}
             </div>,
