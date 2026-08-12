@@ -32,7 +32,7 @@ export async function sendBetaAccessEmail({
       : "Supply and Withdraw";
 
   const { data, error } = await resend.emails.send({
-    from: "ArcLend <noreply@yourdomain.com>", // replace with your verified domain
+    from: "ArcLend <noreply@arclend.cv>",
     to,
     subject: `Your ArcLend ${tierLabel} Code`,
     html: `
