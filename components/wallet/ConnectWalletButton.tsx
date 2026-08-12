@@ -229,7 +229,7 @@ export function ConnectWalletButton() {
                   type="button"
                   disabled
                   title="Coming soon"
-                  className="mt-1 flex w-full touch-manipulation items-center gap-2 rounded-md px-3 py-2.5 text-left text-sm text-white/40 cursor-not-allowed opacity-40"
+                  className="pointer-events-none mt-1 flex w-full cursor-not-allowed items-center gap-2 rounded-md px-3 py-2.5 text-left text-sm text-white/40 opacity-40"
                 >
                   <Mail className="h-4 w-4" />
                   Sign in with email
