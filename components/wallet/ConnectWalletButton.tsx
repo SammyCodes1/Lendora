@@ -8,9 +8,6 @@ import { type Address } from "viem";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { showToast } from "@/lib/toast";
 import { usePrimaryDomain } from "@/hooks/usePrimaryDomain";
-import {
-  CircleEmailWalletDialog,
-} from "@/components/wallet/CircleEmailWalletDialog";
 import { useCircleEmailWallet } from "@/components/wallet/CircleEmailWalletProvider";
 import { useCloseOnResume } from "@/hooks/useCloseOnResume";
 
@@ -25,7 +22,6 @@ export function ConnectWalletButton({
 } = {}) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [emailWalletOpen, setEmailWalletOpen] = useState(false);
   const emailWallet = useCircleEmailWallet();
   const closeDropdown = useCallback(() => setOpen(false), []);
   const triggerRef = useRef<HTMLDivElement>(null);
@@ -37,19 +33,10 @@ export function ConnectWalletButton({
   const activeAddress = address ?? (emailWallet.wallet?.address as Address | undefined);
   const { primaryDomain } = usePrimaryDomain(activeAddress);
 
-  const handleEmailWalletReady = useCallback(
-    (wallet: Parameters<typeof emailWallet.setSession>[0], auth: Parameters<typeof emailWallet.setSession>[1]) => {
-      emailWallet.setSession(wallet, auth);
-      setEmailWalletOpen(false);
-    },
-    [emailWallet.setSession],
-  );
-
-  useEffect(() => {
-    if (!emailWallet.signInRequested) return;
-    setEmailWalletOpen(true);
-    emailWallet.clearSignInRequest();
-  }, [emailWallet.clearSignInRequest, emailWallet.signInRequested]);
+  const openSignIn = useCallback(() => {
+    onSignInOpen?.();
+    emailWallet.requestSignIn();
+  }, [emailWallet.requestSignIn, onSignInOpen]);
 
   // Close after wallet sheet / tab freeze so the portal cannot block the navbar.
   useCloseOnResume(closeDropdown, open);
@@ -125,20 +112,12 @@ export function ConnectWalletButton({
           </GlassButton>
           <GlassButton
             variant="ghost"
-            onClick={() => {
-              onSignInOpen?.();
-              setEmailWalletOpen(true);
-            }}
+            onClick={openSignIn}
           >
             <Mail className="h-4 w-4" />
             Sign in
           </GlassButton>
         </div>
-        <CircleEmailWalletDialog
-          open={emailWalletOpen}
-          onClose={() => setEmailWalletOpen(false)}
-          onWalletReady={handleEmailWalletReady}
-        />
       </>
     );
   }
@@ -147,14 +126,6 @@ export function ConnectWalletButton({
 
   return (
     <div ref={triggerRef} className="relative">
-      <CircleEmailWalletDialog
-        open={emailWalletOpen}
-        onClose={() => setEmailWalletOpen(false)}
-        onWalletReady={(wallet, auth) => {
-          emailWallet.setSession(wallet, auth);
-          setEmailWalletOpen(false);
-        }}
-      />
       <GlassButton
         variant="ghost"
         aria-expanded={open}
@@ -239,9 +210,8 @@ export function ConnectWalletButton({
                 <button
                   type="button"
                   onClick={() => {
-                    onSignInOpen?.();
-                    setEmailWalletOpen(true);
                     setOpen(false);
+                    openSignIn();
                   }}
                   className="mt-1 flex w-full touch-manipulation items-center gap-2 rounded-md px-3 py-2.5 text-left text-sm text-white/70 transition hover:bg-white/[0.07] hover:text-white"
                 >

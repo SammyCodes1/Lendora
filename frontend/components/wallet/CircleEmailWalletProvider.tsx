@@ -36,6 +36,7 @@ type CircleEmailWalletContextValue = {
   setSession: (wallet: CircleEmailWallet, auth: CircleEmailWalletAuth) => void;
   clearSession: () => void;
   resumeFromSocialLogin: (auth: CircleEmailWalletAuth) => void;
+  requestSignIn: () => void;
   consumePendingAuth: () => CircleEmailWalletAuth | null;
   clearSignInRequest: () => void;
 };
@@ -118,6 +119,10 @@ export function CircleEmailWalletProvider({
     );
   }, []);
 
+  const requestSignIn = useCallback(() => {
+    setSignInRequested(true);
+  }, []);
+
   const consumePendingAuth = useCallback(() => {
     const nextAuth = pendingAuth;
     setPendingAuth(null);
@@ -139,6 +144,7 @@ export function CircleEmailWalletProvider({
       setSession,
       clearSession,
       resumeFromSocialLogin,
+      requestSignIn,
       consumePendingAuth,
       clearSignInRequest,
     }),
@@ -148,6 +154,7 @@ export function CircleEmailWalletProvider({
       clearSignInRequest,
       consumePendingAuth,
       pendingAuth,
+      requestSignIn,
       resumeFromSocialLogin,
       setSession,
       signInRequested,
