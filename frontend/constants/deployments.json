@@ -61,5 +61,7 @@
   "pythContract": "0x2880aB155794e7179c9eE2e38200202908C17B43",
   "mockPriceOracle_deprecated": "0x5D401B38686245B57Efb682828877a3124d36653",
   "SwapPool": "0x49FD6464Ebbe659aaF55034441B134E5030A4A4A",
-  "swapPoolDeploymentBlock": 55192926
+  "swapPoolDeploymentBlock": 55192926,
+  "MultiSend": "0x45E30b72f121c4Fc6803620950ef933969bCB005",
+  "MultiSendDeploymentBlock": 56544435
 }

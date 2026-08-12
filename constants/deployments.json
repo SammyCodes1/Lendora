@@ -58,5 +58,7 @@
   },
   "RecurringOrderExecutor": "0x884C8C2E3F4a2232797C54be029a8a87e31d75e4",
   "SwapPool": "0x49FD6464Ebbe659aaF55034441B134E5030A4A4A",
-  "swapPoolDeploymentBlock": 55192926
+  "swapPoolDeploymentBlock": 55192926,
+  "MultiSend": "0x45E30b72f121c4Fc6803620950ef933969bCB005",
+  "MultiSendDeploymentBlock": 56544435
 }
