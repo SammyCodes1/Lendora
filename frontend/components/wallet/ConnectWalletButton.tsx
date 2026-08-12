@@ -38,8 +38,14 @@ export function ConnectWalletButton() {
       emailWallet.setSession(wallet, auth);
       setEmailWalletOpen(false);
     },
-    [emailWallet],
+    [emailWallet.setSession],
   );
+
+  useEffect(() => {
+    if (!emailWallet.signInRequested) return;
+    setEmailWalletOpen(true);
+    emailWallet.clearSignInRequest();
+  }, [emailWallet.clearSignInRequest, emailWallet.signInRequested]);
 
   // Close after wallet sheet / tab freeze so the portal cannot block the navbar.
   useCloseOnResume(closeDropdown, open);

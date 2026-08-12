@@ -10,11 +10,18 @@ import type {
   SocialLoginResult,
 } from "@circle-fin/w3s-pw-web-sdk/dist/src/types";
 import { GlassButton } from "@/components/ui/GlassButton";
+import {
+  circleLoginErrorMessage,
+  clearSocialOAuthState,
+  type SocialOAuthState,
+  writeSocialOAuthState,
+} from "@/lib/circleSocialLogin";
 import { showToast } from "@/lib/toast";
 import type {
   CircleEmailWallet,
   CircleEmailWalletAuth,
 } from "@/components/wallet/CircleEmailWalletProvider";
+import { useCircleEmailWallet } from "@/components/wallet/CircleEmailWalletProvider";
 
 type OtpTokens = {
   deviceToken: string;
@@ -44,15 +51,6 @@ const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 const walletLoadRetryCount = 6;
 const walletLoadRetryDelayMs = 1_500;
 
-/** LocalStorage key that persists the social-login device tokens across the
- *  full-page OAuth redirect so the SDK can rehydrate and finish the login. */
-const SOCIAL_OAUTH_STORAGE_KEY = "arclend:social-oauth";
-
-type SocialOAuthState = {
-  deviceToken: string;
-  deviceEncryptionKey: string;
-};
-
 function apiError(data: CircleWalletResponse, fallback: string) {
   return data.error ?? data.message ?? fallback;
 }
@@ -80,6 +78,11 @@ export function CircleEmailWalletDialog({
   const [status, setStatus] = useState("Enter your email to start.");
   const [isBusy, setIsBusy] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const autoInitRef = useRef(false);
+  const {
+    pendingAuth,
+    consumePendingAuth,
+  } = useCircleEmailWallet();
 
   const loadWallets = useCallback(
     async (nextAuth: CircleEmailWalletAuth) => {
@@ -139,12 +142,10 @@ export function CircleEmailWalletDialog({
 
     const onLoginComplete = (error: unknown, result: unknown) => {
       if (error) {
-        const message =
-          error instanceof Error ? error.message : "Sign in failed.";
+        const message = circleLoginErrorMessage(error, "Sign in failed.");
         setStatus(message);
         showToast("error", message);
-        // Clear stale social-login state so a failed redirect doesn't linger.
-        window.localStorage.removeItem(SOCIAL_OAUTH_STORAGE_KEY);
+        clearSocialOAuthState();
         return;
       }
 
@@ -158,8 +159,7 @@ export function CircleEmailWalletDialog({
         return;
       }
 
-      // Login completed — the persisted device tokens are no longer needed.
-      window.localStorage.removeItem(SOCIAL_OAUTH_STORAGE_KEY);
+      clearSocialOAuthState();
 
       setAuth({
         userToken: loginResult.userToken,
@@ -175,35 +175,10 @@ export function CircleEmailWalletDialog({
       });
     };
 
-    // Rehydrate a pending social login after the OAuth redirect. If a device
-    // token was persisted before the redirect, init the SDK with the full
-    // Google config so `execSocialLoginStatusCheck` auto-completes the flow
-    // when the URL hash carries the OAuth response.
-    let savedOAuth: SocialOAuthState | null = null;
-    try {
-      const raw = window.localStorage.getItem(SOCIAL_OAUTH_STORAGE_KEY);
-      if (raw) savedOAuth = JSON.parse(raw) as SocialOAuthState;
-    } catch {
-      savedOAuth = null;
-    }
-
-    const loginConfigs =
-      savedOAuth && googleClientId
-        ? {
-            deviceToken: savedOAuth.deviceToken,
-            deviceEncryptionKey: savedOAuth.deviceEncryptionKey,
-            google: {
-              clientId: googleClientId,
-              redirectUri: window.location.origin,
-              selectAccountPrompt: true,
-            },
-          }
-        : undefined;
-
+    // OAuth return is completed by CircleGoogleAuthCompleter so this instance
+    // can keep a dedicated SDK for OTP + wallet-creation challenges.
     const sdk = new W3SSdk(
-      loginConfigs
-        ? { appSettings: { appId: circleAppId }, loginConfigs }
-        : { appSettings: { appId: circleAppId } },
+      { appSettings: { appId: circleAppId } },
       onLoginComplete,
     );
     sdkRef.current = sdk;
@@ -217,6 +192,9 @@ export function CircleEmailWalletDialog({
   useEffect(() => {
     if (!open) return;
     document.body.style.overflow = "hidden";
+    if (!googleClientId) {
+      setStatus("NEXT_PUBLIC_GOOGLE_CLIENT_ID is not configured.");
+    }
     return () => {
       document.body.style.overflow = "";
     };
@@ -295,15 +273,10 @@ export function CircleEmailWalletDialog({
         throw new Error("Circle did not return social login tokens.");
       }
 
-      // Persist the device tokens so the SDK can rehydrate + finish the login
-      // after the full-page OAuth redirect back to this origin.
-      window.localStorage.setItem(
-        SOCIAL_OAUTH_STORAGE_KEY,
-        JSON.stringify({
-          deviceToken: data.deviceToken,
-          deviceEncryptionKey: data.deviceEncryptionKey,
-        }),
-      );
+      writeSocialOAuthState({
+        deviceToken: data.deviceToken,
+        deviceEncryptionKey: data.deviceEncryptionKey,
+      });
 
       sdkRef.current?.updateConfigs({
         appSettings: { appId: circleAppId },
@@ -325,6 +298,7 @@ export function CircleEmailWalletDialog({
         error instanceof Error ? error.message : "Could not start Google sign in.";
       setStatus(message);
       showToast("error", message);
+    } finally {
       setIsBusy(false);
     }
   }, [deviceId]);
@@ -401,6 +375,22 @@ export function CircleEmailWalletDialog({
     });
   }, [auth, challengeId, loadWalletsWithRetry]);
 
+  useEffect(() => {
+    if (!open || auth || !pendingAuth) return;
+    const nextAuth = consumePendingAuth();
+    if (!nextAuth) return;
+    setAuth(nextAuth);
+    setStatus("Sign in verified. Create or load your Arc wallet.");
+  }, [auth, consumePendingAuth, open, pendingAuth]);
+
+  useEffect(() => {
+    if (!open || !auth || wallets.length > 0 || challengeId || autoInitRef.current) {
+      return;
+    }
+    autoInitRef.current = true;
+    void initializeWallet();
+  }, [auth, challengeId, initializeWallet, open, wallets.length]);
+
   if (!open || !mounted) return null;
 
   return createPortal(
@@ -435,6 +425,13 @@ export function CircleEmailWalletDialog({
             variant="primary"
             className="w-full"
             disabled={!googleClientId || !circleAppId || !deviceId || isBusy}
+            title={
+              !googleClientId
+                ? "Set NEXT_PUBLIC_GOOGLE_CLIENT_ID to enable Google sign in."
+                : !deviceId
+                  ? "Circle wallet is still initializing."
+                  : undefined
+            }
             onClick={() => void requestGoogleLogin()}
           >
             {isBusy ? (
