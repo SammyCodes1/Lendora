@@ -2,13 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CheckCircle2, Copy, Loader2, Mail, Wallet, X } from "lucide-react";
+import { Copy, Loader2, Wallet, X } from "lucide-react";
 import { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import { SocialLoginProvider } from "@circle-fin/w3s-pw-web-sdk/dist/src/types";
-import type {
-  EmailLoginResult,
-  SocialLoginResult,
-} from "@circle-fin/w3s-pw-web-sdk/dist/src/types";
+import type { SocialLoginResult } from "@circle-fin/w3s-pw-web-sdk/dist/src/types";
 import { GlassButton } from "@/components/ui/GlassButton";
 import {
   circleLoginErrorMessage,
@@ -22,12 +19,6 @@ import type {
   CircleEmailWalletAuth,
 } from "@/components/wallet/CircleEmailWalletProvider";
 import { useCircleEmailWallet } from "@/components/wallet/CircleEmailWalletProvider";
-
-type OtpTokens = {
-  deviceToken: string;
-  deviceEncryptionKey: string;
-  otpToken: string;
-};
 
 type CircleWalletResponse = {
   wallets?: CircleEmailWallet[];
@@ -70,12 +61,10 @@ export function CircleEmailWalletDialog({
 }: CircleEmailWalletDialogProps) {
   const sdkRef = useRef<W3SSdk | null>(null);
   const [deviceId, setDeviceId] = useState("");
-  const [email, setEmail] = useState("");
-  const [otpTokens, setOtpTokens] = useState<OtpTokens | null>(null);
   const [auth, setAuth] = useState<CircleEmailWalletAuth | null>(null);
   const [challengeId, setChallengeId] = useState<string | null>(null);
   const [wallets, setWallets] = useState<CircleEmailWallet[]>([]);
-  const [status, setStatus] = useState("Enter your email to start.");
+  const [status, setStatus] = useState("Sign in with Google to continue.");
   const [isBusy, setIsBusy] = useState(false);
   const [mounted, setMounted] = useState(false);
   const autoInitRef = useRef(false);
@@ -100,7 +89,7 @@ export function CircleEmailWalletDialog({
       setWallets(nextWallets);
       if (nextWallets[0]) {
         onWalletReady(nextWallets[0], nextAuth);
-        setStatus("Email wallet ready on Arc Testnet.");
+        setStatus("Wallet ready on Arc Testnet.");
       } else {
         setStatus("No Arc wallet found yet. Create or load your wallet.");
       }
@@ -149,10 +138,7 @@ export function CircleEmailWalletDialog({
         return;
       }
 
-      const loginResult = result as
-        | EmailLoginResult
-        | SocialLoginResult
-        | undefined;
+      const loginResult = result as SocialLoginResult | undefined;
       if (!loginResult?.userToken || !loginResult.encryptionKey) {
         setStatus("Sign in did not return a Circle session.");
         showToast("error", "Sign in did not return a Circle session.");
@@ -176,7 +162,7 @@ export function CircleEmailWalletDialog({
     };
 
     // OAuth return is completed by CircleGoogleAuthCompleter so this instance
-    // can keep a dedicated SDK for OTP + wallet-creation challenges.
+    // can keep a dedicated SDK for wallet-creation challenges.
     const sdk = new W3SSdk(
       { appSettings: { appId: circleAppId } },
       onLoginComplete,
@@ -199,53 +185,6 @@ export function CircleEmailWalletDialog({
       document.body.style.overflow = "";
     };
   }, [open]);
-
-  const requestOtp = useCallback(async () => {
-    if (!deviceId || !email.trim()) return;
-
-    setIsBusy(true);
-    try {
-      const response = await fetch("/api/circle-wallet/request-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deviceId, email }),
-      });
-      const data = (await response.json()) as OtpTokens & CircleWalletResponse;
-      if (!response.ok) {
-        throw new Error(apiError(data, "Could not send email OTP."));
-      }
-      if (!data.deviceToken || !data.deviceEncryptionKey || !data.otpToken) {
-        throw new Error("Circle did not return OTP verification tokens.");
-      }
-
-      setOtpTokens({
-        deviceToken: data.deviceToken,
-        deviceEncryptionKey: data.deviceEncryptionKey,
-        otpToken: data.otpToken,
-      });
-      sdkRef.current?.updateConfigs({
-        appSettings: { appId: circleAppId },
-        loginConfigs: {
-          deviceToken: data.deviceToken,
-          deviceEncryptionKey: data.deviceEncryptionKey,
-          otpToken: data.otpToken,
-        },
-      });
-      setStatus("OTP sent. Continue to verification.");
-      showToast("success", "Circle OTP sent");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not send OTP.";
-      setStatus(message);
-      showToast("error", message);
-    } finally {
-      setIsBusy(false);
-    }
-  }, [deviceId, email]);
-
-  const verifyOtp = useCallback(() => {
-    if (!otpTokens || !sdkRef.current) return;
-    sdkRef.current.verifyOtp();
-  }, [otpTokens]);
 
   const requestGoogleLogin = useCallback(async () => {
     if (!deviceId) {
@@ -363,7 +302,7 @@ export function CircleEmailWalletDialog({
       try {
         const nextWallets = await loadWalletsWithRetry(auth);
         if (nextWallets.length > 0) {
-          showToast("success", "Circle email wallet ready");
+          showToast("success", "Circle wallet ready");
         }
       } catch (caught) {
         const message =
@@ -405,15 +344,14 @@ export function CircleEmailWalletDialog({
               Sign in
             </h2>
             <p className="mt-2 text-sm leading-6 text-white/50">
-              Continue with Google, or verify your email with Circle, to create
-              or load an Arc Testnet wallet.
+              Continue with Google to create or load an Arc Testnet wallet.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             className="rounded-md border border-white/10 bg-white/[0.04] p-2 text-white/55 hover:text-white"
-            aria-label="Close email wallet"
+            aria-label="Close sign in"
           >
             <X className="h-4 w-4" />
           </button>
@@ -460,57 +398,18 @@ export function CircleEmailWalletDialog({
           </GlassButton>
         </div>
 
-        <div className="my-4 flex items-center gap-3">
-          <span className="h-px flex-1 bg-white/[0.08]" />
-          <span className="text-xs uppercase tracking-wide text-white/30">
-            or
-          </span>
-          <span className="h-px flex-1 bg-white/[0.08]" />
-        </div>
-
-        <div className="rounded-md border border-white/[0.08] bg-white/[0.04] p-3">
-          <p className="text-xs text-white/40">Email address</p>
-          <div className="mt-2 flex gap-2">
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@example.com"
-              className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/25"
-            />
-            <GlassButton
-              type="button"
-              variant="primary"
-              className="px-3"
-              disabled={!circleAppId || !deviceId || !email.trim() || isBusy}
-              onClick={() => void requestOtp()}
-            >
-              {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-              Send
-            </GlassButton>
-          </div>
-        </div>
-
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {auth && !wallets.length && !challengeId ? (
           <GlassButton
             type="button"
             variant="ghost"
-            disabled={!otpTokens || isBusy}
-            onClick={verifyOtp}
-          >
-            <CheckCircle2 className="h-4 w-4" />
-            Verify OTP
-          </GlassButton>
-          <GlassButton
-            type="button"
-            variant="ghost"
-            disabled={!auth || isBusy}
+            className="mt-3 w-full"
+            disabled={isBusy}
             onClick={() => void initializeWallet()}
           >
             <Wallet className="h-4 w-4" />
             Load wallet
           </GlassButton>
-        </div>
+        ) : null}
 
         {challengeId ? (
           <GlassButton
@@ -560,11 +459,11 @@ export function CircleEmailWalletDialog({
             className="mt-3 w-full"
             onClick={async () => {
               await navigator.clipboard.writeText(wallets[0].address);
-              showToast("success", "Email wallet address copied");
+              showToast("success", "Wallet address copied");
             }}
           >
             <Copy className="h-4 w-4" />
-            Copy email wallet address
+            Copy wallet address
           </GlassButton>
         ) : null}
       </div>
