@@ -33,6 +33,14 @@ export function ConnectWalletButton() {
   const activeAddress = address ?? (emailWallet.wallet?.address as Address | undefined);
   const { primaryDomain } = usePrimaryDomain(activeAddress);
 
+  const handleEmailWalletReady = useCallback(
+    (wallet: Parameters<typeof emailWallet.setSession>[0], auth: Parameters<typeof emailWallet.setSession>[1]) => {
+      emailWallet.setSession(wallet, auth);
+      setEmailWalletOpen(false);
+    },
+    [emailWallet],
+  );
+
   // Close after wallet sheet / tab freeze so the portal cannot block the navbar.
   useCloseOnResume(closeDropdown, open);
 
@@ -116,10 +124,7 @@ export function ConnectWalletButton() {
         <CircleEmailWalletDialog
           open={emailWalletOpen}
           onClose={() => setEmailWalletOpen(false)}
-          onWalletReady={(wallet, auth) => {
-            emailWallet.setSession(wallet, auth);
-            setEmailWalletOpen(false);
-          }}
+          onWalletReady={handleEmailWalletReady}
         />
       </>
     );

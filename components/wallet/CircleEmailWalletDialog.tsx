@@ -114,6 +114,9 @@ export function CircleEmailWalletDialog({
     setMounted(true);
   }, []);
 
+  const loadWalletsRef = useRef(loadWallets);
+  loadWalletsRef.current = loadWallets;
+
   useEffect(() => {
     if (!circleAppId) {
       setStatus("NEXT_PUBLIC_CIRCLE_APP_ID is not configured.");
@@ -138,7 +141,7 @@ export function CircleEmailWalletDialog({
 
       setAuth(loginResult);
       setStatus("Email verified. Checking for an Arc wallet…");
-      void loadWallets(loginResult).catch((caught) => {
+      void loadWalletsRef.current(loginResult).catch((caught) => {
         const message =
           caught instanceof Error
             ? caught.message
@@ -156,7 +159,8 @@ export function CircleEmailWalletDialog({
       .getDeviceId()
       .then(setDeviceId)
       .catch(() => setStatus("Could not initialize Circle email wallet."));
-  }, [loadWallets]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [circleAppId]);
 
   useEffect(() => {
     if (!open) return;
