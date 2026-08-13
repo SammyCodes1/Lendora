@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowUpDown,
@@ -101,6 +101,50 @@ const CSV_TEMPLATE = `address,usdc_amount,eurc_amount
 0xAbC123...def,100.50,0
 0xDeF456...abc,0,200.75
 0x789012...345,50.00,75.00`;
+
+function FieldLabel({ children }: { children: ReactNode }) {
+  return (
+    <span className="mb-1.5 block text-[10px] font-medium uppercase tracking-[0.16em] text-white/32">
+      {children}
+    </span>
+  );
+}
+
+function AmountWell({
+  label,
+  value,
+  onChange,
+  invalid,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  invalid?: boolean;
+}) {
+  return (
+    <label className="block min-w-0">
+      <FieldLabel>{label}</FieldLabel>
+      <div
+        className={cn(
+          "rounded-xl border bg-black/25 px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
+          invalid ? "border-red-400/25" : "border-white/[0.08]",
+        )}
+      >
+        <input
+          type="text"
+          inputMode="decimal"
+          placeholder="0.00"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className={cn(
+            "w-full bg-transparent font-mono text-sm text-white outline-none placeholder:text-white/20",
+            invalid && "text-red-200",
+          )}
+        />
+      </div>
+    </label>
+  );
+}
 
 // ─── Main Component ─────────────────────────────────────────────────────
 
@@ -553,430 +597,425 @@ export default function MultiSendPage() {
   );
 
   // ── Render ──────────────────────────────────────────────────────
+  const hardError = (error?: string) =>
+    Boolean(error && !error.startsWith("⚠"));
+
   return (
     <PageTransition>
       <PageHeader
         icon={<Users className="h-4 w-4" />}
         title="MultiSend"
-        description="Send USDC and EURC to multiple wallets in one transaction"
+        description="Send USDC and EURC to many wallets in a single signed batch."
+        stats={[
+          { label: "Recipients", value: String(validCount) },
+          {
+            label: "USDC",
+            value: formatTokenAmount(grandTotal.usdc),
+          },
+          {
+            label: "EURC",
+            value: formatTokenAmount(grandTotal.eurc),
+          },
+        ]}
       />
 
-      {/* ── Tabs ──────────────────────────────────────────────── */}
-      <div className="mt-8 flex items-center gap-1 rounded-xl border border-white/[0.08] bg-white/[0.025] p-1 w-fit">
-        {([
-          ["manual", "Manual Entry"],
-          ["csv", "Upload CSV"],
-        ] as [TabId, string][]).map(([id, label]) => (
-          <button
-            key={id}
-            onClick={() => setActiveTab(id)}
-            className={cn(
-              "rounded-lg px-4 py-2 text-sm font-medium transition",
-              activeTab === id
-                ? "bg-white/[0.10] text-white shadow-sm"
-                : "text-white/45 hover:text-white/75",
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Manual Entry ──────────────────────────────────────── */}
-      {activeTab === "manual" && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-6"
-        >
-          <div className="overflow-x-auto rounded-xl border border-white/[0.08] bg-white/[0.025]">
-            {/* Table header */}
-            <div className="grid grid-cols-[1fr_180px_180px_48px] gap-3 border-b border-white/[0.06] px-4 py-3 text-xs font-medium text-white/40">
-              <span>Wallet Address</span>
-              <span>USDC Amount</span>
-              <span>EURC Amount</span>
-              <span />
-            </div>
-
-            {/* Rows */}
-            <AnimatePresence>
-              {rowsWithDuplicates.map((row, idx) => (
-                <motion.div
-                  key={row.id}
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className={cn(
-                    "grid grid-cols-[1fr_180px_180px_48px] gap-3 border-b border-white/[0.04] px-4 py-2.5 last:border-b-0",
-                    row.error && !row.error.startsWith("⚠") && "bg-red-500/[0.06]",
-                    row.error?.startsWith("⚠") && "bg-amber-400/[0.05]",
-                  )}
-                >
-                  <div className="min-w-0">
-                    <input
-                      type="text"
-                      placeholder="0x..."
-                      value={row.address}
-                      onChange={(e) =>
-                        updateRow(row.id, "address", e.target.value)
-                      }
-                      className={cn(
-                        "w-full bg-transparent font-mono text-sm text-white outline-none placeholder:text-white/20",
-                        row.error &&
-                          !row.error.startsWith("⚠") &&
-                          "text-red-300",
-                      )}
-                    />
-                    {row.error && (
-                      <p
-                        className={cn(
-                          "mt-0.5 text-[11px]",
-                          row.error.startsWith("⚠")
-                            ? "text-amber-300/80"
-                            : "text-red-400/80",
-                        )}
-                      >
-                        {row.error}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="0.00"
-                      value={row.usdcAmount}
-                      onChange={(e) =>
-                        updateRow(row.id, "usdcAmount", e.target.value)
-                      }
-                      className={cn(
-                        "w-full bg-transparent font-mono text-sm text-white outline-none placeholder:text-white/20",
-                        row.error &&
-                          !row.error.startsWith("⚠") &&
-                          "text-red-300",
-                      )}
-                    />
-                  </div>
-                  <div>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="0.00"
-                      value={row.eurcAmount}
-                      onChange={(e) =>
-                        updateRow(row.id, "eurcAmount", e.target.value)
-                      }
-                      className={cn(
-                        "w-full bg-transparent font-mono text-sm text-white outline-none placeholder:text-white/20",
-                        row.error &&
-                          !row.error.startsWith("⚠") &&
-                          "text-red-300",
-                      )}
-                    />
-                  </div>
-                  <div className="flex items-center justify-center">
-                    <button
-                      onClick={() => removeRow(row.id)}
-                      className="rounded-lg p-1.5 text-white/25 transition hover:bg-red-500/15 hover:text-red-300"
-                      aria-label="Remove row"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
-
-          <GlassButton variant="ghost" onClick={addRow} className="mt-3">
-            <Plus className="h-4 w-4" /> Add Recipient
-          </GlassButton>
-        </motion.div>
-      )}
-
-      {/* ── CSV Upload ─────────────────────────────────────────── */}
-      {activeTab === "csv" && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-6 space-y-4"
-        >
-          {/* Drop zone */}
-          <div
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={handleFileDrop}
-            className="flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-white/[0.12] bg-white/[0.02] px-6 py-12 text-center transition hover:border-white/[0.25] hover:bg-white/[0.04]"
-          >
-            <div className="rounded-full border border-white/[0.10] bg-white/[0.05] p-3">
-              <Upload className="h-6 w-6 text-white/50" />
-            </div>
-            <div>
-              <p className="text-sm text-white/70">
-                Drag & drop a CSV file here, or{" "}
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="text-emerald-200/80 underline underline-offset-2 hover:text-emerald-100"
-                >
-                  browse
-                </button>
-              </p>
-              <p className="mt-1 text-xs text-white/35">
-                Expected columns: address, usdc_amount, eurc_amount
-              </p>
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={handleFilePick}
-            />
-          </div>
-
-          {/* Template download */}
-          <div className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.025] px-4 py-3">
-            <FileUp className="h-4 w-4 text-white/40" />
-            <span className="text-sm text-white/50">
-              Need a template? Download a sample CSV to see the expected format.
-            </span>
-            <GlassButton variant="ghost" onClick={downloadTemplate}>
-              <Download className="h-3.5 w-3.5" /> Template
-            </GlassButton>
-          </div>
-
-          {/* CSV error */}
-          {csvError && (
-            <div className="flex items-start gap-3 rounded-xl border border-red-400/25 bg-red-400/[0.06] px-4 py-3">
-              <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
-              <p className="text-sm text-red-300/85">{csvError}</p>
-            </div>
-          )}
-
-          {/* After parsing, show preview */}
-          {rowsWithDuplicates.filter((r) => r.address.trim()).length > 0 && (
-            <div className="rounded-xl border border-emerald-200/[0.15] bg-emerald-200/[0.04] px-4 py-3">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-300" />
-                <span className="text-sm text-emerald-200/80">
-                  Parsed {rowsWithDuplicates.filter((r) => r.address.trim()).length} recipients.{" "}
+      <div className="mt-8 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <section className="rounded-[28px] border border-white/[0.08] bg-white/[0.03] p-1.5 shadow-[0_28px_80px_rgba(0,0,0,0.38)]">
+          <div className="overflow-hidden rounded-[22px] border border-white/[0.07] bg-black/25">
+            <div className="flex flex-col gap-4 border-b border-white/[0.06] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <div>
+                <p className="font-display text-lg text-white">Recipients</p>
+                <p className="mt-1 text-sm text-white/40">
+                  Build the list by hand or import a CSV.
+                </p>
+              </div>
+              <div className="flex w-full rounded-full border border-white/[0.08] bg-white/[0.03] p-1 sm:w-auto">
+                {([
+                  ["manual", "Manual"],
+                  ["csv", "CSV"],
+                ] as [TabId, string][]).map(([id, label]) => (
                   <button
-                    onClick={() => setActiveTab("manual")}
-                    className="underline underline-offset-2 hover:text-emerald-100"
+                    key={id}
+                    type="button"
+                    onClick={() => setActiveTab(id)}
+                    className={cn(
+                      "min-h-10 flex-1 rounded-full px-4 text-sm font-medium transition sm:flex-none",
+                      activeTab === id
+                        ? "bg-white text-black"
+                        : "text-white/45 hover:text-white",
+                    )}
                   >
-                    Review & edit in Manual Entry
+                    {label}
                   </button>
-                </span>
+                ))}
               </div>
             </div>
-          )}
-        </motion.div>
-      )}
 
-      {/* ── Totals & Summary ───────────────────────────────────── */}
-      {grandTotal.usdc > 0n || grandTotal.eurc > 0n ? (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-6 flex flex-wrap items-center gap-4 rounded-xl border border-white/[0.08] bg-white/[0.025] px-5 py-3.5"
-        >
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-white/45">Total USDC:</span>
-            <span className="font-mono font-semibold text-white">
-              {formatTokenAmount(grandTotal.usdc)}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-white/45">Total EURC:</span>
-            <span className="font-mono font-semibold text-white">
-              {formatTokenAmount(grandTotal.eurc)}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-white/45">Recipients:</span>
-            <span className="font-mono font-semibold text-white">
-              {validCount}
-            </span>
-          </div>
-          {batches.length > 1 && (
-            <div className="flex items-center gap-2 rounded-full border border-amber-400/[0.2] bg-amber-400/[0.06] px-3 py-1 text-xs text-amber-200/80">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              This will require {batches.length} transactions (
-              {batches.map((b, i) => `${b.length}${i < batches.length - 1 ? " + " : ""}`)}
-              {" "}recipients)
-            </div>
-          )}
-          {hasWarnings && (
-            <div className="flex items-center gap-2 rounded-full border border-amber-400/[0.2] bg-amber-400/[0.06] px-3 py-1 text-xs text-amber-200/80">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              Duplicate addresses detected
-            </div>
-          )}
-        </motion.div>
-      ) : null}
+            <div className="p-4 sm:p-5">
+              {activeTab === "manual" && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                  className="space-y-3"
+                >
+                  <AnimatePresence>
+                    {rowsWithDuplicates.map((row, idx) => (
+                      <motion.div
+                        key={row.id}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -6 }}
+                        className={cn(
+                          "rounded-2xl border p-4",
+                          hardError(row.error)
+                            ? "border-red-400/20 bg-red-500/[0.05]"
+                            : row.error?.startsWith("⚠")
+                              ? "border-amber-400/20 bg-amber-400/[0.04]"
+                              : "border-white/[0.07] bg-white/[0.025]",
+                        )}
+                      >
+                        <div className="mb-3 flex items-center justify-between">
+                          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/28">
+                            {String(idx + 1).padStart(2, "0")}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeRow(row.id)}
+                            className="rounded-lg p-1.5 text-white/25 transition hover:bg-red-500/15 hover:text-red-300"
+                            aria-label="Remove row"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <label className="block">
+                          <FieldLabel>Wallet</FieldLabel>
+                          <div
+                            className={cn(
+                              "rounded-xl border bg-black/25 px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
+                              hardError(row.error)
+                                ? "border-red-400/25"
+                                : "border-white/[0.08]",
+                            )}
+                          >
+                            <input
+                              type="text"
+                              placeholder="0x..."
+                              value={row.address}
+                              onChange={(event) =>
+                                updateRow(row.id, "address", event.target.value)
+                              }
+                              className={cn(
+                                "w-full bg-transparent font-mono text-sm text-white outline-none placeholder:text-white/20",
+                                hardError(row.error) && "text-red-200",
+                              )}
+                            />
+                          </div>
+                        </label>
+                        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <AmountWell
+                            label="USDC"
+                            value={row.usdcAmount}
+                            invalid={hardError(row.error)}
+                            onChange={(value) =>
+                              updateRow(row.id, "usdcAmount", value)
+                            }
+                          />
+                          <AmountWell
+                            label="EURC"
+                            value={row.eurcAmount}
+                            invalid={hardError(row.error)}
+                            onChange={(value) =>
+                              updateRow(row.id, "eurcAmount", value)
+                            }
+                          />
+                        </div>
+                        {row.error ? (
+                          <p
+                            className={cn(
+                              "mt-2 text-[11px]",
+                              row.error.startsWith("⚠")
+                                ? "text-amber-200/80"
+                                : "text-red-300/80",
+                            )}
+                          >
+                            {row.error}
+                          </p>
+                        ) : null}
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
 
-      {/* ── Execute Button ─────────────────────────────────────── */}
-      {step === "idle" && validCount > 0 && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mt-6"
-        >
-          {!isConnected ? (
-            <div className="rounded-xl border border-amber-400/[0.2] bg-amber-400/[0.06] px-4 py-3 text-sm text-amber-200/80">
-              Connect your wallet to execute the batch send.
-            </div>
-          ) : !MULTISEND_ADDRESS ? (
-            <div className="rounded-xl border border-amber-400/[0.2] bg-amber-400/[0.06] px-4 py-3 text-sm text-amber-200/80">
-              MultiSend contract not yet deployed. Run the deployment script
-              first.
-            </div>
-          ) : (
-            <GlassButton variant="primary" onClick={execute} className="w-full sm:w-auto">
-              <Send className="h-4 w-4" /> Send{" "}
-              {batches.length > 1 ? `${batches.length} Batches` : "Now"}
-            </GlassButton>
-          )}
-        </motion.div>
-      )}
+                  <GlassButton variant="ghost" onClick={addRow} className="w-full">
+                    <Plus className="h-4 w-4" />
+                    Add recipient
+                  </GlassButton>
+                </motion.div>
+              )}
 
-      {/* ── Execution Progress ─────────────────────────────────── */}
-      {step === "approving" && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mt-6 flex items-center gap-4 rounded-xl border border-white/[0.10] bg-white/[0.04] px-5 py-4"
-        >
-          <Loader2 className="h-5 w-5 animate-spin text-white/70" />
-          <div>
-            <p className="text-sm font-medium text-white">
-              Approving token spend
-              {totalBatches > 1 ? ` (batch ${currentBatch} of ${totalBatches})` : ""}...
-            </p>
-            <p className="mt-0.5 text-xs text-white/40">
-              Confirm the approval in your wallet
-            </p>
-          </div>
-        </motion.div>
-      )}
+              {activeTab === "csv" && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                  className="space-y-4"
+                >
+                  <div
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={handleFileDrop}
+                    className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-white/[0.14] bg-white/[0.02] px-6 py-14 text-center transition hover:border-white/25 hover:bg-white/[0.035]"
+                  >
+                    <div className="rounded-full border border-white/[0.10] bg-white/[0.05] p-3">
+                      <Upload className="h-5 w-5 text-white/55" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-white/70">
+                        Drop a CSV here, or{" "}
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="text-[#86efac] underline underline-offset-2 hover:text-emerald-100"
+                        >
+                          browse
+                        </button>
+                      </p>
+                      <p className="mt-2 font-mono text-[11px] text-white/30">
+                        address, usdc_amount, eurc_amount
+                      </p>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".csv"
+                      className="hidden"
+                      onChange={handleFilePick}
+                    />
+                  </div>
 
-      {step === "sending" && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mt-6 flex items-center gap-4 rounded-xl border border-white/[0.10] bg-white/[0.04] px-5 py-4"
-        >
-          <Loader2 className="h-5 w-5 animate-spin text-white/70" />
-          <div>
-            <p className="text-sm font-medium text-white">
-              Sending batch {currentBatch} of {totalBatches}...
-            </p>
-            <p className="mt-0.5 text-xs text-white/40">
-              Confirm the transaction in your wallet
-            </p>
-          </div>
-        </motion.div>
-      )}
+                  <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.025] px-4 py-3 sm:flex-row sm:items-center">
+                    <FileUp className="h-4 w-4 shrink-0 text-white/40" />
+                    <p className="min-w-0 flex-1 text-sm text-white/50">
+                      Download the sample file if you need the column layout.
+                    </p>
+                    <GlassButton variant="ghost" onClick={downloadTemplate}>
+                      <Download className="h-3.5 w-3.5" />
+                      Template
+                    </GlassButton>
+                  </div>
 
-      {/* ── Success ────────────────────────────────────────────── */}
-      {step === "success" && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-6 space-y-4"
-        >
-          <div className="flex items-center gap-3 rounded-xl border border-emerald-400/[0.20] bg-emerald-400/[0.06] px-5 py-4">
-            <CheckCircle2 className="h-5 w-5 text-emerald-300" />
-            <div>
-              <p className="text-sm font-semibold text-emerald-200">
-                MultiSend complete!
-              </p>
-              <p className="mt-0.5 text-xs text-emerald-200/60">
-                {validCount} recipient{validCount !== 1 ? "s" : ""} ·{" "}
-                {grandTotal.usdc > 0n
-                  ? `${formatTokenAmount(grandTotal.usdc)} USDC`
-                  : ""}
-                {grandTotal.usdc > 0n && grandTotal.eurc > 0n ? " + " : ""}
-                {grandTotal.eurc > 0n
-                  ? `${formatTokenAmount(grandTotal.eurc)} EURC`
-                  : ""}{" "}
-                · {txHashes.length} transaction
-                {txHashes.length !== 1 ? "s" : ""}
-              </p>
-            </div>
-          </div>
+                  {csvError ? (
+                    <div className="flex items-start gap-3 rounded-2xl border border-red-400/25 bg-red-400/[0.06] px-4 py-3">
+                      <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+                      <p className="text-sm text-red-300/85">{csvError}</p>
+                    </div>
+                  ) : null}
 
-          {/* Tx hashes */}
-          <div className="space-y-2">
-            {txHashes.map((hash, i) => (
-              <a
-                key={hash}
-                href={`${ARCSCAN_TX}${hash}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.025] px-4 py-3 transition hover:bg-white/[0.05]"
-              >
-                <span className="text-xs text-white/40">
-                  {txHashes.length > 1 ? `Batch ${i + 1}` : "Tx"}
-                </span>
-                <span className="font-mono text-sm text-emerald-200/80">
-                  {hash.slice(0, 10)}...{hash.slice(-8)}
-                </span>
-                <ExternalLink className="ml-auto h-3.5 w-3.5 text-white/30" />
-              </a>
-            ))}
-          </div>
-
-          <GlassButton variant="ghost" onClick={reset}>
-            <ArrowUpDown className="h-4 w-4" /> New Batch
-          </GlassButton>
-        </motion.div>
-      )}
-
-      {/* ── Error ──────────────────────────────────────────────── */}
-      {step === "error" && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-6 space-y-4"
-        >
-          <div className="flex items-start gap-3 rounded-xl border border-red-400/[0.20] bg-red-400/[0.06] px-5 py-4">
-            <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
-            <div>
-              <p className="text-sm font-semibold text-red-300">
-                Transaction failed
-              </p>
-              <p className="mt-1 text-xs text-red-300/70">{errorMessage}</p>
-              {currentBatch > 0 && txHashes.length > 0 && (
-                <p className="mt-2 text-xs text-white/40">
-                  {txHashes.length} batch{txHashes.length !== 1 ? "es" : ""}{" "}
-                  completed before the error.
-                </p>
+                  {rowsWithDuplicates.filter((row) => row.address.trim()).length > 0 ? (
+                    <div className="rounded-2xl border border-[#86efac]/20 bg-[#86efac]/[0.05] px-4 py-3">
+                      <div className="flex items-start gap-2">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#86efac]" />
+                        <p className="text-sm text-[#86efac]/85">
+                          Parsed{" "}
+                          {rowsWithDuplicates.filter((row) => row.address.trim()).length}{" "}
+                          recipients.{" "}
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab("manual")}
+                            className="underline underline-offset-2 hover:text-emerald-100"
+                          >
+                            Review in Manual
+                          </button>
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
+                </motion.div>
               )}
             </div>
           </div>
+        </section>
 
-          <GlassButton variant="ghost" onClick={reset}>
-            Try Again
-          </GlassButton>
-        </motion.div>
-      )}
+        <aside className="xl:sticky xl:top-28">
+          <div className="rounded-[28px] border border-white/[0.08] bg-white/[0.03] p-1.5 shadow-[0_28px_80px_rgba(0,0,0,0.38)]">
+            <div className="rounded-[22px] border border-white/[0.07] bg-black/25 p-5">
+              <p className="font-display text-lg text-white">Settlement</p>
+              <p className="mt-1 text-sm text-white/40">
+                Review totals, then sign once per batch.
+              </p>
 
-      {/* ── Empty State ────────────────────────────────────────── */}
-      {step === "idle" && validCount === 0 && rows.length <= 1 &&
-        !rows[0]?.address.trim() && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mt-12 flex flex-col items-center gap-3 py-12 text-center"
-        >
-          <div className="rounded-full border border-white/[0.08] bg-white/[0.03] p-4">
-            <Users className="h-6 w-6 text-white/25" />
+              <dl className="mt-6 space-y-4">
+                <div className="flex items-end justify-between gap-4 border-b border-white/[0.06] pb-4">
+                  <dt className="text-[10px] uppercase tracking-[0.16em] text-white/32">
+                    USDC
+                  </dt>
+                  <dd className="font-mono text-2xl text-white">
+                    {formatTokenAmount(grandTotal.usdc)}
+                  </dd>
+                </div>
+                <div className="flex items-end justify-between gap-4 border-b border-white/[0.06] pb-4">
+                  <dt className="text-[10px] uppercase tracking-[0.16em] text-white/32">
+                    EURC
+                  </dt>
+                  <dd className="font-mono text-2xl text-white">
+                    {formatTokenAmount(grandTotal.eurc)}
+                  </dd>
+                </div>
+                <div className="flex items-end justify-between gap-4">
+                  <dt className="text-[10px] uppercase tracking-[0.16em] text-white/32">
+                    Wallets
+                  </dt>
+                  <dd className="font-mono text-2xl text-white">{validCount}</dd>
+                </div>
+              </dl>
+
+              {batches.length > 1 ? (
+                <div className="mt-5 flex items-start gap-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2.5 text-xs text-amber-100/80">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    This list needs {batches.length} transactions
+                    ({batches.map((batch) => batch.length).join(" + ")} recipients).
+                  </span>
+                </div>
+              ) : null}
+
+              {hasWarnings ? (
+                <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2.5 text-xs text-amber-100/80">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  Duplicate addresses detected
+                </div>
+              ) : null}
+
+              <div className="mt-6">
+                {step === "idle" && validCount === 0 ? (
+                  <p className="text-sm leading-6 text-white/35">
+                    Add at least one valid recipient to unlock sending.
+                  </p>
+                ) : null}
+
+                {step === "idle" && validCount > 0 && !isConnected ? (
+                  <p className="rounded-xl border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2.5 text-sm text-amber-100/80">
+                    Connect a wallet to send this batch.
+                  </p>
+                ) : null}
+
+                {step === "idle" && validCount > 0 && isConnected && !MULTISEND_ADDRESS ? (
+                  <p className="rounded-xl border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2.5 text-sm text-amber-100/80">
+                    MultiSend contract is not deployed yet.
+                  </p>
+                ) : null}
+
+                {step === "idle" && canExecute ? (
+                  <GlassButton
+                    variant="primary"
+                    onClick={execute}
+                    className="w-full"
+                  >
+                    <Send className="h-4 w-4" />
+                    {batches.length > 1
+                      ? `Send ${batches.length} batches`
+                      : "Send now"}
+                  </GlassButton>
+                ) : null}
+
+                {step === "approving" ? (
+                  <div className="flex items-start gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-3">
+                    <Loader2 className="mt-0.5 h-4 w-4 animate-spin text-white/70" />
+                    <div>
+                      <p className="text-sm text-white">
+                        Approving spend
+                        {totalBatches > 1
+                          ? ` (batch ${currentBatch} of ${totalBatches})`
+                          : ""}
+                      </p>
+                      <p className="mt-1 text-xs text-white/40">
+                        Confirm the approval in your wallet.
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+
+                {step === "sending" ? (
+                  <div className="flex items-start gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-3">
+                    <Loader2 className="mt-0.5 h-4 w-4 animate-spin text-white/70" />
+                    <div>
+                      <p className="text-sm text-white">
+                        Sending batch {currentBatch} of {totalBatches}
+                      </p>
+                      <p className="mt-1 text-xs text-white/40">
+                        Confirm the transaction in your wallet.
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+
+                {step === "success" ? (
+                  <div className="space-y-3">
+                    <div className="rounded-xl border border-[#86efac]/20 bg-[#86efac]/[0.06] px-3 py-3">
+                      <div className="flex items-center gap-2 text-[#86efac]">
+                        <CheckCircle2 className="h-4 w-4" />
+                        <p className="text-sm font-medium">Batch complete</p>
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-[#86efac]/70">
+                        {validCount} recipient{validCount !== 1 ? "s" : ""}
+                        {grandTotal.usdc > 0n
+                          ? ` / ${formatTokenAmount(grandTotal.usdc)} USDC`
+                          : ""}
+                        {grandTotal.eurc > 0n
+                          ? ` / ${formatTokenAmount(grandTotal.eurc)} EURC`
+                          : ""}
+                      </p>
+                    </div>
+                    {txHashes.map((hash, index) => (
+                      <a
+                        key={hash}
+                        href={`${ARCSCAN_TX}${hash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.025] px-3 py-2.5 transition hover:bg-white/[0.05]"
+                      >
+                        <span className="text-[11px] text-white/35">
+                          {txHashes.length > 1 ? `Batch ${index + 1}` : "Tx"}
+                        </span>
+                        <span className="font-mono text-xs text-[#86efac]/80">
+                          {hash.slice(0, 8)}...{hash.slice(-6)}
+                        </span>
+                        <ExternalLink className="ml-auto h-3.5 w-3.5 text-white/30" />
+                      </a>
+                    ))}
+                    <GlassButton variant="ghost" onClick={reset} className="w-full">
+                      <ArrowUpDown className="h-4 w-4" />
+                      New batch
+                    </GlassButton>
+                  </div>
+                ) : null}
+
+                {step === "error" ? (
+                  <div className="space-y-3">
+                    <div className="rounded-xl border border-red-400/20 bg-red-400/[0.06] px-3 py-3">
+                      <div className="flex items-center gap-2 text-red-300">
+                        <XCircle className="h-4 w-4" />
+                        <p className="text-sm font-medium">Transaction failed</p>
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-red-300/70">
+                        {errorMessage}
+                      </p>
+                      {currentBatch > 0 && txHashes.length > 0 ? (
+                        <p className="mt-2 text-xs text-white/40">
+                          {txHashes.length} batch
+                          {txHashes.length !== 1 ? "es" : ""} completed before the error.
+                        </p>
+                      ) : null}
+                    </div>
+                    <GlassButton variant="ghost" onClick={reset} className="w-full">
+                      Try again
+                    </GlassButton>
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </div>
-          <p className="text-sm text-white/35">
-            Add recipients manually or upload a CSV to get started.
-          </p>
-        </motion.div>
-      )}
+        </aside>
+      </div>
     </PageTransition>
   );
 }
