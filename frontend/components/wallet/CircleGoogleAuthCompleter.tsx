@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import type { SocialLoginResult } from "@circle-fin/w3s-pw-web-sdk/dist/src/types";
 import { useCircleEmailWallet } from "@/components/wallet/CircleEmailWalletProvider";
 import {
   circleLoginErrorMessage,
+  clearOAuthHash,
   clearSocialOAuthState,
   googleRedirectUri,
-  isCircleOAuthHash,
   readSocialOAuthState,
+  restoreOAuthHash,
 } from "@/lib/circleSocialLogin";
 import { showToast } from "@/lib/toast";
 
@@ -36,19 +37,35 @@ export function CircleGoogleAuthCompleter() {
   const pathname = usePathname();
   const router = useRouter();
   const { setSession, resumeFromSocialLogin } = useCircleEmailWallet();
+  const [finishing, setFinishing] = useState(false);
 
   useEffect(() => {
     if (googleOAuthCompletionStarted) return;
     if (!circleAppId || !googleClientId) return;
+    if (!restoreOAuthHash()) return;
 
     const savedOAuth = readSocialOAuthState();
-    if (!savedOAuth || !isCircleOAuthHash(window.location.hash)) return;
+    if (!savedOAuth) {
+      clearOAuthHash();
+      showToast("error", "Google sign in expired. Tap Sign in and try again.");
+      return;
+    }
 
     googleOAuthCompletionStarted = true;
+    setFinishing(true);
+
+    const goToApp = () => {
+      clearOAuthHash();
+      if (pathname === "/") {
+        router.replace("/dashboard");
+      }
+    };
 
     const onLoginComplete = (error: unknown, result: unknown) => {
       if (error) {
         clearSocialOAuthState();
+        setFinishing(false);
+        goToApp();
         showToast(
           "error",
           circleLoginErrorMessage(error, "Google sign in failed."),
@@ -59,6 +76,8 @@ export function CircleGoogleAuthCompleter() {
       const loginResult = result as SocialLoginResult | undefined;
       if (!loginResult?.userToken || !loginResult.encryptionKey) {
         clearSocialOAuthState();
+        setFinishing(false);
+        goToApp();
         showToast("error", "Sign in did not return a Circle session.");
         return;
       }
@@ -81,9 +100,7 @@ export function CircleGoogleAuthCompleter() {
           if (response.ok && wallet) {
             setSession(wallet, nextAuth);
             showToast("success", "Signed in with Google");
-            if (pathname === "/") {
-              router.replace("/dashboard");
-            }
+            goToApp();
             return;
           }
         } catch {
@@ -91,9 +108,7 @@ export function CircleGoogleAuthCompleter() {
         }
 
         resumeFromSocialLogin(nextAuth);
-        if (pathname === "/") {
-          router.replace("/dashboard");
-        }
+        goToApp();
       })();
     };
 
@@ -116,5 +131,14 @@ export function CircleGoogleAuthCompleter() {
     );
   }, [pathname, resumeFromSocialLogin, router, setSession]);
 
-  return null;
+  if (!finishing) return null;
+
+  return (
+    <div className="fixed inset-0 z-[1300] flex items-center justify-center bg-black/80 px-6 text-center backdrop-blur-sm">
+      <div>
+        <p className="text-sm font-medium text-white">Signing you in with Google…</p>
+        <p className="mt-2 text-sm text-white/50">You will be taken to the app in a moment.</p>
+      </div>
+    </div>
+  );
 }

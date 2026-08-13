@@ -52,6 +52,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" data-scroll-behavior="smooth">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              '(function(){try{var h=location.hash||"";if(h.indexOf("id_token=")>0||h.indexOf("access_token=")>0){sessionStorage.setItem("arclend:oauth-hash",h);}}catch(e){}})();',
+          }}
+        />
+      </head>
       <body className="min-h-screen bg-black text-white antialiased">
         <Providers>
           <div className="jitter-grid pointer-events-none fixed inset-0 z-0" aria-hidden="true" />

@@ -1,17 +1,56 @@
 export const SOCIAL_OAUTH_STORAGE_KEY = "arclend:social-oauth";
 export const CIRCLE_SESSION_STORAGE_KEY = "arclend:circle-wallet-session";
 export const CIRCLE_PENDING_AUTH_STORAGE_KEY = "arclend:circle-pending-auth";
+export const OAUTH_HASH_STORAGE_KEY = "arclend:oauth-hash";
 
 export type SocialOAuthState = {
   deviceToken: string;
   deviceEncryptionKey: string;
 };
 
-const oauthHashPattern =
-  /^#(?:[a-zA-Z0-9-_.%]+=[^&]*&)*[a-zA-Z0-9-_.%]+=[^&]*$/;
-
 export function isCircleOAuthHash(hash: string) {
-  return oauthHashPattern.test(hash);
+  return /(?:^|#|&)(?:id_token|access_token)=/.test(hash);
+}
+
+export function restoreOAuthHash() {
+  if (typeof window === "undefined") return false;
+  const current = window.location.hash;
+  if (isCircleOAuthHash(current)) {
+    try {
+      window.sessionStorage.setItem(OAUTH_HASH_STORAGE_KEY, current);
+    } catch {
+      /* ignore quota / private mode */
+    }
+    return true;
+  }
+  try {
+    const stored = window.sessionStorage.getItem(OAUTH_HASH_STORAGE_KEY);
+    if (!stored || !isCircleOAuthHash(stored)) return false;
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${window.location.search}${stored}`,
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function clearOAuthHash() {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(OAUTH_HASH_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+  if (isCircleOAuthHash(window.location.hash)) {
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${window.location.search}`,
+    );
+  }
 }
 
 export function readSocialOAuthState(): SocialOAuthState | null {
