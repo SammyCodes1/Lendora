@@ -10,6 +10,16 @@ const nextConfig = {
   // Explicit empty turbopack config so Next 16 doesn't error when a webpack()
   // function is present (production still uses `next build --webpack`).
   turbopack: {},
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "arclend.cv" }],
+        destination: "https://www.arclend.cv/:path*",
+        permanent: true,
+      },
+    ];
+  },
   webpack(config) {
     config.resolve = config.resolve ?? {};
     config.resolve.alias = {

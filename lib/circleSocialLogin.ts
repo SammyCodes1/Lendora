@@ -39,6 +39,12 @@ export function clearSocialOAuthState() {
   window.localStorage.removeItem("nonce");
 }
 
+/** Circle sends this exact value to Google as redirect_uri. No trailing slash. */
+export function googleRedirectUri() {
+  if (typeof window === "undefined") return "";
+  return window.location.origin;
+}
+
 export function circleLoginErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message) return error.message;
   if (typeof error === "object" && error && "message" in error) {

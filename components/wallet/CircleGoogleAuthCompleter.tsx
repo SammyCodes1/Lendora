@@ -8,6 +8,7 @@ import { useCircleEmailWallet } from "@/components/wallet/CircleEmailWalletProvi
 import {
   circleLoginErrorMessage,
   clearSocialOAuthState,
+  googleRedirectUri,
   isCircleOAuthHash,
   readSocialOAuthState,
 } from "@/lib/circleSocialLogin";
@@ -106,7 +107,7 @@ export function CircleGoogleAuthCompleter() {
           deviceEncryptionKey: savedOAuth.deviceEncryptionKey,
           google: {
             clientId: googleClientId,
-            redirectUri: window.location.origin,
+            redirectUri: googleRedirectUri(),
             selectAccountPrompt: true,
           },
         },

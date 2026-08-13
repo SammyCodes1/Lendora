@@ -10,6 +10,7 @@ import { GlassButton } from "@/components/ui/GlassButton";
 import {
   circleLoginErrorMessage,
   clearSocialOAuthState,
+  googleRedirectUri,
   type SocialOAuthState,
   writeSocialOAuthState,
 } from "@/lib/circleSocialLogin";
@@ -263,7 +264,7 @@ export function CircleEmailWalletDialog({
           deviceEncryptionKey: data.deviceEncryptionKey,
           google: {
             clientId: googleClientId,
-            redirectUri: window.location.origin,
+            redirectUri: googleRedirectUri(),
             selectAccountPrompt: true,
           },
         },
@@ -385,6 +386,11 @@ export function CircleEmailWalletDialog({
             <p className="mt-2 text-sm leading-6 text-white/50">
               Continue with Google to create or load an Arc Testnet wallet.
             </p>
+            {typeof window !== "undefined" ? (
+              <p className="mt-2 break-all font-mono text-[11px] leading-5 text-white/30">
+                Google redirect URI: {googleRedirectUri()}
+              </p>
+            ) : null}
           </div>
           <button
             type="button"
