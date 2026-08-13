@@ -24,6 +24,7 @@ type CircleWalletResponse = {
   wallets?: CircleEmailWallet[];
   challengeId?: string;
   alreadyInitialized?: boolean;
+  code?: number;
   error?: string;
   message?: string;
 };
@@ -41,9 +42,19 @@ const circleAppId = process.env.NEXT_PUBLIC_CIRCLE_APP_ID ?? "";
 const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 const walletLoadRetryCount = 6;
 const walletLoadRetryDelayMs = 1_500;
+const DEVICE_ID_STORAGE_KEY = "arclend:circle-device-id";
 
 function apiError(data: CircleWalletResponse, fallback: string) {
-  return data.error ?? data.message ?? fallback;
+  const detail = data.error ?? data.message ?? fallback;
+  return data.code ? `[${data.code}] ${detail}` : detail;
+}
+
+function readCachedDeviceId() {
+  try {
+    return window.localStorage.getItem(DEVICE_ID_STORAGE_KEY) ?? "";
+  } catch {
+    return "";
+  }
 }
 
 function shortAddress(address: string) {
@@ -124,6 +135,7 @@ export function CircleEmailWalletDialog({
   loadWalletsRef.current = loadWallets;
 
   useEffect(() => {
+    if (!open) return;
     if (!circleAppId) {
       setStatus("NEXT_PUBLIC_CIRCLE_APP_ID is not configured.");
       return;
@@ -161,19 +173,46 @@ export function CircleEmailWalletDialog({
       });
     };
 
-    // OAuth return is completed by CircleGoogleAuthCompleter so this instance
-    // can keep a dedicated SDK for wallet-creation challenges.
     const sdk = new W3SSdk(
       { appSettings: { appId: circleAppId } },
       onLoginComplete,
     );
     sdkRef.current = sdk;
-    void sdk
-      .getDeviceId()
-      .then(setDeviceId)
-      .catch(() => setStatus("Could not initialize Circle wallet."));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [circleAppId]);
+
+    const cachedDeviceId = readCachedDeviceId();
+    if (cachedDeviceId) {
+      setDeviceId(cachedDeviceId);
+    }
+
+    let cancelled = false;
+    void (async () => {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const nextDeviceId = await sdk.getDeviceId();
+          if (cancelled) return;
+          setDeviceId(nextDeviceId);
+          window.localStorage.setItem(DEVICE_ID_STORAGE_KEY, nextDeviceId);
+          return;
+        } catch (error) {
+          if (cancelled) return;
+          if (attempt < 2) {
+            setStatus("Connecting to Circle…");
+            await wait(800);
+            continue;
+          }
+          const message = circleLoginErrorMessage(
+            error,
+            "Could not initialize Circle wallet. Check your connection and try again.",
+          );
+          setStatus(message);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [circleAppId, open]);
 
   useEffect(() => {
     if (!open) return;

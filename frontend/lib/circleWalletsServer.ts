@@ -26,15 +26,28 @@ export function circleWalletClient() {
 
 export function circleErrorDetails(error: unknown) {
   const candidate = error as {
-    response?: { data?: { code?: number; message?: string } };
+    response?: {
+      data?: {
+        code?: number;
+        message?: string;
+        error?: { code?: number; message?: string } | string;
+      };
+    };
     code?: number;
     message?: string;
   };
+  const data = candidate.response?.data;
+  const nested =
+    data && typeof data.error === "object" && data.error ? data.error : undefined;
+  const messageFromErrorField =
+    typeof data?.error === "string" ? data.error : undefined;
 
   return {
-    code: candidate.response?.data?.code ?? candidate.code,
+    code: nested?.code ?? data?.code ?? candidate.code,
     message:
-      candidate.response?.data?.message ??
+      nested?.message ??
+      data?.message ??
+      messageFromErrorField ??
       candidate.message ??
       "Circle wallet request failed.",
   };
