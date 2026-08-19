@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { erc20Abi, formatUnits, type Address } from "viem";
 import { useChainId, useReadContracts } from "wagmi";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
 import { cn } from "@/lib/utils";
-
-const EXPLORER_API = "https://testnet.arcscan.app/api/v2";
 
 type TokenConfig = {
   symbol: string;
@@ -14,7 +12,7 @@ type TokenConfig = {
   alwaysShow: boolean;
 };
 
-// Known tokens per chain
+// Known tokens allowed to display on the navbar
 const KNOWN_TOKENS: Record<number, Record<Address, TokenConfig>> = {
   // Arc Testnet (5042002)
   5042002: {
@@ -43,15 +41,6 @@ type DisplayChip = {
   key: string;
   symbol: string;
   formatted: string;
-};
-
-type ExplorerTokenItem = {
-  token: {
-    address_hash?: string;
-    symbol: string | null;
-    decimals: string | null;
-  };
-  value: string;
 };
 
 // ─── Token icon styling ───────────────────────────────────────────────────────
@@ -114,7 +103,7 @@ export function AssetBalanceChips({ mobile = false }: { mobile?: boolean }) {
     return Object.entries(tokensForChain) as [Address, TokenConfig][];
   }, [tokensForChain]);
 
-  // On-chain reads for known tokens
+  // On-chain reads for allowed tokens
   const readContracts = useMemo(() => {
     if (!address) return [];
     return tokenEntries.map(([tokenAddress]) => ({
@@ -136,64 +125,7 @@ export function AssetBalanceChips({ mobile = false }: { mobile?: boolean }) {
     },
   });
 
-  // Secondary Explorer API discovery for unlisted tokens
-  const [extraTokens, setExtraTokens] = useState<DisplayChip[]>([]);
-
-  useEffect(() => {
-    if (!address || chainId !== 5042002) {
-      setExtraTokens([]);
-      return;
-    }
-
-    let cancelled = false;
-    const knownAddresses = new Set(tokenEntries.map(([addr]) => addr.toLowerCase()));
-
-    const fetchExplorer = () => {
-      fetch(`${EXPLORER_API}/addresses/${address}/token-balances`)
-        .then((res) => res.json())
-        .then((data: unknown) => {
-          if (cancelled) return;
-          const items: ExplorerTokenItem[] = Array.isArray(data)
-            ? data
-            : (data as { items?: ExplorerTokenItem[] })?.items ?? [];
-
-          const found: DisplayChip[] = items
-            .filter((item) => {
-              const tokenAddr = item.token?.address_hash?.toLowerCase();
-              if (!tokenAddr || knownAddresses.has(tokenAddr)) return false;
-              try {
-                return BigInt(item.value ?? "0") > 0n && item.token?.symbol;
-              } catch {
-                return false;
-              }
-            })
-            .map((item) => {
-              const decimals = Number(item.token.decimals ?? "18");
-              const val = BigInt(item.value);
-              const formatted = Number(formatUnits(val, decimals)).toLocaleString(undefined, {
-                maximumFractionDigits: decimals === 8 ? 6 : 2,
-              });
-              return {
-                key: item.token.address_hash!,
-                symbol: item.token.symbol!,
-                formatted,
-              };
-            });
-
-          setExtraTokens(found);
-        })
-        .catch(() => {});
-    };
-
-    fetchExplorer();
-    const interval = window.setInterval(fetchExplorer, 8_000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, [address, chainId, tokenEntries]);
-
-  // Combine known tokens + extra discovered tokens into chips
+  // Filter chips to show strictly USDC, EURC, cirBTC, and USDT
   const chips = useMemo<DisplayChip[]>(() => {
     if (!address) return [];
 
@@ -222,13 +154,8 @@ export function AssetBalanceChips({ mobile = false }: { mobile?: boolean }) {
       }
     });
 
-    // Append extra tokens from explorer
-    extraTokens.forEach((extra) => {
-      result.push(extra);
-    });
-
     return result;
-  }, [address, tokenEntries, readData, isReadLoading, extraTokens]);
+  }, [address, tokenEntries, readData, isReadLoading]);
 
   if (!isConnected) return null;
 
