@@ -18,6 +18,9 @@ import { showToast } from "@/lib/toast";
 const circleAppId = process.env.NEXT_PUBLIC_CIRCLE_APP_ID ?? "";
 const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 
+/** Maximum ms to wait for the W3SSdk callback before giving up. */
+const COMPLETION_TIMEOUT_MS = 30_000;
+
 type WalletResponse = {
   wallets?: Array<{
     id: string;
@@ -31,6 +34,8 @@ type WalletResponse = {
 };
 
 // Survives React Strict Mode remounts so the OAuth hash is only consumed once.
+// Reset to false whenever completion finishes (success or error) so that a
+// subsequent sign-in attempt in the same tab can proceed.
 let googleOAuthCompletionStarted = false;
 
 export function CircleGoogleAuthCompleter() {
@@ -41,7 +46,22 @@ export function CircleGoogleAuthCompleter() {
 
   useEffect(() => {
     if (googleOAuthCompletionStarted) return;
-    if (!circleAppId || !googleClientId) return;
+
+    // If the Google Client ID or Circle App ID is missing, clear the stale
+    // OAuth hash so the loading overlay never appears, and warn the user.
+    if (!circleAppId || !googleClientId) {
+      if (restoreOAuthHash()) {
+        clearOAuthHash();
+        clearSocialOAuthState();
+        if (!circleAppId) {
+          showToast("error", "NEXT_PUBLIC_CIRCLE_APP_ID is not configured.");
+        } else {
+          showToast("error", "NEXT_PUBLIC_GOOGLE_CLIENT_ID is not configured.");
+        }
+      }
+      return;
+    }
+
     if (!restoreOAuthHash()) return;
 
     const savedOAuth = readSocialOAuthState();
@@ -54,6 +74,15 @@ export function CircleGoogleAuthCompleter() {
     googleOAuthCompletionStarted = true;
     setFinishing(true);
 
+    /** Resets the completion gate and hides the overlay. */
+    const finish = (wasError: boolean) => {
+      googleOAuthCompletionStarted = false;
+      setFinishing(false);
+      if (wasError) {
+        clearOAuthHash();
+      }
+    };
+
     const goToApp = () => {
       clearOAuthHash();
       if (pathname === "/") {
@@ -61,10 +90,20 @@ export function CircleGoogleAuthCompleter() {
       }
     };
 
+    // Safety net: if the SDK callback never fires (e.g. network timeout, SDK
+    // bug), dismiss the overlay so the user isn't permanently blocked.
+    const timeoutId = window.setTimeout(() => {
+      finish(true);
+      clearSocialOAuthState();
+      showToast("error", "Google sign in timed out. Please try again.");
+    }, COMPLETION_TIMEOUT_MS);
+
     const onLoginComplete = (error: unknown, result: unknown) => {
+      window.clearTimeout(timeoutId);
+
       if (error) {
         clearSocialOAuthState();
-        setFinishing(false);
+        finish(true);
         goToApp();
         showToast(
           "error",
@@ -76,7 +115,7 @@ export function CircleGoogleAuthCompleter() {
       const loginResult = result as SocialLoginResult | undefined;
       if (!loginResult?.userToken || !loginResult.encryptionKey) {
         clearSocialOAuthState();
-        setFinishing(false);
+        finish(true);
         goToApp();
         showToast("error", "Sign in did not return a Circle session.");
         return;
@@ -99,6 +138,7 @@ export function CircleGoogleAuthCompleter() {
           const wallet = data.wallets?.find((item) => item.id && item.address);
           if (response.ok && wallet) {
             setSession(wallet, nextAuth);
+            finish(false);
             showToast("success", "Signed in with Google");
             goToApp();
             return;
@@ -107,6 +147,8 @@ export function CircleGoogleAuthCompleter() {
           // First-time users still need to create a wallet in the sign-in dialog.
         }
 
+        // No wallet yet — open the dialog so the user can create one.
+        finish(false);
         resumeFromSocialLogin(nextAuth);
         goToApp();
       })();
@@ -129,6 +171,10 @@ export function CircleGoogleAuthCompleter() {
       },
       onLoginComplete,
     );
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [pathname, resumeFromSocialLogin, router, setSession]);
 
   if (!finishing) return null;
