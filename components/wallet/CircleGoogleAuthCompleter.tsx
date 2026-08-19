@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import type { SocialLoginResult } from "@circle-fin/w3s-pw-web-sdk/dist/src/types";
 import { useCircleEmailWallet } from "@/components/wallet/CircleEmailWalletProvider";
@@ -12,6 +12,7 @@ import {
   googleRedirectUri,
   readSocialOAuthState,
   restoreOAuthHash,
+  OAUTH_HASH_STORAGE_KEY,
 } from "@/lib/circleSocialLogin";
 import { showToast } from "@/lib/toast";
 
@@ -33,68 +34,81 @@ type WalletResponse = {
   message?: string;
 };
 
-// Survives React Strict Mode remounts so the OAuth hash is only consumed once.
-// Reset to false whenever completion finishes (success or error) so that a
-// subsequent sign-in attempt in the same tab can proceed.
-let googleOAuthCompletionStarted = false;
-
 export function CircleGoogleAuthCompleter() {
-  const pathname = usePathname();
   const router = useRouter();
   const { setSession, resumeFromSocialLogin } = useCircleEmailWallet();
   const [finishing, setFinishing] = useState(false);
 
-  useEffect(() => {
-    if (googleOAuthCompletionStarted) return;
+  // Keep latest router / context callbacks in refs so the one-time effect
+  // always uses the current values without needing them as dependencies.
+  const routerRef = useRef(router);
+  routerRef.current = router;
+  const setSessionRef = useRef(setSession);
+  setSessionRef.current = setSession;
+  const resumeFromSocialLoginRef = useRef(resumeFromSocialLogin);
+  resumeFromSocialLoginRef.current = resumeFromSocialLogin;
 
-    // If the Google Client ID or Circle App ID is missing, clear the stale
-    // OAuth hash so the loading overlay never appears, and warn the user.
+  // Tracks whether THIS component instance has already started OAuth completion.
+  // Using a ref (not a module global) so it resets naturally if the component
+  // unmounts and remounts (e.g., hard navigation).
+  const startedRef = useRef(false);
+
+  useEffect(() => {
+    // Already running in this component instance — do nothing.
+    if (startedRef.current) return;
+
+    // Check whether there is an OAuth hash to process before doing anything else.
+    // If there is no hash (normal page load) bail out immediately.
+    if (!restoreOAuthHash()) return;
+
+    // At this point we know a Google redirect just happened.
+    // Guard: if env vars are missing, clear the stale hash and show an error.
     if (!circleAppId || !googleClientId) {
-      if (restoreOAuthHash()) {
-        clearOAuthHash();
-        clearSocialOAuthState();
-        if (!circleAppId) {
-          showToast("error", "NEXT_PUBLIC_CIRCLE_APP_ID is not configured.");
-        } else {
-          showToast("error", "NEXT_PUBLIC_GOOGLE_CLIENT_ID is not configured.");
-        }
-      }
+      clearOAuthHash();
+      clearSocialOAuthState();
+      showToast(
+        "error",
+        !circleAppId
+          ? "NEXT_PUBLIC_CIRCLE_APP_ID is not configured."
+          : "NEXT_PUBLIC_GOOGLE_CLIENT_ID is not configured.",
+      );
       return;
     }
-
-    if (!restoreOAuthHash()) return;
 
     const savedOAuth = readSocialOAuthState();
     if (!savedOAuth) {
       clearOAuthHash();
-      showToast("error", "Google sign in expired. Tap Sign in and try again.");
+      showToast("error", "Google sign in expired. Please try again.");
       return;
     }
 
-    googleOAuthCompletionStarted = true;
+    // Mark as started and show the overlay.
+    startedRef.current = true;
     setFinishing(true);
 
-    /** Resets the completion gate and hides the overlay. */
-    const finish = (wasError: boolean) => {
-      googleOAuthCompletionStarted = false;
+    // IMMEDIATELY remove the hash from sessionStorage so that even if this
+    // effect were to re-run (it won't, but just in case) it cannot re-trigger.
+    try { window.sessionStorage.removeItem(OAUTH_HASH_STORAGE_KEY); } catch { /* ignore */ }
+
+    const dismiss = () => {
+      startedRef.current = false;
       setFinishing(false);
-      if (wasError) {
-        clearOAuthHash();
-      }
     };
 
     const goToApp = () => {
+      // Clean up the hash from the URL bar.
       clearOAuthHash();
-      if (pathname === "/") {
-        router.replace("/dashboard");
+      // If we are still on the root landing page, redirect into the app.
+      if (window.location.pathname === "/") {
+        routerRef.current.replace("/dashboard");
       }
     };
 
-    // Safety net: if the SDK callback never fires (e.g. network timeout, SDK
-    // bug), dismiss the overlay so the user isn't permanently blocked.
+    // Safety net: dismiss overlay if the SDK callback never fires.
     const timeoutId = window.setTimeout(() => {
-      finish(true);
+      dismiss();
       clearSocialOAuthState();
+      clearOAuthHash();
       showToast("error", "Google sign in timed out. Please try again.");
     }, COMPLETION_TIMEOUT_MS);
 
@@ -103,7 +117,8 @@ export function CircleGoogleAuthCompleter() {
 
       if (error) {
         clearSocialOAuthState();
-        finish(true);
+        clearOAuthHash();
+        dismiss();
         goToApp();
         showToast(
           "error",
@@ -115,7 +130,8 @@ export function CircleGoogleAuthCompleter() {
       const loginResult = result as SocialLoginResult | undefined;
       if (!loginResult?.userToken || !loginResult.encryptionKey) {
         clearSocialOAuthState();
-        finish(true);
+        clearOAuthHash();
+        dismiss();
         goToApp();
         showToast("error", "Sign in did not return a Circle session.");
         return;
@@ -135,27 +151,30 @@ export function CircleGoogleAuthCompleter() {
             body: JSON.stringify({ userToken: nextAuth.userToken }),
           });
           const data = (await response.json()) as WalletResponse;
-          const wallet = data.wallets?.find((item) => item.id && item.address);
+          const wallet = data.wallets?.find((w) => w.id && w.address);
           if (response.ok && wallet) {
-            setSession(wallet, nextAuth);
-            finish(false);
+            setSessionRef.current(wallet, nextAuth);
+            dismiss();
             showToast("success", "Signed in with Google");
             goToApp();
             return;
           }
         } catch {
-          // First-time users still need to create a wallet in the sign-in dialog.
+          // First-time user — no wallet yet. Fall through to resume flow.
         }
 
-        // No wallet yet — open the dialog so the user can create one.
-        finish(false);
-        resumeFromSocialLogin(nextAuth);
+        // No wallet found — dismiss overlay first, then open the wallet dialog.
+        dismiss();
         goToApp();
+        // Small tick so the overlay is fully gone before the dialog opens.
+        window.setTimeout(() => {
+          resumeFromSocialLoginRef.current(nextAuth);
+        }, 0);
       })();
     };
 
-    // Do not call getDeviceId() here. The constructor starts token verification
-    // on an iframe with id `sdkIframe`; getDeviceId() would race that iframe.
+    // Do not call getDeviceId() here. The W3SSdk constructor starts token
+    // verification on its own iframe; calling getDeviceId() would race it.
     new W3SSdk(
       {
         appSettings: { appId: circleAppId },
@@ -175,22 +194,20 @@ export function CircleGoogleAuthCompleter() {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [pathname, resumeFromSocialLogin, router, setSession]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally empty — runs once on mount only
 
   if (!finishing) return null;
 
   return (
-    // z-[200] keeps this below the Circle SDK wallet iframe (which the SDK
-    // injects at a very high z-index) while still covering the app UI.
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 px-6 text-center backdrop-blur-sm">
-      <div className="relative">
+      <div>
         <p className="text-sm font-medium text-white">Signing you in with Google…</p>
         <p className="mt-2 text-sm text-white/50">You will be taken to the app in a moment.</p>
-        {/* Safety dismiss — lets the user unblock themselves if the callback stalls */}
         <button
           type="button"
           onClick={() => {
-            googleOAuthCompletionStarted = false;
+            startedRef.current = false;
             setFinishing(false);
           }}
           className="mt-5 text-xs text-white/30 underline underline-offset-2 hover:text-white/60"
