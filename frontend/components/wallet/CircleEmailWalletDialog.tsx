@@ -484,9 +484,7 @@ export function CircleEmailWalletDialog({
                 <span className="block text-sm font-medium text-white">
                   {shortAddress(wallet.address)}
                 </span>
-                <span className="mt-1 block text-xs text-white/40">
-                  {wallet.blockchain || "ARC-TESTNET"} {wallet.accountType ? `· ${wallet.accountType}` : ""}
-                </span>
+
               </button>
             ))}
           </div>
