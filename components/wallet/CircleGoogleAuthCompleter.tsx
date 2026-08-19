@@ -180,10 +180,23 @@ export function CircleGoogleAuthCompleter() {
   if (!finishing) return null;
 
   return (
-    <div className="fixed inset-0 z-[1300] flex items-center justify-center bg-black/80 px-6 text-center backdrop-blur-sm">
-      <div>
+    // z-[200] keeps this below the Circle SDK wallet iframe (which the SDK
+    // injects at a very high z-index) while still covering the app UI.
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 px-6 text-center backdrop-blur-sm">
+      <div className="relative">
         <p className="text-sm font-medium text-white">Signing you in with Google…</p>
         <p className="mt-2 text-sm text-white/50">You will be taken to the app in a moment.</p>
+        {/* Safety dismiss — lets the user unblock themselves if the callback stalls */}
+        <button
+          type="button"
+          onClick={() => {
+            googleOAuthCompletionStarted = false;
+            setFinishing(false);
+          }}
+          className="mt-5 text-xs text-white/30 underline underline-offset-2 hover:text-white/60"
+        >
+          Taking too long? Dismiss
+        </button>
       </div>
     </div>
   );
