@@ -1,100 +1,78 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { formatUnits, type Address } from "viem";
-import { useChainId } from "wagmi";
+import { erc20Abi, formatUnits, type Address } from "viem";
+import { useChainId, useReadContracts } from "wagmi";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
-import { useTokenBalance } from "@/hooks/useTokenBalance";
 import { cn } from "@/lib/utils";
 
 const EXPLORER_API = "https://testnet.arcscan.app/api/v2";
 
-const usdcByChain: Record<number, Address> = {
-  5042002: "0x3600000000000000000000000000000000000000",
-  11155111: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
-  84532: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-  80002: "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582",
+type TokenConfig = {
+  symbol: string;
+  decimals: number;
+  alwaysShow: boolean;
 };
 
-const eurcByChain: Record<number, Address> = {
-  5042002: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
-  11155111: "0x08210F9170F89Ab7658F0B5E3fF39b0E03C594D4",
-  84532: "0x808456652fdb597867f38412077A9182bf77359F",
+// Known tokens per chain
+const KNOWN_TOKENS: Record<number, Record<Address, TokenConfig>> = {
+  // Arc Testnet (5042002)
+  5042002: {
+    "0x3600000000000000000000000000000000000000": { symbol: "USDC", decimals: 6, alwaysShow: true },
+    "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a": { symbol: "EURC", decimals: 6, alwaysShow: true },
+    "0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF": { symbol: "cirBTC", decimals: 8, alwaysShow: false },
+    "0x175CdB1D338945f0D851A741ccF787D343E57952": { symbol: "USDT", decimals: 18, alwaysShow: false },
+  },
+  // Sepolia (11155111)
+  11155111: {
+    "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238": { symbol: "USDC", decimals: 6, alwaysShow: true },
+    "0x08210F9170F89Ab7658F0B5E3fF39b0E03C594D4": { symbol: "EURC", decimals: 6, alwaysShow: true },
+  },
+  // Base Sepolia (84532)
+  84532: {
+    "0x036CbD53842c5426634e7929541eC2318f3dCF7e": { symbol: "USDC", decimals: 6, alwaysShow: true },
+    "0x808456652fdb597867f38412077A9182bf77359F": { symbol: "EURC", decimals: 6, alwaysShow: true },
+  },
+  // Polygon Amoy (80002)
+  80002: {
+    "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582": { symbol: "USDC", decimals: 6, alwaysShow: true },
+  },
 };
 
-// ─── Explorer token balance (for Google / email wallet) ───────────────────────
+type DisplayChip = {
+  key: string;
+  symbol: string;
+  formatted: string;
+};
 
-type ExplorerTokenBalance = {
+type ExplorerTokenItem = {
   token: {
+    address_hash?: string;
     symbol: string | null;
     decimals: string | null;
   };
   value: string;
 };
 
-type TokenChip = { symbol: string; formatted: string };
-
-function useExplorerTokenBalances(address: Address | undefined): {
-  tokens: TokenChip[];
-  isLoading: boolean;
-} {
-  const [tokens, setTokens] = useState<TokenChip[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    if (!address) return;
-
-    let cancelled = false;
-
-    function parseBalances(data: unknown): TokenChip[] {
-      return (Array.isArray(data) ? data : [])
-        .filter((item: ExplorerTokenBalance) => {
-          try { return BigInt(item.value ?? "0") > 0n && item.token?.symbol; }
-          catch { return false; }
-        })
-        .map((item: ExplorerTokenBalance) => {
-          const decimals = Number(item.token.decimals ?? "18");
-          const formatted = Number(
-            formatUnits(BigInt(item.value), decimals),
-          ).toLocaleString(undefined, { maximumFractionDigits: 4 });
-          return { symbol: item.token.symbol!, formatted };
-        });
-    }
-
-    setIsLoading(true);
-    fetch(`${EXPLORER_API}/addresses/${address}/token-balances`)
-      .then((r) => r.json())
-      .then((data) => { if (!cancelled) setTokens(parseBalances(data)); })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setIsLoading(false); });
-
-    const interval = window.setInterval(() => {
-      fetch(`${EXPLORER_API}/addresses/${address}/token-balances`)
-        .then((r) => r.json())
-        .then((data) => { if (!cancelled) setTokens(parseBalances(data)); })
-        .catch(() => {});
-    }, 8_000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, [address]);
-
-  return { tokens, isLoading };
-}
-
-// ─── Token icon ───────────────────────────────────────────────────────────────
+// ─── Token icon styling ───────────────────────────────────────────────────────
 
 function TokenIcon({ symbol }: { symbol: string }) {
-  const isUsdc = symbol === "USDC";
-  const isEurc = symbol === "EURC";
-  const label = isUsdc ? "$" : isEurc ? "€" : symbol.slice(0, 2).toUpperCase();
+  const sym = symbol.toUpperCase();
+  const isUsdc = sym === "USDC";
+  const isEurc = sym === "EURC";
+  const isBtc = sym.includes("BTC");
+  const isUsdt = sym === "USDT";
+
+  const label = isUsdc ? "$" : isEurc ? "€" : isBtc ? "₿" : isUsdt ? "₮" : symbol.slice(0, 2);
   const colorClass = isUsdc
     ? "border-blue-300/40 bg-blue-400/15 text-blue-200"
     : isEurc
       ? "border-cyan-300/40 bg-cyan-300/15 text-cyan-100"
-      : "border-amber-300/40 bg-amber-400/15 text-amber-200";
+      : isBtc
+        ? "border-amber-300/40 bg-amber-400/15 text-amber-200"
+        : isUsdt
+          ? "border-emerald-300/40 bg-emerald-400/15 text-emerald-200"
+          : "border-purple-300/40 bg-purple-400/15 text-purple-200";
 
   return (
     <span
@@ -109,8 +87,6 @@ function TokenIcon({ symbol }: { symbol: string }) {
   );
 }
 
-// ─── Chip components ──────────────────────────────────────────────────────────
-
 function BalanceChip({ symbol, value }: { symbol: string; value: string }) {
   return (
     <span className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 text-xs text-white/60">
@@ -123,73 +99,138 @@ function BalanceChip({ symbol, value }: { symbol: string; value: string }) {
   );
 }
 
-function NetworkTokenBalanceChip({
-  symbol,
-  contracts,
-}: {
-  symbol: "USDC" | "EURC";
-  contracts: Record<number, Address>;
-}) {
-  const { address, source } = useArcLendAccount();
-  const connectedChainId = useChainId();
-  const chainId = source === "email" ? 5042002 : connectedChainId;
-  const token = contracts[chainId];
-  const balance = useTokenBalance({
-    address,
-    token,
-    chainId,
-    enabled: Boolean(address && token),
-    refetchInterval: 4_000,
-  });
-  const formatted = useMemo(() => {
-    if (!balance.data) return "0.00";
-    return Number(
-      formatUnits(balance.data.value, balance.data.decimals),
-    ).toLocaleString(undefined, { maximumFractionDigits: 2 });
-  }, [balance.data]);
-
-  return (
-    <BalanceChip
-      symbol={symbol}
-      value={!token ? "—" : balance.isLoading ? "…" : formatted}
-    />
-  );
-}
-
-// ─── Public export ────────────────────────────────────────────────────────────
+// ─── Main exported component ─────────────────────────────────────────────────
 
 export function AssetBalanceChips({ mobile = false }: { mobile?: boolean }) {
   const { isConnected, address, source } = useArcLendAccount();
-  const isEmailWallet = source === "email";
+  const connectedChainId = useChainId();
+  const chainId = source === "email" ? 5042002 : (connectedChainId || 5042002);
 
-  const { tokens: explorerTokens, isLoading: explorerLoading } =
-    useExplorerTokenBalances(isEmailWallet ? address : undefined);
+  const tokensForChain = useMemo(() => {
+    return KNOWN_TOKENS[chainId] ?? KNOWN_TOKENS[5042002];
+  }, [chainId]);
+
+  const tokenEntries = useMemo(() => {
+    return Object.entries(tokensForChain) as [Address, TokenConfig][];
+  }, [tokensForChain]);
+
+  // On-chain reads for known tokens
+  const readContracts = useMemo(() => {
+    if (!address) return [];
+    return tokenEntries.map(([tokenAddress]) => ({
+      chainId,
+      address: tokenAddress,
+      abi: erc20Abi,
+      functionName: "balanceOf" as const,
+      args: [address] as const,
+    }));
+  }, [address, chainId, tokenEntries]);
+
+  const { data: readData, isLoading: isReadLoading } = useReadContracts({
+    contracts: readContracts,
+    query: {
+      enabled: Boolean(address && readContracts.length > 0),
+      refetchInterval: 4_000,
+      refetchIntervalInBackground: false,
+      refetchOnWindowFocus: false,
+    },
+  });
+
+  // Secondary Explorer API discovery for unlisted tokens
+  const [extraTokens, setExtraTokens] = useState<DisplayChip[]>([]);
+
+  useEffect(() => {
+    if (!address || chainId !== 5042002) {
+      setExtraTokens([]);
+      return;
+    }
+
+    let cancelled = false;
+    const knownAddresses = new Set(tokenEntries.map(([addr]) => addr.toLowerCase()));
+
+    const fetchExplorer = () => {
+      fetch(`${EXPLORER_API}/addresses/${address}/token-balances`)
+        .then((res) => res.json())
+        .then((data: unknown) => {
+          if (cancelled) return;
+          const items: ExplorerTokenItem[] = Array.isArray(data)
+            ? data
+            : (data as { items?: ExplorerTokenItem[] })?.items ?? [];
+
+          const found: DisplayChip[] = items
+            .filter((item) => {
+              const tokenAddr = item.token?.address_hash?.toLowerCase();
+              if (!tokenAddr || knownAddresses.has(tokenAddr)) return false;
+              try {
+                return BigInt(item.value ?? "0") > 0n && item.token?.symbol;
+              } catch {
+                return false;
+              }
+            })
+            .map((item) => {
+              const decimals = Number(item.token.decimals ?? "18");
+              const val = BigInt(item.value);
+              const formatted = Number(formatUnits(val, decimals)).toLocaleString(undefined, {
+                maximumFractionDigits: decimals === 8 ? 6 : 2,
+              });
+              return {
+                key: item.token.address_hash!,
+                symbol: item.token.symbol!,
+                formatted,
+              };
+            });
+
+          setExtraTokens(found);
+        })
+        .catch(() => {});
+    };
+
+    fetchExplorer();
+    const interval = window.setInterval(fetchExplorer, 8_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [address, chainId, tokenEntries]);
+
+  // Combine known tokens + extra discovered tokens into chips
+  const chips = useMemo<DisplayChip[]>(() => {
+    if (!address) return [];
+
+    const result: DisplayChip[] = [];
+
+    tokenEntries.forEach(([tokenAddress, config], index) => {
+      const readResult = readData?.[index];
+      const isSuccess = readResult?.status === "success" && typeof readResult.result === "bigint";
+      const val = isSuccess ? (readResult.result as bigint) : 0n;
+
+      if (config.alwaysShow || (isSuccess && val > 0n)) {
+        let formatted = "0.00";
+        if (isReadLoading && !isSuccess) {
+          formatted = "…";
+        } else if (isSuccess) {
+          formatted = Number(formatUnits(val, config.decimals)).toLocaleString(undefined, {
+            maximumFractionDigits: config.decimals === 8 ? 6 : 2,
+          });
+        }
+
+        result.push({
+          key: tokenAddress,
+          symbol: config.symbol,
+          formatted,
+        });
+      }
+    });
+
+    // Append extra tokens from explorer
+    extraTokens.forEach((extra) => {
+      result.push(extra);
+    });
+
+    return result;
+  }, [address, tokenEntries, readData, isReadLoading, extraTokens]);
 
   if (!isConnected) return null;
-
-  if (isEmailWallet) {
-    if (explorerLoading && explorerTokens.length === 0) {
-      return (
-        <span className="inline-flex min-h-10 items-center px-2.5 text-xs text-white/30">
-          …
-        </span>
-      );
-    }
-    if (explorerTokens.length === 0) return null;
-    return (
-      <span
-        className={cn(
-          "flex shrink-0 items-center gap-2",
-          mobile && "grid w-full grid-cols-2",
-        )}
-      >
-        {explorerTokens.map((t) => (
-          <BalanceChip key={t.symbol} symbol={t.symbol} value={t.formatted} />
-        ))}
-
-      </span>
-    );
-  }
 
   return (
     <span
@@ -198,8 +239,9 @@ export function AssetBalanceChips({ mobile = false }: { mobile?: boolean }) {
         mobile && "grid w-full grid-cols-2",
       )}
     >
-      <NetworkTokenBalanceChip symbol="USDC" contracts={usdcByChain} />
-      <NetworkTokenBalanceChip symbol="EURC" contracts={eurcByChain} />
+      {chips.map((chip) => (
+        <BalanceChip key={chip.key} symbol={chip.symbol} value={chip.formatted} />
+      ))}
     </span>
   );
 }
