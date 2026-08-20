@@ -23,7 +23,7 @@ export type ArcLendContractWriteRequest = {
 
 export type ArcLendContractWriteResult =
   | { source: "wallet"; hash: Hash; challengeId?: never }
-  | { source: "email"; hash?: never; challengeId: string };
+  | { source: "email"; hash?: Hash; challengeId: string };
 
 export function resultHash(
   result: ArcLendContractWriteResult | Hash | undefined,
@@ -66,7 +66,15 @@ export function useArcLendContractWrite() {
         }
         setCircleChallengeId(response.challengeId);
         setCircleSuccess(true);
-        return { source: "email", challengeId: response.challengeId };
+        const txHashCandidate = (
+          response.challengeResult as { data?: { txHash?: string } } | undefined
+        )?.data?.txHash;
+        const hash =
+          typeof txHashCandidate === "string" &&
+          /^0x[a-fA-F0-9]{64}$/.test(txHashCandidate)
+            ? (txHashCandidate as Hash)
+            : undefined;
+        return { source: "email", challengeId: response.challengeId, hash };
       }
 
       const hash = await wagmiWrite.writeContractAsync({

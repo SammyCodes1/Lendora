@@ -130,6 +130,7 @@ const walletDomainAbi = parseAbi([
   "function mintDomain(string domainName,bytes32 secret) external returns (uint256)",
   "function setPrimaryDomain(string domainName) external",
   "function burnDomain(string domainName) external",
+  "function domainCommitments(bytes32) view returns (address committer, uint64 blockNumber)",
   "error InvalidDomainName()",
   "error DomainNotOwned()",
   "error InvalidCommitment()",
@@ -942,15 +943,36 @@ export function ActionConfirmCard({
           functionName: "commitDomain",
           args: [commitment],
         });
-        if (!commitmentHash) {
-          throw new Error("Commit/reveal domain minting currently requires a browser wallet.");
-        }
-        await waitForSubmitted(commitmentHash);
-        const commitReceipt = await publicClient.waitForTransactionReceipt({
-          hash: commitmentHash,
-        });
-        while ((await publicClient.getBlockNumber()) < commitReceipt.blockNumber + 1n) {
-          await new Promise((resolve) => window.setTimeout(resolve, 250));
+        if (commitmentHash) {
+          const commitReceipt = await publicClient.waitForTransactionReceipt({
+            hash: commitmentHash,
+          });
+          while ((await publicClient.getBlockNumber()) < commitReceipt.blockNumber + 1n) {
+            await new Promise((resolve) => window.setTimeout(resolve, 250));
+          }
+        } else {
+          const deadline = Date.now() + 90_000;
+          let confirmed = false;
+          while (Date.now() < deadline) {
+            const stored = (await publicClient.readContract({
+              address: WALLET_DOMAIN_ADDRESS,
+              abi: walletDomainAbi,
+              functionName: "domainCommitments",
+              args: [commitment],
+            })) as readonly [string, bigint | number];
+            const blockNumber = BigInt(stored[1] ?? 0);
+            if (stored[0] && stored[0] !== ZERO_ADDRESS && blockNumber > 0n) {
+              while ((await publicClient.getBlockNumber()) < blockNumber + 1n) {
+                await new Promise((resolve) => window.setTimeout(resolve, 250));
+              }
+              confirmed = true;
+              break;
+            }
+            await new Promise((resolve) => window.setTimeout(resolve, 500));
+          }
+          if (!confirmed) {
+            throw new Error("The mint commit did not confirm on Arc. Try again.");
+          }
         }
         const hash = await submitContract({
           chainId: 5_042_002,

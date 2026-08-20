@@ -85,6 +85,7 @@ const abi = parseAbi([
   "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
   "function totalSupply() view returns (uint256)",
   "function tokenByIndex(uint256 index) view returns (uint256)",
+  "function domainCommitments(bytes32) view returns (address committer, uint64 blockNumber)",
   "event DomainMinted(address indexed owner, string domainName, uint256 indexed tokenId)",
 ]);
 const marketplaceAbi = parseAbi([
@@ -1474,6 +1475,9 @@ function describeMintError(error: unknown) {
   if (lower.includes("insufficient") || lower.includes("exceeds the balance")) {
     return "Mint failed — not enough USDC for gas.";
   }
+  if (lower.includes("browser wallet") || lower.includes("commit did not confirm")) {
+    return "The mint commit did not confirm on Arc. Sign both steps and try again.";
+  }
   return "Mint failed — check your USDC balance for gas or try again.";
 }
 
@@ -1484,6 +1488,29 @@ async function waitForBlock(
   while ((await publicClient.getBlockNumber()) < blockNumber) {
     await new Promise((resolve) => window.setTimeout(resolve, 250));
   }
+}
+
+async function waitForOnChainCommitment(
+  publicClient: NonNullable<ReturnType<typeof usePublicClient>>,
+  commitment: `0x${string}`,
+) {
+  const deadline = Date.now() + 90_000;
+  while (Date.now() < deadline) {
+    const stored = (await publicClient.readContract({
+      address: WALLET_DOMAIN_ADDRESS,
+      abi,
+      functionName: "domainCommitments",
+      args: [commitment],
+    })) as readonly [Address, bigint | number];
+    const committer = stored[0];
+    const blockNumber = BigInt(stored[1] ?? 0);
+    if (committer && committer !== ZERO_ADDRESS && blockNumber > 0n) {
+      await waitForBlock(publicClient, blockNumber + 1n);
+      return;
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 500));
+  }
+  throw new Error("The mint commit did not confirm on Arc. Try again.");
 }
 
 function MintDomain({ onMinted }: { onMinted?: () => void }) {
@@ -1557,13 +1584,14 @@ function MintDomain({ onMinted }: { onMinted?: () => void }) {
         args: [commitment],
       });
       const commitHash = resultHash(commitResult);
-      if (!commitHash) {
-        throw new Error("Commit/reveal domain minting currently requires a browser wallet.");
+      if (commitHash) {
+        const commitReceipt = await publicClient.waitForTransactionReceipt({
+          hash: commitHash,
+        });
+        await waitForBlock(publicClient, commitReceipt.blockNumber + 1n);
+      } else {
+        await waitForOnChainCommitment(publicClient, commitment as `0x${string}`);
       }
-      const commitReceipt = await publicClient.waitForTransactionReceipt({
-        hash: commitHash,
-      });
-      await waitForBlock(publicClient, commitReceipt.blockNumber + 1n);
       const revealResult = await writeContractAsync({
         address: WALLET_DOMAIN_ADDRESS,
         abi,
@@ -1573,6 +1601,18 @@ function MintDomain({ onMinted }: { onMinted?: () => void }) {
       const revealHash = resultHash(revealResult);
       if (revealHash) {
         await publicClient.waitForTransactionReceipt({ hash: revealHash });
+      } else {
+        const deadline = Date.now() + 90_000;
+        while (Date.now() < deadline) {
+          const registered = await publicClient.readContract({
+            address: WALLET_DOMAIN_ADDRESS,
+            abi,
+            functionName: "isRegistered",
+            args: [name],
+          });
+          if (registered) break;
+          await new Promise((resolve) => window.setTimeout(resolve, 500));
+        }
       }
       setShowModal(true);
     } catch (error) {
