@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { usePublicClient } from "wagmi";
+import { useChainId, usePublicClient, useSwitchChain } from "wagmi";
 import { erc20Abi, formatUnits, parseAbi, parseAbiItem, parseUnits, toHex, type Address } from "viem";
 import deployments from "@/constants/deployments.json";
 import {
@@ -1457,10 +1457,40 @@ function DomainMarketplace() {
 }
 
 // ── Mint domain ──────────────────────────────────────────────────────────────
+function flattenWalletError(error: unknown): string {
+  const parts: string[] = [];
+  const walk = (value: unknown, depth: number) => {
+    if (value == null || depth > 5) return;
+    if (typeof value === "string") {
+      parts.push(value);
+      return;
+    }
+    if (typeof value !== "object") return;
+    const record = value as Record<string, unknown>;
+    for (const key of ["errorName", "shortMessage", "details", "message", "name"]) {
+      const text = record[key];
+      if (typeof text === "string" && text.trim()) parts.push(text);
+    }
+    if (record.data && typeof record.data === "object") {
+      const data = record.data as Record<string, unknown>;
+      if (typeof data.errorName === "string") parts.push(data.errorName);
+    }
+    walk(record.cause, depth + 1);
+  };
+  walk(error, 0);
+  return [...new Set(parts)].join(" | ");
+}
+
 function describeMintError(error: unknown) {
-  const raw = error instanceof Error ? error.message : String(error);
+  const raw = flattenWalletError(error) || String(error);
   const lower = raw.toLowerCase();
-  if (lower.includes("user rejected") || lower.includes("rejected the request")) {
+  if (
+    lower.includes("user rejected") ||
+    lower.includes("rejected the request") ||
+    lower.includes("user denied") ||
+    lower.includes("cancelled") ||
+    lower.includes("canceled")
+  ) {
     return "Transaction rejected.";
   }
   if (lower.includes("commitmenttoonew") || lower.includes("too new")) {
@@ -1472,13 +1502,24 @@ function describeMintError(error: unknown) {
   if (lower.includes("already") || lower.includes("erc721invalidsender")) {
     return "Domain already registered. Try another name.";
   }
-  if (lower.includes("insufficient") || lower.includes("exceeds the balance")) {
+  if (
+    lower.includes("insufficient") ||
+    lower.includes("exceeds the balance") ||
+    lower.includes("not enough") ||
+    /\bfunds\b/.test(lower)
+  ) {
     return "Mint failed — not enough USDC for gas.";
   }
   if (lower.includes("browser wallet") || lower.includes("commit did not confirm")) {
     return "The mint commit did not confirm on Arc. Sign both steps and try again.";
   }
-  return "Mint failed — check your USDC balance for gas or try again.";
+  if (lower.includes("chain") || lower.includes("network") || lower.includes("5042002")) {
+    return "Switch your wallet to Arc Testnet and try again.";
+  }
+  const short = raw.split("\n")[0]?.slice(0, 220).trim();
+  return short
+    ? `Mint failed: ${short}`
+    : "Mint failed. Try again after confirming you are on Arc Testnet.";
 }
 
 async function waitForBlock(
@@ -1505,7 +1546,7 @@ async function waitForOnChainCommitment(
     const committer = stored[0];
     const blockNumber = BigInt(stored[1] ?? 0);
     if (committer && committer !== ZERO_ADDRESS && blockNumber > 0n) {
-      await waitForBlock(publicClient, blockNumber + 1n);
+      await waitForBlock(publicClient, blockNumber + 2n);
       return;
     }
     await new Promise((resolve) => window.setTimeout(resolve, 500));
@@ -1515,7 +1556,9 @@ async function waitForOnChainCommitment(
 
 function MintDomain({ onMinted }: { onMinted?: () => void }) {
   const publicClient = usePublicClient({ chainId: 5042002 });
-  const { address, isConnected } = useArcLendAccount();
+  const connectedChainId = useChainId();
+  const { switchChainAsync } = useSwitchChain();
+  const { address, isConnected, source } = useArcLendAccount();
   const [input, setInput] = useState("");
   const [available, setAvailable] = useState<boolean | null>(null);
   const [checking, setChecking] = useState(false);
@@ -1568,6 +1611,9 @@ function MintDomain({ onMinted }: { onMinted?: () => void }) {
     setMintError(null);
     setIsWorking(true);
     try {
+      if (source === "wallet" && connectedChainId !== 5042002) {
+        await switchChainAsync({ chainId: 5042002 });
+      }
       const secretBytes = new Uint8Array(32);
       crypto.getRandomValues(secretBytes);
       const secret = toHex(secretBytes, { size: 32 });
@@ -1578,25 +1624,29 @@ function MintDomain({ onMinted }: { onMinted?: () => void }) {
         args: [name, address, secret],
       });
       const commitResult = await writeContractAsync({
+        chainId: 5042002,
         address: WALLET_DOMAIN_ADDRESS,
         abi,
         functionName: "commitDomain",
         args: [commitment],
+        gas: 250_000n,
       });
       const commitHash = resultHash(commitResult);
       if (commitHash) {
         const commitReceipt = await publicClient.waitForTransactionReceipt({
           hash: commitHash,
         });
-        await waitForBlock(publicClient, commitReceipt.blockNumber + 1n);
+        await waitForBlock(publicClient, commitReceipt.blockNumber + 2n);
       } else {
         await waitForOnChainCommitment(publicClient, commitment as `0x${string}`);
       }
       const revealResult = await writeContractAsync({
+        chainId: 5042002,
         address: WALLET_DOMAIN_ADDRESS,
         abi,
         functionName: "mintDomain",
         args: [name, secret],
+        gas: 350_000n,
       });
       const revealHash = resultHash(revealResult);
       if (revealHash) {

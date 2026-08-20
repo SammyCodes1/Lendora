@@ -19,7 +19,27 @@ export type ArcLendContractWriteRequest = {
   functionName: string;
   args?: readonly unknown[];
   value?: bigint;
+  gas?: bigint;
 };
+
+function circleFunctionSignature(abi: Abi, functionName: string) {
+  const item = (
+    abi as readonly {
+      type?: string;
+      name?: string;
+      inputs?: readonly { type: string }[];
+    }[]
+  ).find((entry) => entry.type === "function" && entry.name === functionName);
+  if (!item) return null;
+  const types = (item.inputs ?? []).map((input) => input.type).join(",");
+  return `${functionName}(${types})`;
+}
+
+function circleAbiParameter(value: unknown): unknown {
+  if (typeof value === "bigint") return value.toString();
+  if (Array.isArray(value)) return value.map(circleAbiParameter);
+  return value;
+}
 
 export type ArcLendContractWriteResult =
   | { source: "wallet"; hash: Hash; challengeId?: never }
@@ -49,18 +69,27 @@ export function useArcLendContractWrite() {
       setCircleChallengeId(null);
 
       if (source === "email") {
-        const callData = encodeFunctionData({
-          abi: request.abi,
-          functionName: request.functionName,
-          args: request.args ?? [],
-        });
-        // executeContract only resolves after the Circle challenge succeeds;
-        // do not mark success when a challengeId is merely created.
-        const response = await circleWrite.executeContract({
-          contractAddress: request.address,
-          callData,
-          amount: request.value ? formatEther(request.value) : undefined,
-        });
+        const signature = circleFunctionSignature(
+          request.abi,
+          request.functionName,
+        );
+        const amount = request.value ? formatEther(request.value) : undefined;
+        const response = signature
+          ? await circleWrite.executeContract({
+              contractAddress: request.address,
+              abiFunctionSignature: signature,
+              abiParameters: (request.args ?? []).map(circleAbiParameter),
+              amount,
+            })
+          : await circleWrite.executeContract({
+              contractAddress: request.address,
+              callData: encodeFunctionData({
+                abi: request.abi,
+                functionName: request.functionName,
+                args: request.args ?? [],
+              }),
+              amount,
+            });
         if (!response.challengeId) {
           throw new Error("Circle did not return a transaction challenge.");
         }
@@ -84,6 +113,7 @@ export function useArcLendContractWrite() {
         functionName: request.functionName,
         args: request.args,
         value: request.value,
+        gas: request.gas,
       });
       return { source: "wallet", hash };
     },
