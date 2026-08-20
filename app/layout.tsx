@@ -12,28 +12,39 @@ import { ToastProvider } from "@/components/ui/ToastProvider";
 import { ClientErrorBoundary } from "@/components/layout/ClientErrorBoundary";
 import { AppChrome } from "@/components/layout/AppChrome";
 
+const siteUrl = new URL("https://lendora-alpha.vercel.app");
+
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.VERCEL_PROJECT_PRODUCTION_URL
-      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-      : "http://localhost:3000",
-  ),
+  metadataBase: siteUrl,
+  applicationName: "Lendora",
   title: "Lendora — DeFi Lending on Arc Network",
   description: "Supply and borrow stablecoins on Arc Network with instant settlement and predictable USDC gas fees.",
   icons: {
     icon: "/icon.svg",
   },
+  appleWebApp: {
+    title: "Lendora",
+  },
   openGraph: {
+    siteName: "Lendora",
+    url: siteUrl,
     title: "Lendora — Stablecoin credit on Arc Network",
     description: "Supply, borrow, swap, and manage risk through Lendora's isolated stablecoin markets.",
     type: "website",
-    images: [{ url: "/og.jpg", width: 1200, height: 630, alt: "Lendora — Stablecoin credit on Arc Network" }],
+    images: [
+      {
+        url: "/og.jpg?v=lendora",
+        width: 1200,
+        height: 630,
+        alt: "Lendora — Stablecoin credit on Arc Network",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Lendora — Stablecoin credit on Arc Network",
     description: "Supply, borrow, swap, and manage risk through Lendora's isolated stablecoin markets.",
-    images: ["/og.jpg"],
+    images: ["/og.jpg?v=lendora"],
   },
 };
 
