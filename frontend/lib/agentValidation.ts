@@ -54,6 +54,7 @@ import type {
   AgentAction,
   AgentValidationResult,
   LendingAsset,
+  SchedulePaymentParams,
 } from "@/lib/agentTypes";
 import {
   healthFactorToWad,
@@ -1130,21 +1131,22 @@ export async function validateAgentAction(
     }
 
     if (action.tool === "schedulePayment") {
+      const payment = action.params as SchedulePaymentParams;
       if (!spokenPayAddress) {
         return hardBlock(walletKey, "Spoken payments are not live on this deployment yet.");
       }
-      if (params.asset !== "USDC" && params.asset !== "EURC") {
+      if (payment.asset !== "USDC" && payment.asset !== "EURC") {
         return hardBlock(
           walletKey,
           "Spoken payments currently support USDC and EURC.",
         );
       }
-      const token = configuredReserves[params.asset];
-      const amount = parseAmount(params.amount);
+      const token = configuredReserves[payment.asset];
+      const amount = parseAmount(payment.amount);
       if (amount === null) {
         return hardBlock(walletKey, "That amount isn't valid.");
       }
-      const intervalSeconds = Number(params.intervalSeconds);
+      const intervalSeconds = Number(payment.intervalSeconds);
       if (
         !Number.isFinite(intervalSeconds) ||
         intervalSeconds < MIN_PAYMENT_INTERVAL_SECONDS
@@ -1154,7 +1156,7 @@ export async function validateAgentAction(
           "Spoken payments need at least a 15-minute interval.",
         );
       }
-      const minHealthWad = healthFactorToWad(String(params.minHealthFactor ?? "1.10"));
+      const minHealthWad = healthFactorToWad(String(payment.minHealthFactor ?? "1.10"));
       if (
         minHealthWad === null ||
         minHealthWad < MIN_HEALTH_FACTOR ||
@@ -1166,9 +1168,9 @@ export async function validateAgentAction(
         );
       }
       const recipientInput =
-        typeof params.recipientDomain === "string"
-          ? params.recipientDomain
-          : params.recipient;
+        typeof payment.recipientDomain === "string"
+          ? payment.recipientDomain
+          : payment.recipient;
       if (typeof recipientInput !== "string") {
         return hardBlock(walletKey, "The recipient is invalid.");
       }
@@ -1204,10 +1206,10 @@ export async function validateAgentAction(
       if (account.healthFactor < minHealthWad) {
         return hardBlock(
           walletKey,
-          `Your health factor is ${formatUnits(account.healthFactor, 18)}, below the ${String(params.minHealthFactor)} floor. I won't schedule a payment that would start unsafe.`,
+          `Your health factor is ${formatUnits(account.healthFactor, 18)}, below the ${String(payment.minHealthFactor)} floor. I won't schedule a payment that would start unsafe.`,
         );
       }
-      if (params.fromYield) {
+      if (payment.fromYield) {
         try {
           const supplied = await arcClient.readContract({
             address: token.aToken,
@@ -1218,7 +1220,7 @@ export async function validateAgentAction(
           if (supplied === 0n) {
             return hardBlock(
               walletKey,
-              `You have no ${params.asset} supplied, so this can't be paid from yield.`,
+              `You have no ${payment.asset} supplied, so this can't be paid from yield.`,
             );
           }
         } catch {
@@ -1226,32 +1228,31 @@ export async function validateAgentAction(
         }
       }
       const domainName = resolvedRecipient.domain ?? "";
+      const scheduleParams: SchedulePaymentParams = {
+        asset: payment.asset,
+        amount: String(payment.amount),
+        recipient: resolvedRecipient.address,
+        cadence: String(payment.cadence ?? "on a schedule"),
+        intervalSeconds: String(Math.floor(intervalSeconds)),
+        firstRunAt: String(payment.firstRunAt ?? "0"),
+        minHealthFactor: String(payment.minHealthFactor ?? "1.10"),
+        fromYield: Boolean(payment.fromYield),
+        domainName,
+      };
+      if (resolvedRecipient.domain) {
+        scheduleParams.recipientDomain = displayDomainName(resolvedRecipient.domain);
+        scheduleParams.recipientName =
+          typeof payment.recipientName === "string"
+            ? payment.recipientName
+            : displayDomainName(resolvedRecipient.domain);
+      } else if (typeof payment.recipientName === "string") {
+        scheduleParams.recipientName = payment.recipientName;
+      }
       return {
         valid: true,
         action: {
           ...action,
-          params: {
-            asset: params.asset,
-            amount: String(params.amount),
-            recipient: resolvedRecipient.address,
-            cadence: String(params.cadence ?? "on a schedule"),
-            intervalSeconds: String(Math.floor(intervalSeconds)),
-            firstRunAt: String(params.firstRunAt ?? "0"),
-            minHealthFactor: String(params.minHealthFactor ?? "1.10"),
-            fromYield: Boolean(params.fromYield),
-            domainName,
-            ...(resolvedRecipient.domain
-              ? {
-                  recipientDomain: displayDomainName(resolvedRecipient.domain),
-                  recipientName:
-                    typeof params.recipientName === "string"
-                      ? params.recipientName
-                      : displayDomainName(resolvedRecipient.domain),
-                }
-              : typeof params.recipientName === "string"
-                ? { recipientName: params.recipientName }
-                : {}),
-          },
+          params: scheduleParams,
         },
         walletAddress: wallet,
         validatedAt: Date.now(),

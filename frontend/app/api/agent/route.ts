@@ -8,6 +8,7 @@ import type {
   AgentContext,
   AgentResponse,
   AgentTool,
+  SchedulePaymentParams,
 } from "@/lib/agentTypes";
 import {
   MIN_PAYMENT_INTERVAL_SECONDS,
@@ -773,28 +774,29 @@ function parseDeterministicSchedulePayment(
   const recipient = directAddress
     ? getAddress(directAddress)
     : domainRecipient ?? getAddress(contact!.address);
-  const asset = amountTokenMatch[2].toUpperCase() === "EURC" ? "EURC" : "USDC";
+  const asset: SchedulePaymentParams["asset"] =
+    amountTokenMatch[2].toUpperCase() === "EURC" ? "EURC" : "USDC";
   const minHealthFactor = parseHealthFloor(message);
   const fromYield = parseYieldSource(message);
-  const params = {
+  const params: SchedulePaymentParams = {
     asset,
     amount: amountTokenMatch[1],
     recipient,
     cadence: cadence.label,
-    intervalSeconds: String(Math.max(cadence.intervalSeconds, MIN_PAYMENT_INTERVAL_SECONDS)),
+    intervalSeconds: String(
+      Math.max(cadence.intervalSeconds, MIN_PAYMENT_INTERVAL_SECONDS),
+    ),
     firstRunAt: String(cadence.firstRunAt),
     minHealthFactor,
     fromYield,
-    ...(contact
-      ? { recipientName: contact.name }
-      : domainRecipient
-        ? {
-            recipientName: domainRecipient,
-            recipientDomain: domainRecipient,
-            domainName: domainRecipient.replace(/\.lendora$/, ""),
-          }
-        : {}),
   };
+  if (contact) {
+    params.recipientName = contact.name;
+  } else if (domainRecipient) {
+    params.recipientName = domainRecipient;
+    params.recipientDomain = domainRecipient;
+    params.domainName = domainRecipient.replace(/\.lendora$/, "");
+  }
 
   return {
     type: "action",
@@ -802,7 +804,7 @@ function parseDeterministicSchedulePayment(
       type: "action",
       tool: "schedulePayment",
       params,
-      explanation: summarizeAction("schedulePayment", params),
+      explanation: summarizeAction("schedulePayment", toParams(params)),
     },
   };
 }
@@ -1120,7 +1122,8 @@ function toParams(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-function summarizeAction(tool: AgentTool, params: Record<string, unknown>): string {
+function summarizeAction(tool: AgentTool, rawParams: object): string {
+  const params = rawParams as Record<string, unknown>;
   switch (tool) {
     case "supply":
       return `I'll supply ${String(params.amount ?? "the requested amount")} ${String(params.asset ?? "asset")} to the lending pool and you'll receive an on-chain Position NFT as proof.`;

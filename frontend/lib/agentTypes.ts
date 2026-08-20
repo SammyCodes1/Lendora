@@ -22,6 +22,20 @@ export type AgentTool =
   | "getMarketRates"
   | "schedulePayment";
 
+export type SchedulePaymentParams = {
+  asset: LendingAsset;
+  amount: string;
+  recipient: string;
+  recipientName?: string;
+  recipientDomain?: string;
+  cadence: string;
+  intervalSeconds: string;
+  firstRunAt: string;
+  minHealthFactor: string;
+  fromYield: boolean;
+  domainName?: string;
+};
+
 export type AgentActionParams =
   | { asset: LendingAsset; amount: string }
   | {
@@ -57,19 +71,7 @@ export type AgentActionParams =
       tokenId?: string;
       seller?: string;
     }
-  | {
-      asset: AgentAsset;
-      amount: string;
-      recipient: string;
-      recipientName?: string;
-      recipientDomain?: string;
-      cadence: string;
-      intervalSeconds: string;
-      firstRunAt: string;
-      minHealthFactor: string;
-      fromYield: boolean;
-      domainName?: string;
-    }
+  | SchedulePaymentParams
   | Record<string, never>
   | { asset: AgentAsset };
 
