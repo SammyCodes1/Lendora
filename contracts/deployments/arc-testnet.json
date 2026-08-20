@@ -63,5 +63,7 @@
   "SwapPool": "0x49FD6464Ebbe659aaF55034441B134E5030A4A4A",
   "swapPoolDeploymentBlock": 55192926,
   "MultiSend": "0x45E30b72f121c4Fc6803620950ef933969bCB005",
-  "MultiSendDeploymentBlock": 56544435
+  "MultiSendDeploymentBlock": 56544435,
+  "SpokenPay": "0x7A209FE281Ed53fE721B544d82BD4A1735E7d146",
+  "spokenPayDeploymentBlock": 58011345
 }

@@ -19,7 +19,8 @@ export type AgentTool =
   | "buyDomain"
   | "checkHealthFactor"
   | "checkBalance"
-  | "getMarketRates";
+  | "getMarketRates"
+  | "schedulePayment";
 
 export type AgentActionParams =
   | { asset: LendingAsset; amount: string }
@@ -55,6 +56,19 @@ export type AgentActionParams =
       displayDomain?: string;
       tokenId?: string;
       seller?: string;
+    }
+  | {
+      asset: AgentAsset;
+      amount: string;
+      recipient: string;
+      recipientName?: string;
+      recipientDomain?: string;
+      cadence: string;
+      intervalSeconds: string;
+      firstRunAt: string;
+      minHealthFactor: string;
+      fromYield: boolean;
+      domainName?: string;
     }
   | Record<string, never>
   | { asset: AgentAsset };

@@ -31,7 +31,7 @@ import { cn } from "@/lib/utils";
 const suggestions = [
   "Supply 100 USDC",
   "Check my health factor",
-  "Predict 5 USDC YES on market 1",
+  "Send 40 USDC to ada.lendora every Friday from my yield, keep health above 1.5",
 ];
 
 function AgentAvatarLetter({

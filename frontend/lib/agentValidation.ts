@@ -15,6 +15,7 @@
  * 13. Block domain mints for invalid or already registered names.
  * 14. Block domain burns unless the connected wallet owns the unlisted domain.
  * 15. Block yield claims unless live reserve indexes show positive pending supply interest.
+ * 16. Block spoken recurring payments unless the recipient resolves, the interval is at least 15 minutes, health floor is >= 1.10, live HF is currently above that floor, and yield-only plans have an active supply position.
  *
  * This module is the single server-side safety boundary between natural-language
  * interpretation and a confirmable wallet transaction. A false result is final.
@@ -54,6 +55,10 @@ import type {
   AgentValidationResult,
   LendingAsset,
 } from "@/lib/agentTypes";
+import {
+  healthFactorToWad,
+  MIN_PAYMENT_INTERVAL_SECONDS,
+} from "@/lib/spokenPay";
 
 type ValidationContext = {
   walletAddress: string | null;
@@ -145,6 +150,9 @@ const fallbackOracleAddress = (
 ) as Address;
 const rateModelAddress = deployments.interestRateModel as Address;
 const walletDomainAddress = deployments.WalletDomain as Address;
+const spokenPayAddress = (
+  deployments as typeof deployments & { SpokenPay?: Address }
+).SpokenPay;
 const domainMarketplaceAddress = (
   deployments as typeof deployments & { DomainMarketplace?: Address }
 ).DomainMarketplace;
@@ -1115,6 +1123,135 @@ export async function validateAgentAction(
                 }
               : {}),
           } as AgentAction["params"],
+        },
+        walletAddress: wallet,
+        validatedAt: Date.now(),
+      };
+    }
+
+    if (action.tool === "schedulePayment") {
+      if (!spokenPayAddress) {
+        return hardBlock(walletKey, "Spoken payments are not live on this deployment yet.");
+      }
+      if (params.asset !== "USDC" && params.asset !== "EURC") {
+        return hardBlock(
+          walletKey,
+          "Spoken payments currently support USDC and EURC.",
+        );
+      }
+      const token = configuredReserves[params.asset];
+      const amount = parseAmount(params.amount);
+      if (amount === null) {
+        return hardBlock(walletKey, "That amount isn't valid.");
+      }
+      const intervalSeconds = Number(params.intervalSeconds);
+      if (
+        !Number.isFinite(intervalSeconds) ||
+        intervalSeconds < MIN_PAYMENT_INTERVAL_SECONDS
+      ) {
+        return hardBlock(
+          walletKey,
+          "Spoken payments need at least a 15-minute interval.",
+        );
+      }
+      const minHealthWad = healthFactorToWad(String(params.minHealthFactor ?? "1.10"));
+      if (
+        minHealthWad === null ||
+        minHealthWad < MIN_HEALTH_FACTOR ||
+        minHealthWad > 2n ** 64n - 1n
+      ) {
+        return hardBlock(
+          walletKey,
+          "Keep the health-factor floor at 1.10 or higher.",
+        );
+      }
+      const recipientInput =
+        typeof params.recipientDomain === "string"
+          ? params.recipientDomain
+          : params.recipient;
+      if (typeof recipientInput !== "string") {
+        return hardBlock(walletKey, "The recipient is invalid.");
+      }
+      let resolvedRecipient: Awaited<ReturnType<typeof resolveRecipient>>;
+      try {
+        resolvedRecipient = await resolveRecipient(recipientInput);
+      } catch (error) {
+        return hardBlock(
+          walletKey,
+          error instanceof Error && error.message === "unresolved-domain"
+            ? `The .lendora domain "${recipientInput}" is not registered.`
+            : "The recipient must be a valid 0x address or registered .lendora domain.",
+        );
+      }
+      if (resolvedRecipient.address.toLowerCase() === walletKey) {
+        return hardBlock(
+          walletKey,
+          "Choose a recipient different from your connected wallet.",
+        );
+      }
+      let accountResult: unknown;
+      try {
+        accountResult = await arcClient.readContract({
+          address: poolAddress,
+          abi: lendingPoolAbi,
+          functionName: "getUserAccountData",
+          args: [wallet],
+        });
+      } catch {
+        return invalidContext(walletKey);
+      }
+      const account = accountTuple(accountResult);
+      if (account.healthFactor < minHealthWad) {
+        return hardBlock(
+          walletKey,
+          `Your health factor is ${formatUnits(account.healthFactor, 18)}, below the ${String(params.minHealthFactor)} floor. I won't schedule a payment that would start unsafe.`,
+        );
+      }
+      if (params.fromYield) {
+        try {
+          const supplied = await arcClient.readContract({
+            address: token.aToken,
+            abi: erc20Abi,
+            functionName: "balanceOf",
+            args: [wallet],
+          });
+          if (supplied === 0n) {
+            return hardBlock(
+              walletKey,
+              `You have no ${params.asset} supplied, so this can't be paid from yield.`,
+            );
+          }
+        } catch {
+          return invalidContext(walletKey);
+        }
+      }
+      const domainName = resolvedRecipient.domain ?? "";
+      return {
+        valid: true,
+        action: {
+          ...action,
+          params: {
+            asset: params.asset,
+            amount: String(params.amount),
+            recipient: resolvedRecipient.address,
+            cadence: String(params.cadence ?? "on a schedule"),
+            intervalSeconds: String(Math.floor(intervalSeconds)),
+            firstRunAt: String(params.firstRunAt ?? "0"),
+            minHealthFactor: String(params.minHealthFactor ?? "1.10"),
+            fromYield: Boolean(params.fromYield),
+            domainName,
+            ...(resolvedRecipient.domain
+              ? {
+                  recipientDomain: displayDomainName(resolvedRecipient.domain),
+                  recipientName:
+                    typeof params.recipientName === "string"
+                      ? params.recipientName
+                      : displayDomainName(resolvedRecipient.domain),
+                }
+              : typeof params.recipientName === "string"
+                ? { recipientName: params.recipientName }
+                : {}),
+          },
         },
         walletAddress: wallet,
         validatedAt: Date.now(),

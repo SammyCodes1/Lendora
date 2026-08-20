@@ -13,6 +13,7 @@ import {
   ShoppingCart,
   Sparkles,
   Star,
+  CalendarClock,
 } from "lucide-react";
 import {
   erc20Abi,
@@ -59,6 +60,7 @@ import type {
   LendingAsset,
   ValidatedAgentAction,
 } from "@/lib/agentTypes";
+import { healthFactorToWad } from "@/lib/spokenPay";
 import { marketDefinitions } from "@/lib/markets";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
 import {
@@ -122,6 +124,9 @@ const MARKET_USDC_ADDRESS = deployments.markets.USDC.asset as Address;
 const DOMAIN_MARKETPLACE_ADDRESS = (
   deployments as typeof deployments & { DomainMarketplace?: Address }
 ).DomainMarketplace;
+const SPOKEN_PAY_ADDRESS = (
+  deployments as typeof deployments & { SpokenPay?: Address }
+).SpokenPay;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const walletDomainAbi = parseAbi([
   "function approve(address to,uint256 tokenId) external",
@@ -143,6 +148,11 @@ const domainMarketplaceAbi = parseAbi([
   "function buy(uint256 tokenId,uint256 maxPrice) external",
   "function listings(uint256 tokenId) view returns (address seller,uint256 price)",
 ]);
+const spokenPayAbi = parseAbi([
+  "function createPlan(address token,address recipient,string domainName,uint128 amount,uint64 interval,uint64 firstRunAt,uint64 minHealthFactorWad,bool fromYieldOnly) returns (uint256)",
+  "function executePlan(uint256 planId)",
+  "function cancelPlan(uint256 planId)",
+]);
 const borrowDelegationAbi = parseAbi([
   "function borrowDelegates(address user,address delegate) view returns (bool)",
   "function setBorrowDelegate(address delegate,bool approved) external",
@@ -162,6 +172,7 @@ function actionIcon(tool: AgentAction["tool"]) {
   if (tool === "repay") return RotateCcw;
   if (tool === "bridge") return ArrowLeftRight;
   if (tool === "sendToken") return SendHorizontal;
+  if (tool === "schedulePayment") return CalendarClock;
   if (tool === "predict") return Sparkles;
   if (tool === "mintDomain") return Sparkles;
   if (tool === "burnDomain") return RefreshCw;
@@ -487,6 +498,32 @@ export function ActionConfirmCard({
           ],
           detail:
             "The connected wallet will send this exact token amount directly to the displayed Arc Testnet address. Verify the full address before signing.",
+        });
+        return;
+      }
+
+      if (action.tool === "schedulePayment") {
+        const asset = String(params.asset);
+        const recipientLabel = String(
+          params.recipientName ?? params.recipientDomain ?? params.recipient,
+        );
+        const fromYield = Boolean(params.fromYield);
+        setReview({
+          eyebrow: "Spoken payment review",
+          title: `Pay ${params.amount} ${asset} ${String(params.cadence)}`,
+          amountLabel: "Each run",
+          amount: `${params.amount} ${asset}`,
+          receiveLabel: "Recipient",
+          receiveAmount: recipientLabel,
+          route: [
+            fromYield ? "Claimed yield in wallet" : `${asset} wallet`,
+            "SpokenPay",
+            recipientLabel,
+            `Skip if HF < ${String(params.minHealthFactor)}`,
+          ],
+          detail: fromYield
+            ? `You authorize Lendora to pull ${params.amount} ${asset} ${String(params.cadence)} to this .lendora name from idle wallet funds (claimed yield), never supplied principal. Any run is skipped if health factor would fall below ${String(params.minHealthFactor)}.`
+            : `You authorize Lendora to pull ${params.amount} ${asset} ${String(params.cadence)}. Runs skip if health factor is below ${String(params.minHealthFactor)}.`,
         });
         return;
       }
@@ -870,6 +907,59 @@ export function ActionConfirmCard({
         setReceipt({
           ...review,
           title: `${params.amount} ${asset} sent`,
+          transactionHash: hash,
+          explorerUrl: hash ? `https://testnet.arcscan.app/tx/${hash}` : undefined,
+          finalityMs: Math.max(
+            0,
+            Math.round(performance.now() - submittedAt),
+          ),
+        });
+        return;
+      }
+
+      if (action.tool === "schedulePayment") {
+        if (!publicClient) {
+          throw new Error("Arc client unavailable");
+        }
+        if (!SPOKEN_PAY_ADDRESS) {
+          throw new Error("Spoken payments are not deployed");
+        }
+        const asset = String(params.asset) as "USDC" | "EURC";
+        const token = ARC_DEX_TOKENS[asset];
+        const amount = parseUnits(String(params.amount), 6);
+        const interval = BigInt(String(params.intervalSeconds));
+        const firstRunAt = BigInt(String(params.firstRunAt ?? "0"));
+        const minHealth = healthFactorToWad(String(params.minHealthFactor ?? "1.10"));
+        if (minHealth === null) {
+          throw new Error("Invalid health-factor floor");
+        }
+        const domainName = String(params.domainName ?? "");
+        const recipient = domainName
+          ? ZERO_ADDRESS
+          : (String(params.recipient) as Address);
+        const submittedAt = performance.now();
+        await ensureAllowance(token.address, amount * 104n, SPOKEN_PAY_ADDRESS);
+        const hash = await submitContract({
+          chainId: 5042002,
+          address: SPOKEN_PAY_ADDRESS,
+          abi: spokenPayAbi,
+          functionName: "createPlan",
+          args: [
+            token.address,
+            recipient,
+            domainName,
+            amount,
+            interval,
+            firstRunAt,
+            minHealth,
+            Boolean(params.fromYield),
+          ],
+          gas: 400_000n,
+        });
+        await waitForSubmitted(hash);
+        setReceipt({
+          ...review,
+          title: `Spoken payment armed ${String(params.cadence)}`,
           transactionHash: hash,
           explorerUrl: hash ? `https://testnet.arcscan.app/tx/${hash}` : undefined,
           finalityMs: Math.max(

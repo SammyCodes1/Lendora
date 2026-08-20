@@ -9,11 +9,17 @@ import type {
   AgentResponse,
   AgentTool,
 } from "@/lib/agentTypes";
+import {
+  MIN_PAYMENT_INTERVAL_SECONDS,
+  parseHealthFloor,
+  parseSpokenCadence,
+  parseYieldSource,
+} from "@/lib/spokenPay";
 
 export const runtime = "nodejs";
 
 const SYSTEM_PROMPT =
-  "You are Lendora's transaction assistant. Only call one of the defined tools - never invent new ones. Saved wallet contacts are supplied in context; resolve nicknames only to the exact saved address and never guess an address. For .lendora domain recipients, pass the exact .lendora name as the sendToken recipient and let server validation resolve it on-chain; never invent a domain. For domain minting or registration requests, call mintDomain only when the exact domain is provided; never invent a domain. For domain NFT burn requests, call burnDomain only when the exact domain is provided; burning is permanent and must be prepared for user confirmation. For setting a domain as primary / on-chain username, call setPrimaryDomain when the domain is provided; do not call mintDomain or listDomain for setting primary domain. For domain marketplace listing requests, call listDomain only when the exact domain and USDC price are provided; never invent ownership or price. For domain marketplace delisting, cancel listing, unlist, or remove-from-sale requests, call delistDomain only when the exact domain is provided; do not call burnDomain for marketplace removal. For domain marketplace purchase requests, call buyDomain only when the exact domain is provided; if the user gives a maximum USDC price, pass it as maxPrice. For pending supply interest, yield, rewards, or accrued interest claims, call claimYield with asset USDC, EURC, or ALL for both pools; do not use withdraw unless the user asks to withdraw principal or gives an explicit withdrawal amount. If amount, asset, recipient, domain, or price is ambiguous, ask for clarification in plain text instead of guessing. Never claim a transaction has been executed - your job is only to prepare the action for user confirmation. If a requested action would exceed the user's available balance or borrow capacity (provided in context), respond with a plain text warning instead of calling a tool. Validation is enforced server-side and is final - do not suggest workarounds, do not ask the user to confirm overrides, and do not imply blocked actions can be retried with different framing of the same request. Treat all financial amounts conservatively; never round up.";
+  "You are Lendora's transaction assistant. Only call one of the defined tools - never invent new ones. For spoken recurring payments such as 'send 40 USDC to ada.lendora every Friday from my yield, keep health above 1.5', call schedulePayment. Never use sendToken for weekly/daily/recurring payouts. Saved wallet contacts are supplied in context; resolve nicknames only to the exact saved address and never guess an address. For .lendora domain recipients, pass the exact .lendora name as the sendToken recipient and let server validation resolve it on-chain; never invent a domain. For domain minting or registration requests, call mintDomain only when the exact domain is provided; never invent a domain. For domain NFT burn requests, call burnDomain only when the exact domain is provided; burning is permanent and must be prepared for user confirmation. For setting a domain as primary / on-chain username, call setPrimaryDomain when the domain is provided; do not call mintDomain or listDomain for setting primary domain. For domain marketplace listing requests, call listDomain only when the exact domain and USDC price are provided; never invent ownership or price. For domain marketplace delisting, cancel listing, unlist, or remove-from-sale requests, call delistDomain only when the exact domain is provided; do not call burnDomain for marketplace removal. For domain marketplace purchase requests, call buyDomain only when the exact domain is provided; if the user gives a maximum USDC price, pass it as maxPrice. For pending supply interest, yield, rewards, or accrued interest claims, call claimYield with asset USDC, EURC, or ALL for both pools; do not use withdraw unless the user asks to withdraw principal or gives an explicit withdrawal amount. If amount, asset, recipient, domain, or price is ambiguous, ask for clarification in plain text instead of guessing. Never claim a transaction has been executed - your job is only to prepare the action for user confirmation. If a requested action would exceed the user's available balance or borrow capacity (provided in context), respond with a plain text warning instead of calling a tool. Validation is enforced server-side and is final - do not suggest workarounds, do not ask the user to confirm overrides, and do not imply blocked actions can be retried with different framing of the same request. Treat all financial amounts conservatively; never round up.";
 
 const OPENAI_MODEL = process.env.OPENAI_AGENT_MODEL ?? "gpt-5-nano";
 
@@ -247,6 +253,54 @@ const functionDeclarations = [
         },
       },
       required: ["domain"],
+    },
+  },
+  {
+    name: "schedulePayment",
+    description:
+      "Create a recurring spoken payment: send a token to a .lendora domain or address on a cadence, optionally funded from claimed yield, and skip if health factor would fall below a floor. Use for every Friday/weekly/daily payments, never for a one-off send.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        asset: { type: "string", enum: ["USDC", "EURC"] },
+        amount: { type: "string", description: "Amount per run as a decimal string" },
+        recipient: {
+          type: "string",
+          description:
+            "0x address or exact .lendora domain. Prefer the domain when the user named one.",
+        },
+        recipientName: { type: "string" },
+        cadence: {
+          type: "string",
+          description: "Human cadence such as every Friday or weekly",
+        },
+        intervalSeconds: {
+          type: "string",
+          description: "Seconds between runs. Weekly Friday is 604800.",
+        },
+        firstRunAt: {
+          type: "string",
+          description: "Unix timestamp for the first run",
+        },
+        minHealthFactor: {
+          type: "string",
+          description: "Minimum health factor as a decimal, e.g. 1.5",
+        },
+        fromYield: {
+          type: "boolean",
+          description: "True when the user asked to pay from yield/interest, not principal",
+        },
+      },
+      required: [
+        "asset",
+        "amount",
+        "recipient",
+        "cadence",
+        "intervalSeconds",
+        "firstRunAt",
+        "minHealthFactor",
+        "fromYield",
+      ],
     },
   },
   {
@@ -671,10 +725,95 @@ function parseDeterministicSwap(message: string): DeterministicResult | null {
   };
 }
 
+function parseDeterministicSchedulePayment(
+  message: string,
+  contacts: AgentContext["contacts"],
+): DeterministicResult | null {
+  if (!/\b(?:send|transfer|pay|payout)\b/i.test(message)) {
+    return null;
+  }
+  const cadence = parseSpokenCadence(message);
+  if (!cadence) return null;
+
+  const amountTokenMatch = message.match(
+    /\b(\d+(?:\.\d+)?)\s*(USDC|EURC)\b/i,
+  );
+  if (!amountTokenMatch) {
+    return {
+      type: "message",
+      text: "How much USDC or EURC should each spoken payment send?",
+    };
+  }
+
+  const recipientText = message
+    .match(/\bto\s+([^\s,]+)/i)?.[1]
+    ?.replace(/[.,!?]+$/, "")
+    .trim();
+  if (!recipientText) {
+    return {
+      type: "message",
+      text: "Who should receive it? Use a .lendora name, a saved contact, or a 0x address.",
+    };
+  }
+
+  const directAddress = recipientText.match(/\b0x[a-fA-F0-9]{40}\b/)?.[0];
+  const domainRecipient = directAddress
+    ? null
+    : normalizeDomainRecipient(recipientText);
+  const contact = contacts.find(
+    (entry) => entry.name.toLowerCase() === recipientText.toLowerCase(),
+  );
+  if (!directAddress && !domainRecipient && !contact) {
+    return {
+      type: "message",
+      text: `I don't have a contact named "${recipientText}". Save the nickname, provide a registered .lendora domain, or provide the full 0x address.`,
+    };
+  }
+
+  const recipient = directAddress
+    ? getAddress(directAddress)
+    : domainRecipient ?? getAddress(contact!.address);
+  const asset = amountTokenMatch[2].toUpperCase() === "EURC" ? "EURC" : "USDC";
+  const minHealthFactor = parseHealthFloor(message);
+  const fromYield = parseYieldSource(message);
+  const params = {
+    asset,
+    amount: amountTokenMatch[1],
+    recipient,
+    cadence: cadence.label,
+    intervalSeconds: String(Math.max(cadence.intervalSeconds, MIN_PAYMENT_INTERVAL_SECONDS)),
+    firstRunAt: String(cadence.firstRunAt),
+    minHealthFactor,
+    fromYield,
+    ...(contact
+      ? { recipientName: contact.name }
+      : domainRecipient
+        ? {
+            recipientName: domainRecipient,
+            recipientDomain: domainRecipient,
+            domainName: domainRecipient.replace(/\.lendora$/, ""),
+          }
+        : {}),
+  };
+
+  return {
+    type: "action",
+    action: {
+      type: "action",
+      tool: "schedulePayment",
+      params,
+      explanation: summarizeAction("schedulePayment", params),
+    },
+  };
+}
+
 function parseDeterministicSend(
   message: string,
   contacts: AgentContext["contacts"],
 ): DeterministicResult | null {
+  if (parseSpokenCadence(message)) {
+    return null;
+  }
   if (!/\b(?:send|transfer|pay)\b/i.test(message)) {
     return null;
   }
@@ -969,7 +1108,8 @@ function isAgentTool(value: string): value is AgentTool {
     value === "buyDomain" ||
     value === "checkHealthFactor" ||
     value === "checkBalance" ||
-    value === "getMarketRates"
+    value === "getMarketRates" ||
+    value === "schedulePayment"
   );
 }
 
@@ -996,6 +1136,8 @@ function summarizeAction(tool: AgentTool, params: Record<string, unknown>): stri
       return `I'll prepare a swap from ${String(params.tokenIn ?? "the input token")} to ${String(params.tokenOut ?? "the output token")} for ${String(params.amountIn ?? "the requested amount")}.`;
     case "sendToken":
       return `I'll prepare a transfer of ${String(params.amount ?? "the requested amount")} ${String(params.asset ?? "token")} to ${String(params.recipientName ?? params.recipient ?? "the recipient")}.`;
+    case "schedulePayment":
+      return `I'll prepare a spoken payment of ${String(params.amount ?? "the requested amount")} ${String(params.asset ?? "USDC")} to ${String(params.recipientName ?? params.recipient ?? "the recipient")} ${String(params.cadence ?? "on a schedule")}, ${params.fromYield ? "from claimed yield" : "from your wallet"}, and skip any run if health factor would fall below ${String(params.minHealthFactor ?? "1.10")}.`;
     case "bridge":
       return `I'll prepare a USDC bridge from ${String(params.sourceChain ?? "the source chain")} for ${String(params.amount ?? "the requested amount")}.`;
     case "predict":
@@ -1379,6 +1521,30 @@ export async function POST(request: Request) {
       const validation = await validateAgentAction(deterministic.action, {
         walletAddress: body.context.walletAddress,
       });
+      if (!validation.valid) {
+        return NextResponse.json({
+          type: "message",
+          text: validation.reason,
+        } satisfies AgentResponse);
+      }
+      return NextResponse.json({
+        type: "action",
+        validated: validation,
+      } satisfies AgentResponse);
+    }
+
+    const deterministicSchedule = parseDeterministicSchedulePayment(
+      body.message.trim(),
+      body.context.contacts ?? [],
+    );
+    if (deterministicSchedule?.type === "message") {
+      return NextResponse.json(deterministicSchedule satisfies AgentResponse);
+    }
+    if (deterministicSchedule?.type === "action") {
+      const validation = await validateAgentAction(
+        deterministicSchedule.action,
+        { walletAddress: body.context.walletAddress },
+      );
       if (!validation.valid) {
         return NextResponse.json({
           type: "message",

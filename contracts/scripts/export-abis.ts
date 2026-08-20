@@ -18,6 +18,7 @@ const CONTRACTS = [
   "EarnReferralController",
   "RecurringOrderExecutor",
   "SwapPool",
+  "SpokenPay",
 ] as const;
 
 async function main() {
