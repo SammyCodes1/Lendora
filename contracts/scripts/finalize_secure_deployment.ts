@@ -15,8 +15,8 @@ const A = {
   debtEurc: "0xa45792794d8CfB8dCF8EE78713596513155bA51f",
   positionNft: "0xf0d0713609171173616c4167732a05Bf3982F8a9",
   positionManager: "0xa5CA2C82D5DC01E067E0F0337c8f73454C74a93F",
-  walletDomain: "0x29850FCb158C7f27Df180d7844e5B0D51Da9D20C",
-  domainMarketplace: "0xFeEebE745101BBE3CBf2f983Ba1606Bc86c541C6",
+  walletDomain: "0x7B5f6C25b0f77E807ffe60fB00bEB0702560Af1E",
+  domainMarketplace: "0x633DE668C618E68878567Aa6D11a8289b4F398e5",
   usdcVault: "0xAA127DEB9c3f72f8D5364B49458f6b14F0540D5b",
   eurcVault: "0x57FA5403192657ed5B950C1CD4F06f361F38B14A",
   referralController: "0xc9D5aD567a2ca40697161823eFC49Fef193A25EC",
@@ -24,8 +24,8 @@ const A = {
 
 const BLOCKS = {
   deployment: 52_118_513,
-  walletDomain: 52_118_852,
-  domainMarketplace: 52_118_867,
+  walletDomain: 58_005_110,
+  domainMarketplace: 58_005_146,
   earnVault: 52_118_878,
 };
 

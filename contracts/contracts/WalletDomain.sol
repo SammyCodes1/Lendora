@@ -30,7 +30,7 @@ contract WalletDomain is ERC721Enumerable {
     error CommitmentTooNew();
     error CommitmentExpired();
 
-    constructor() ERC721("ArcLend Wallet Domains", "ARCD") {}
+    constructor() ERC721("Lendora Wallet Domains", "LNDR") {}
 
     function makeCommitment(
         string memory domainName,
@@ -117,9 +117,9 @@ contract WalletDomain is ERC721Enumerable {
             string.concat(
                 "{\"name\":\"",
                 name_,
-                ".arclend\",\"description\":\"ArcLend wallet domain on Arc Testnet\",\"attributes\":[{\"trait_type\":\"Domain\",\"value\":\"",
+                ".lendora\",\"description\":\"Lendora wallet domain on Arc Testnet\",\"attributes\":[{\"trait_type\":\"Domain\",\"value\":\"",
                 name_,
-                ".arclend\"}],\"external_url\":\"https://testnet.arcscan.app/token/",
+                ".lendora\"}],\"external_url\":\"https://testnet.arcscan.app/token/",
                 Strings.toHexString(address(this)),
                 "?a=",
                 Strings.toString(tokenId),

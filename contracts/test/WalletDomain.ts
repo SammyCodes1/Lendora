@@ -144,6 +144,6 @@ describe("WalletDomain", function () {
     const metadata = JSON.parse(
       Buffer.from(tokenURI.split(",")[1], "base64").toString("utf8"),
     );
-    expect(metadata.name).to.equal("sammy.arclend");
+    expect(metadata.name).to.equal("sammy.lendora");
   });
 });

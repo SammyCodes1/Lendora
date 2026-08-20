@@ -277,7 +277,7 @@ async function fetchAllDomainEvents(
 ): Promise<DomainEntry[]> {
   if (!publicClient) return [];
 
-  const CACHE_KEY = "arclend:domains:cache";
+  const CACHE_KEY = `arclend:domains:cache:${WALLET_DOMAIN_ADDRESS.toLowerCase()}`;
   let lastScannedBlock = DEPLOYMENT_BLOCK - 1n;
   let cachedEntries: DomainEntry[] = [];
 
@@ -954,7 +954,7 @@ async function fetchMarketplaceListings(
 ): Promise<DomainListing[]> {
   if (!publicClient || !DOMAIN_MARKETPLACE_ADDRESS) return [];
 
-  const CACHE_KEY = "arclend:domain-marketplace:cache";
+  const CACHE_KEY = `arclend:domain-marketplace:cache:${DOMAIN_MARKETPLACE_ADDRESS?.toLowerCase() ?? "none"}`;
   type MarketplaceLog = {
     args: {
       tokenId?: bigint;

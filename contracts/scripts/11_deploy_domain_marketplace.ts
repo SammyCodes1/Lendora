@@ -16,6 +16,13 @@ const FRONTEND_DEPLOYMENT_PATH = path.join(
   "constants",
   "deployments.json",
 );
+const ROOT_DEPLOYMENT_PATH = path.join(
+  __dirname,
+  "..",
+  "..",
+  "constants",
+  "deployments.json",
+);
 
 async function main() {
   const deployment = JSON.parse(fs.readFileSync(DEPLOYMENT_PATH, "utf8"));
@@ -40,7 +47,7 @@ async function main() {
   deployment.DomainMarketplace = address;
   deployment.domainMarketplaceDeploymentBlock = receipt.blockNumber;
 
-  for (const outputPath of [DEPLOYMENT_PATH, FRONTEND_DEPLOYMENT_PATH]) {
+  for (const outputPath of [DEPLOYMENT_PATH, FRONTEND_DEPLOYMENT_PATH, ROOT_DEPLOYMENT_PATH]) {
     fs.writeFileSync(outputPath, JSON.stringify(deployment, null, 2) + "\n");
   }
 
