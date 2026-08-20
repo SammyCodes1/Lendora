@@ -222,7 +222,7 @@ export default function SwapPoolPage() {
       });
       setTxHash(hash);
       await publicClient.waitForTransactionReceipt({ hash });
-      showToast("success", "Liquidity added to ArcLend Swap Pool");
+      showToast("success", "Liquidity added to Lendora Swap Pool");
       setAmountA("");
       setAmountB("");
       await loadPool();
@@ -258,7 +258,7 @@ export default function SwapPoolPage() {
       });
       setTxHash(hash);
       await publicClient.waitForTransactionReceipt({ hash });
-      showToast("success", "Liquidity removed from ArcLend Swap Pool");
+      showToast("success", "Liquidity removed from Lendora Swap Pool");
       setRemoveLp("");
       await loadPool();
       await Promise.all([usdcBalance.refetch(), eurcBalance.refetch()]);
@@ -276,7 +276,7 @@ export default function SwapPoolPage() {
       <div className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6">
         <PageHeader
           title="Swap Pool LP"
-          description="Provide USDC/EURC liquidity to ArcLend's native constant-product pool and earn 0.30% swap fees. Fully separate from the lending market."
+          description="Provide USDC/EURC liquidity to Lendora's native constant-product pool and earn 0.30% swap fees. Fully separate from the lending market."
           icon={<Droplets className="h-5 w-5" />}
         />
 

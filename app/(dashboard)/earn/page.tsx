@@ -261,7 +261,7 @@ function VaultCard({
           <div>
             <h2 className="text-lg font-semibold text-white">{vault.symbol} Earn Vault</h2>
             <p className="mt-1 text-xs text-white/35">
-              {vault.deployed ? "ArcLend managed vault" : "Deployment pending"}
+              {vault.deployed ? "Lendora managed vault" : "Deployment pending"}
             </p>
           </div>
         </div>
@@ -420,7 +420,7 @@ function EarnPageContent() {
         <PageHeader
           icon={<PiggyBank />}
           title="Earn"
-          description="Deposit stablecoins into ArcLend-managed vault shares backed by lending yield, referral routing, and protocol rewards. Vaults re-supply into the same lending pools — withdrawals can be limited by pool utilization, and share value inherits pool / bad-debt risk."
+          description="Deposit stablecoins into Lendora-managed vault shares backed by lending yield, referral routing, and protocol rewards. Vaults re-supply into the same lending pools — withdrawals can be limited by pool utilization, and share value inherits pool / bad-debt risk."
           stats={[
             {
               label: "Vaults live",
@@ -439,7 +439,7 @@ function EarnPageContent() {
 
         <div className="rounded-2xl border border-amber-300/15 bg-amber-300/[0.05] px-4 py-3 text-xs leading-5 text-amber-100/75">
           <strong className="font-medium text-amber-100/90">Nested liquidity risk.</strong>{" "}
-          Earn vaults hold aTokens in ArcLend reserves. If utilization is high, vault
+          Earn vaults hold aTokens in Lendora reserves. If utilization is high, vault
           withdrawals may fail until pool cash returns. Bad-debt write-offs that
           haircut aToken index also reduce vault assets per share.
         </div>
@@ -454,7 +454,7 @@ function EarnPageContent() {
                 <div>
                   <h2 className="text-lg font-semibold text-white">Yield Source</h2>
                   <p className="mt-1 text-sm text-white/45">
-                    Vault assets are supplied into ArcLend pools. Borrower interest and owner-added protocol rewards raise assets per share.
+                    Vault assets are supplied into Lendora pools. Borrower interest and owner-added protocol rewards raise assets per share.
                   </p>
                 </div>
               </div>

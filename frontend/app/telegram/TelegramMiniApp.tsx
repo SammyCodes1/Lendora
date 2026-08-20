@@ -245,8 +245,8 @@ export function TelegramMiniApp() {
             Open inside Telegram
           </h1>
           <p className="mt-2 text-sm leading-5 text-white/60">
-            This page signs ArcLend transactions and only works inside the
-            ArcLend Telegram Mini App.
+            This page signs Lendora transactions and only works inside the
+            Lendora Telegram Mini App.
           </p>
         </GlassCard>
       </div>
@@ -398,7 +398,7 @@ export function TelegramMiniApp() {
           <p className="mt-2 text-sm leading-5 text-white/60">
             {linkState.status === "linked"
               ? "Your wallet is linked to your Telegram account. Ask the bot about your position or prepare a transaction and sign it here."
-              : "Connect your wallet once so the ArcLend bot can read your position, then sign transactions from Telegram."}
+              : "Connect your wallet once so the Lendora bot can read your position, then sign transactions from Telegram."}
           </p>
 
           {linkState.status === "linked" ? (

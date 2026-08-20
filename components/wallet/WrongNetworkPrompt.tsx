@@ -111,7 +111,7 @@ export function WrongNetworkPrompt() {
                   Add Arc Testnet
                 </h2>
                 <p className="text-sm leading-relaxed text-white/55">
-                  ArcLend needs{" "}
+                  Lendora needs{" "}
                   <span className="font-medium text-white/80">
                     Arc Testnet
                   </span>{" "}

@@ -9,7 +9,7 @@ export default function AppError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  console.error("[ArcLend] Route rendering failed.", error);
+  console.error("[Lendora] Route rendering failed.", error);
 
   return (
     <div className="mx-auto flex min-h-[60vh] max-w-xl items-center px-4">

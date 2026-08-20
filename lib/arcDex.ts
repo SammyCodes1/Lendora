@@ -28,7 +28,7 @@ export const ARC_DEX_TOKENS = {
 
 export const ARC_DEX_ROUTERS = {
   /**
-   * ArcLend native constant-product pool (USDC/EURC).
+   * Lendora native constant-product pool (USDC/EURC).
    * Peer route — does not wrap or replace other DEX routers.
    */
   arclend: "0x49FD6464Ebbe659aaF55034441B134E5030A4A4A",
@@ -83,7 +83,7 @@ export function isStableSwapPair(
   return pair.has("USDC") && pair.has("EURC");
 }
 
-/** ArcLend SwapPool only supports the USDC/EURC pair. */
+/** Lendora SwapPool only supports the USDC/EURC pair. */
 export function isArcLendSwapPair(
   tokenIn: keyof typeof ARC_DEX_TOKENS,
   tokenOut: keyof typeof ARC_DEX_TOKENS,
@@ -281,7 +281,7 @@ export function encodeTowerAdapterSwapCalldata(args: {
   });
 }
 
-/** ArcLend native SwapPool ABI (peer route for USDC/EURC). */
+/** Lendora native SwapPool ABI (peer route for USDC/EURC). */
 export const SWAP_POOL_ABI = [
   {
     name: "getQuote",

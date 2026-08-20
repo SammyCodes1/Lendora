@@ -60,7 +60,7 @@ function ArcLogo() {
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src="/arclend-mark.png"
-      alt="ArcLend"
+      alt="Lendora"
       width={28}
       height={28}
       className="pointer-events-none h-7 w-7 object-contain"
@@ -379,7 +379,7 @@ export function Navbar() {
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <p className="truncate text-sm font-semibold tracking-tight sm:text-base">
-                  ArcLend
+                  Lendora
                 </p>
               </div>
               <p className="hidden text-[10px] font-medium uppercase text-white/35 sm:block">

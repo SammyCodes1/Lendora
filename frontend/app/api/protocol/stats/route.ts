@@ -867,9 +867,9 @@ async function buildStats() {
       participantCount: participants.size,
       indexedParticipantCount: selectedParticipants.length,
       methodology:
-        "Lifetime volume counts one canonical notional for ArcLend supply, withdraw, borrow, repay, liquidation, earn deposit/withdraw, and marketplace purchase events. Swap and Arc-origin bridge amounts are included only for wallets after their first canonical ArcLend event and only through the exact routes configured by ArcLend. Approvals, failed transactions, fees, internal transfers, interest accrual, rewards, and both sides of a single action are excluded.",
+        "Lifetime volume counts one canonical notional for Lendora supply, withdraw, borrow, repay, liquidation, earn deposit/withdraw, and marketplace purchase events. Swap and Arc-origin bridge amounts are included only for wallets after their first canonical Lendora event and only through the exact routes configured by Lendora. Approvals, failed transactions, fees, internal transfers, interest accrual, rewards, and both sides of a single action are excluded.",
       routeAttribution:
-        "Swap and CCTP contracts are shared infrastructure. Route activity is attributable to known ArcLend participants and configured routes, but cannot prove which frontend initiated it without an ArcLend-owned routing contract.",
+        "Swap and CCTP contracts are shared infrastructure. Route activity is attributable to known Lendora participants and configured routes, but cannot prove which frontend initiated it without an Lendora-owned routing contract.",
     },
     updatedAt: new Date().toISOString(),
   };

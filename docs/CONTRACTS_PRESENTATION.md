@@ -1,8 +1,8 @@
-# ArcLend Contracts Presentation
+# Lendora Contracts Presentation
 
-## Slide 1: What ArcLend Is
+## Slide 1: What Lendora Is
 
-- ArcLend is a pooled lending and borrowing protocol built for Arc Testnet.
+- Lendora is a pooled lending and borrowing protocol built for Arc Testnet.
 - Users supply 6-decimal stablecoins such as USDC and EURC.
 - Supplied assets become collateral when the reserve allows collateral use.
 - Borrowers can borrow against collateral up to the configured LTV.
@@ -10,7 +10,7 @@
 - Liquidators can repay unhealthy debt and receive discounted collateral.
 
 Speaker note:
-ArcLend behaves like a compact Aave-style money market. The core pool owns accounting and risk checks, while helper contracts add receipts, vaults, referrals, and wallet domains around it.
+Lendora behaves like a compact Aave-style money market. The core pool owns accounting and risk checks, while helper contracts add receipts, vaults, referrals, and wallet domains around it.
 
 ## Slide 2: Contract Map
 
@@ -375,7 +375,7 @@ The controller does not replace the vault. It sits in front of the vault to rout
 - Burning clears the domain name record.
 
 Speaker note:
-Wallet domains provide human-readable identity around ArcLend accounts. The token ID is derived from the hash of the domain name.
+Wallet domains provide human-readable identity around Lendora accounts. The token ID is derived from the hash of the domain name.
 
 ## Slide 22: Domain Marketplace
 
@@ -468,4 +468,4 @@ This is the core protocol loop. Everything else in the repository either improve
 - WalletDomain and DomainMarketplace add identity and secondary trading.
 
 Speaker note:
-ArcLend is best understood as a lending pool first, with product-layer contracts around it.
+Lendora is best understood as a lending pool first, with product-layer contracts around it.

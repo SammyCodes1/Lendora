@@ -1,7 +1,7 @@
 /**
  * SAFETY REVIEW CHECKLIST — every change to this file must re-review all rules:
  * 1. Block non-positive, NaN, or unparseable amounts.
- * 2. Block assets outside the live active ArcLend reserve list.
+ * 2. Block assets outside the live active Lendora reserve list.
  * 3. Block supply amounts above the live wallet balance.
  * 4. Block withdrawals above the live aToken balance.
  * 5. Block repayments above the live outstanding debt.
@@ -1010,7 +1010,7 @@ export async function validateAgentAction(
       if (params.asset !== "USDC") {
         return hardBlock(
           walletKey,
-          `${supportedName(params.asset)} isn't supported on ArcLend.`,
+          `${supportedName(params.asset)} isn't supported on Lendora.`,
         );
       }
       const amount = parseAmount(params.amount);
@@ -1165,7 +1165,7 @@ export async function validateAgentAction(
         return snapshot.active ? snapshot : null;
       } catch (error) {
         console.error(
-          `[ArcLend agent validator] Failed to load ${asset} context.`,
+          `[Lendora agent validator] Failed to load ${asset} context.`,
           error,
         );
         return null;
@@ -1180,7 +1180,7 @@ export async function validateAgentAction(
       ) {
         return hardBlock(
           walletKey,
-          `${supportedName(params.asset)} isn't supported on ArcLend.`,
+          `${supportedName(params.asset)} isn't supported on Lendora.`,
         );
       }
 
@@ -1260,7 +1260,7 @@ export async function validateAgentAction(
           ) {
             return hardBlock(
               walletKey,
-              `${supportedName(requestedClaim.asset)} isn't supported on ArcLend.`,
+              `${supportedName(requestedClaim.asset)} isn't supported on Lendora.`,
             );
           }
           const requestedAmount = parseAmount(requestedClaim.amount);
@@ -1310,7 +1310,7 @@ export async function validateAgentAction(
       if (params.asset !== "USDC" && params.asset !== "EURC") {
         return hardBlock(
           walletKey,
-          `${supportedName(params.asset)} isn't supported on ArcLend.`,
+          `${supportedName(params.asset)} isn't supported on Lendora.`,
         );
       }
       const asset = params.asset;
@@ -1444,7 +1444,7 @@ export async function validateAgentAction(
       if (!isSwapToken(params.tokenIn)) {
         return hardBlock(
           walletKey,
-          `${supportedName(params.tokenIn)} isn't supported on ArcLend.`,
+          `${supportedName(params.tokenIn)} isn't supported on Lendora.`,
         );
       }
       if (
@@ -1453,7 +1453,7 @@ export async function validateAgentAction(
       ) {
         return hardBlock(
           walletKey,
-          `${supportedName(params.tokenOut)} isn't supported on ArcLend.`,
+          `${supportedName(params.tokenOut)} isn't supported on Lendora.`,
         );
       }
       const tokenIn = params.tokenIn;
@@ -1512,7 +1512,7 @@ export async function validateAgentAction(
     } else {
       return hardBlock(
         walletKey,
-        "That action isn't supported on ArcLend.",
+        "That action isn't supported on Lendora.",
       );
     }
 

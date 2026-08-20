@@ -19,7 +19,7 @@ export default function GlobalError({
           }}
         >
           <section style={{ maxWidth: 520, textAlign: "center" }}>
-            <h1>ArcLend could not finish loading</h1>
+            <h1>Lendora could not finish loading</h1>
             <p style={{ color: "rgba(255,255,255,.6)", lineHeight: 1.6 }}>
               No transaction was submitted. Retry the application.
             </p>
@@ -37,7 +37,7 @@ export default function GlobalError({
                 cursor: "pointer",
               }}
             >
-              Retry ArcLend
+              Retry Lendora
             </button>
           </section>
         </main>

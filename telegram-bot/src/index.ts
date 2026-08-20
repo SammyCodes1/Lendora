@@ -32,12 +32,12 @@ function shortAddress(address: string) {
 }
 
 function miniAppKeyboard(path = "") {
-  return new InlineKeyboard().webApp("Open ArcLend", `${appUrl}/telegram${path}`);
+  return new InlineKeyboard().webApp("Open Lendora", `${appUrl}/telegram${path}`);
 }
 
 function linkMessage() {
   return (
-    "The ArcLend bot never holds your keys. Link your own wallet so I can read your " +
+    "The Lendora bot never holds your keys. Link your own wallet so I can read your " +
     "positions — actions are prepared here and signed from your wallet inside the Mini App."
   );
 }
@@ -54,7 +54,7 @@ bot.command("start", async (ctx) => {
           "Ask about your health factor, balances, or market rates, or tell me an " +
           "action such as \"supply 10 USDC\" or \"repay 5 USDC\". Anything that needs " +
           "a signature opens in the Mini App for you to confirm from your own wallet."
-      : `Welcome to the ArcLend assistant.\n\n${linkMessage()}`,
+      : `Welcome to the Lendora assistant.\n\n${linkMessage()}`,
     { reply_markup: miniAppKeyboard() },
   );
 });
@@ -67,7 +67,7 @@ bot.command("link", async (ctx) => {
 
 bot.command("help", async (ctx) => {
   await ctx.reply(
-    "I can answer questions about your ArcLend positions (health factor, balances, " +
+    "I can answer questions about your Lendora positions (health factor, balances, " +
       "market rates) and prepare actions (supply, borrow, repay, swap, send).\n\n" +
       "Actions are never signed by the bot — you confirm and sign them from your own " +
       "wallet in the Mini App.",
@@ -125,7 +125,7 @@ bot.on("message:text", async (ctx) => {
       await ctx.reply(result.text);
     }
   } catch (error) {
-    console.error("[ArcLend bot] agent request failed", error);
+    console.error("[Lendora bot] agent request failed", error);
     await ctx.reply("The assistant could not process that request. Please retry.");
   }
 });
@@ -150,8 +150,8 @@ async function storePendingTransaction(
 }
 
 bot.catch((error) => {
-  console.error("[ArcLend bot] update error", error.error);
+  console.error("[Lendora bot] update error", error.error);
 });
 
-console.log("[ArcLend bot] starting with long-polling…");
+console.log("[Lendora bot] starting with long-polling…");
 await bot.start({ drop_pending_updates: true });

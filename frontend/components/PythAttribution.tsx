@@ -3,7 +3,7 @@
 /**
  * Small attribution badge for Pyth Network price feeds.
  * Rendered near market data displays so hackathon judges can see
- * that ArcLend uses real, first-party-sourced oracle data.
+ * that Lendora uses real, first-party-sourced oracle data.
  */
 export function PythAttribution() {
   return (

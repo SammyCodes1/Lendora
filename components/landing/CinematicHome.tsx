@@ -43,8 +43,8 @@ function emitSound(type: "whoosh" | "rise") {
   window.dispatchEvent(new CustomEvent("arclend:landing-sound", { detail: type }));
 }
 
-function BrandReveal({ className, label = "ArcLend" }: { className?: string; label?: string }) {
-  const lendStart = label.lastIndexOf("Lend");
+function BrandReveal({ className, label = "Lendora" }: { className?: string; label?: string }) {
+  const accentStart = /ora$/i.test(label) ? label.length - 3 : label.lastIndexOf("Lend");
 
   return (
     <span className={cn("cinematic-display inline-flex overflow-hidden", className)} aria-label={label}>
@@ -52,7 +52,7 @@ function BrandReveal({ className, label = "ArcLend" }: { className?: string; lab
         <span
           className={cn(
             "brand-letter",
-            lendStart >= 0 && index >= lendStart && "text-[#86efac]",
+            accentStart >= 0 && index >= accentStart && "text-[#86efac]",
           )}
           aria-hidden="true"
           key={`${letter}-${index}`}
@@ -161,7 +161,7 @@ function FeaturePanel({ feature }: { feature: (typeof features)[number] }) {
         <Icon className="h-9 w-9 sm:h-11 sm:w-11" strokeWidth={1.15} />
       </div>
       <div>
-        <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.22em] text-white/30">ArcLend / {feature.index}</p>
+        <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.22em] text-white/30">Lendora / {feature.index}</p>
         <h2 className="cinematic-display text-5xl font-medium tracking-[-0.06em] text-white sm:text-7xl lg:text-8xl">{feature.title}</h2>
         <p className="mt-5 max-w-xl text-lg font-light leading-relaxed text-white/50 sm:text-2xl">{feature.copy}</p>
       </div>
@@ -514,7 +514,7 @@ export function CinematicHome() {
             className="h-7 w-7 object-contain"
             style={{ opacity: 1, visibility: "visible" }}
           />
-          Arc<span className="text-[#86efac]">Lend</span>
+          Lend<span className="text-[#86efac]">ora</span>
         </Link>
         <Link href="/dashboard" className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-white/15 bg-white px-4 py-2 text-xs font-semibold text-black transition hover:scale-105 active:scale-95">Launch app <ArrowRight className="h-3.5 w-3.5" /></Link>
       </header>
@@ -530,7 +530,7 @@ export function CinematicHome() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/arclend-mark.png"
-              alt="ArcLend logo"
+              alt="Lendora logo"
               width={381}
               height={259}
               decoding="sync"
@@ -648,7 +648,7 @@ export function CinematicHome() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/arclend-mark.png"
-              alt="ArcLend"
+              alt="Lendora"
               width={381}
               height={259}
               className="relative z-20 mb-1 block h-16 w-auto shrink-0 object-contain sm:mb-2 sm:h-24 md:h-32 lg:h-40"
@@ -665,7 +665,7 @@ export function CinematicHome() {
               <a href="https://testnet.arcscan.app" target="_blank" rel="noreferrer" className="transition hover:text-white">ArcScan</a>
               <a href="https://www.circle.com" target="_blank" rel="noreferrer" className="transition hover:text-white">Circle</a>
             </div>
-            <div className="flex flex-wrap items-center gap-5"><span>Arc Network × Circle</span><span className="font-mono">© {new Date().getFullYear()} Arc<span className="text-[#86efac]">Lend</span></span></div>
+            <div className="flex flex-wrap items-center gap-5"><span>Arc Network × Circle</span><span className="font-mono">© {new Date().getFullYear()} Lend<span className="text-[#86efac]">ora</span></span></div>
           </footer>
         </div>
       </section>

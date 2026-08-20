@@ -464,7 +464,7 @@ export default function LendPage() {
         <PageHeader
           icon={<Wallet />}
           title="Lend"
-          description="Supply USDC and EURC into ArcLend reserves, monitor accrued yield, and withdraw balances without leaving the lending surface. Suppliers share protocol risk: in a bad-debt event the owner may socialize losses by reducing aToken index."
+          description="Supply USDC and EURC into Lendora reserves, monitor accrued yield, and withdraw balances without leaving the lending surface. Suppliers share protocol risk: in a bad-debt event the owner may socialize losses by reducing aToken index."
         />
 
         {isError ? (

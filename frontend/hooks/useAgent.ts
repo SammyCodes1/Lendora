@@ -67,13 +67,13 @@ function safeContextEntry<T>(
   build: () => T,
 ): T | undefined {
   if (failed) {
-    console.warn(`[ArcLend agent] Omitted unavailable ${label} context.`);
+    console.warn(`[Lendora agent] Omitted unavailable ${label} context.`);
     return undefined;
   }
   try {
     return build();
   } catch (error) {
-    console.warn(`[ArcLend agent] Failed to build ${label} context.`, error);
+    console.warn(`[Lendora agent] Failed to build ${label} context.`, error);
     return undefined;
   }
 }
@@ -189,7 +189,7 @@ export function useAgent() {
     failures.forEach(([label, error]) => {
       if (error) {
         console.warn(
-          `[ArcLend agent] Omitted unavailable ${label} context.`,
+          `[Lendora agent] Omitted unavailable ${label} context.`,
           error,
         );
       }

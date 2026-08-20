@@ -9,7 +9,7 @@ import { Resend } from "resend";
 //
 // If you don't have a domain yet, Resend lets you send to your OWN email only
 // using their shared domain (onboarding@resend.dev) while in development.
-// Change the `from` field to: 'ArcLend <onboarding@resend.dev>'
+// Change the `from` field to: 'Lendora <onboarding@resend.dev>'
 // This only works for sending to the email address you signed up to Resend with.
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -32,15 +32,15 @@ export async function sendBetaAccessEmail({
       : "Supply and Withdraw";
 
   const { data, error } = await resend.emails.send({
-    from: "ArcLend <noreply@arclend.cv>",
+    from: "Lendora <noreply@arclend.cv>",
     to,
-    subject: `Your ArcLend ${tierLabel} Code`,
+    subject: `Your Lendora ${tierLabel} Code`,
     html: `
         <div style="background:#000;color:#fff;font-family:Inter,sans-serif;
                     max-width:480px;margin:0 auto;padding:40px;
                     border-radius:16px;border:1px solid rgba(255,255,255,0.1)">
           <h1 style="font-size:24px;font-weight:700;margin-bottom:8px">
-            ArcLend
+            Lendora
           </h1>
           <p style="color:rgba(255,255,255,0.5);margin-bottom:32px;font-size:14px">
             The first lending protocol on Arc Network
@@ -72,7 +72,7 @@ export async function sendBetaAccessEmail({
              style="display:inline-block;background:#fff;color:#000;
                     padding:12px 24px;border-radius:10px;
                     font-weight:600;text-decoration:none;font-size:14px">
-            Open ArcLend →
+            Open Lendora →
           </a>
           <p style="color:rgba(255,255,255,0.3);font-size:11px;margin-top:32px">
             This code cannot be transferred — it will only work when redeemed

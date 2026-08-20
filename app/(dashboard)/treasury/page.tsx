@@ -400,7 +400,7 @@ export default function TreasuryPage() {
         <GlassCard depth="background" className="p-5">
           <p className="text-sm leading-relaxed text-white/50">
             Treasury funds support protocol development and partner
-            fee-sharing through ArcLend&rsquo;s Liquidity-as-a-Service
+            fee-sharing through Lendora&rsquo;s Liquidity-as-a-Service
             program. Every deposit is recorded on-chain with a source label
             for full auditability. All withdrawals require owner (or
             authorized spender) authorization, with the intent to migrate

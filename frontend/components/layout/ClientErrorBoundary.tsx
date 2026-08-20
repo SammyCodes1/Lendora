@@ -25,7 +25,7 @@ export class ClientErrorBoundary extends Component<
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error(
-      `[ArcLend] ${this.props.label} failed without interrupting the page.`,
+      `[Lendora] ${this.props.label} failed without interrupting the page.`,
       error,
       info,
     );

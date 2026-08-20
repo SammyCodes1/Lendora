@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
 
-export const DEFAULT_AGENT_NAME = "ArcLend Assistant";
+export const DEFAULT_AGENT_NAME = "Lendora Assistant";
 
 const STORAGE_PREFIX = "arclend:agent-name:v1";
 const AGENT_NAME_CHANGED_EVENT = "arclend:agent-name-changed";

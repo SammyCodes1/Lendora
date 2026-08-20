@@ -8,12 +8,12 @@ type BrandMarkProps = {
 };
 
 /**
- * Inline ArcLend mark (white + green). Renders without network assets so it
+ * Inline Lendora mark (white + green). Renders without network assets so it
  * always shows on the dark cinematic landing background.
  */
 export function BrandMark({
   className,
-  title = "ArcLend",
+  title = "Lendora",
   decorative = false,
 }: BrandMarkProps) {
   return (

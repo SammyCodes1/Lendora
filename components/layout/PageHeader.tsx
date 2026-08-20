@@ -47,7 +47,7 @@ export function PageHeader({
           <span className="text-white/75 [&>svg]:h-3.5 [&>svg]:w-3.5">
             {icon}
           </span>
-          <span>ArcLend protocol</span>
+          <span>Lendora protocol</span>
         </div>
         <h1 className="font-display text-3xl font-medium leading-[1.02] text-white sm:text-6xl sm:leading-[0.98]">
           {title}

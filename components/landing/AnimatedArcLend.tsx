@@ -25,7 +25,7 @@ export function AnimatedArcLend() {
 
   return (
     <div className="relative mt-6 w-fit py-3">
-      <h1 className="sr-only">ArcLend</h1>
+      <h1 className="sr-only">Lendora</h1>
 
       <svg
         aria-hidden="true"

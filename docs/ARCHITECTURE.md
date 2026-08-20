@@ -1,6 +1,6 @@
-# ArcLend Architecture
+# Lendora Architecture
 
-ArcLend is a pooled stablecoin lending protocol designed for Arc Testnet. Protocol amounts use each stablecoin's 6-decimal ERC-20 interface. Arc's native USDC gas representation is used only by the network for transaction fees.
+Lendora is a pooled stablecoin lending protocol designed for Arc Testnet. Protocol amounts use each stablecoin's 6-decimal ERC-20 interface. Arc's native USDC gas representation is used only by the network for transaction fees.
 
 ## Smart Contract Layer
 
@@ -137,4 +137,4 @@ cd contracts
 npx hardhat run scripts/update_risk_params.ts --network arc_testnet
 ```
 
-ArcLend is custom protocol code and has not been independently audited. Testnet deployment should not be treated as production security validation.
+Lendora is custom protocol code and has not been independently audited. Testnet deployment should not be treated as production security validation.

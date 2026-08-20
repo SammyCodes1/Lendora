@@ -179,7 +179,7 @@ export default function PositionsPage() {
         <PageHeader
           icon={<Award />}
           title="Positions"
-          description="Claim and inspect on-chain receipts that represent ArcLend supply and borrow positions across the protocol."
+          description="Claim and inspect on-chain receipts that represent Lendora supply and borrow positions across the protocol."
           stats={[
             {
               label: "Receipts",

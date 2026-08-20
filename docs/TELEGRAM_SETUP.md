@@ -1,6 +1,6 @@
-# ArcLend Telegram Setup
+# Lendora Telegram Setup
 
-ArcLend ships a non-custodial Telegram assistant: a **bot** for conversational
+Lendora ships a non-custodial Telegram assistant: a **bot** for conversational
 read access (health factor, balances, market rates) and a **Telegram Mini App**
 for signing write actions (supply, borrow, repay, swap, send) from the user's
 own wallet via WalletConnect.
@@ -98,14 +98,14 @@ when ready.
 
 ## 6. Link a wallet and try it
 
-1. Open your bot in Telegram → **/start** → tap **Open ArcLend**.
+1. Open your bot in Telegram → **/start** → tap **Open Lendora**.
 2. In the Mini App, **Connect Wallet** (WalletConnect). If your wallet app does
    not auto-open, copy the pairing URI shown and paste it into the wallet.
 3. Tap **Link to Telegram** and approve the signature. Your address is now bound
    to your Telegram user id for 90 days.
 4. Back in the chat: *"what's my health factor"* → the bot answers directly.
 5. Try *"supply 10 USDC"* → the bot prepares the action and replies with the
-   **Open ArcLend** button. Tap it, review, **Confirm & Execute**, and sign in
+   **Open Lendora** button. Tap it, review, **Confirm & Execute**, and sign in
    your wallet. The transaction lands on Arc Testnet and the Mini App shows the
    ArcScan link.
 

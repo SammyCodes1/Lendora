@@ -20,7 +20,7 @@ export default function ReferralsPage() {
         <PageHeader
           icon={<Gift />}
           title="Referrals"
-          description="Share ArcLend Earn Vaults and track wallet-level points, USDC rewards, and EURC rewards in one incentives surface."
+          description="Share Lendora Earn Vaults and track wallet-level points, USDC rewards, and EURC rewards in one incentives surface."
           stats={[
             {
               label: "Pending points",

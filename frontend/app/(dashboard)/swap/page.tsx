@@ -62,7 +62,7 @@ function OnchainSwapFlow() {
           </h2>
         </div>
         <p className="mt-2 text-sm leading-6 text-white/45">
-          Quotes are compared across peer venues (including ArcLend&apos;s own
+          Quotes are compared across peer venues (including Lendora&apos;s own
           USDC/EURC pool). You pick a route; one signed transaction settles
           output directly back to your wallet.
         </p>

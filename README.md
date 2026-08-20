@@ -1,10 +1,10 @@
-# ArcLend
+# Lendora
 
-ArcLend is a full-stack DeFi lending and borrowing protocol for Arc Network Testnet. It lets users supply stablecoins, borrow against collateral, repay debt, withdraw supplied liquidity, and monitor liquidation opportunities from a glassmorphic Next.js interface.
+Lendora is a full-stack DeFi lending and borrowing protocol for Arc Network Testnet. It lets users supply stablecoins, borrow against collateral, repay debt, withdraw supplied liquidity, and monitor liquidation opportunities from a glassmorphic Next.js interface.
 
-## What Is ArcLend?
+## What Is Lendora?
 
-ArcLend is a USDC-first money market scaffold. The protocol contracts model lending reserves, interest-bearing aTokens, non-transferable debt tokens, a kinked interest-rate model, a mock price oracle for testnet, and liquidation flows. The frontend provides dashboard, lend, borrow, and liquidation pages with wallet connectivity through wagmi and viem.
+Lendora is a USDC-first money market scaffold. The protocol contracts model lending reserves, interest-bearing aTokens, non-transferable debt tokens, a kinked interest-rate model, a mock price oracle for testnet, and liquidation flows. The frontend provides dashboard, lend, borrow, and liquidation pages with wallet connectivity through wagmi and viem.
 
 ## Arc Network Overview
 

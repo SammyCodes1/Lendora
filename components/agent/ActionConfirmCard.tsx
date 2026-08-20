@@ -111,7 +111,7 @@ const arcDestination: BridgeNetwork = {
 };
 
 const swapRouteLabels: Record<SwapRouteQuote["key"], string> = {
-  arclend: "ArcLend native pool",
+  arclend: "Lendora native pool",
   curve: "Curve stable pool",
   xylo: "Xylo V2 router",
   v3: "Synthra V3 router",
@@ -403,7 +403,7 @@ export function ActionConfirmCard({
         (action.tool === "swap" || action.tool === "bridge")
       ) {
         throw new Error(
-          "Swap and bridge routes require an injected wallet connector. Core ArcLend actions remain available with the email wallet.",
+          "Swap and bridge routes require an injected wallet connector. Core Lendora actions remain available with the email wallet.",
         );
       }
       if (!(await validateLatestState())) return;
@@ -515,12 +515,12 @@ export function ActionConfirmCard({
           receiveLabel: "Recipient wallet",
           receiveAmount: validatedAction.walletAddress,
           route: [
-            "ArcLend domain registry",
+            "Lendora domain registry",
             displayDomain,
             "Wallet domain NFT",
           ],
           detail:
-            "Your wallet will mint this available ArcLend domain NFT to the connected address. The transaction only executes after you sign.",
+            "Your wallet will mint this available Lendora domain NFT to the connected address. The transaction only executes after you sign.",
         });
         return;
       }
@@ -538,11 +538,11 @@ export function ActionConfirmCard({
           receiveAmount: "Domain will be removed",
           route: [
             "Wallet domain NFT",
-            "ArcLend domain registry",
+            "Lendora domain registry",
             "Burned domain",
           ],
           detail:
-            "Your wallet will permanently burn this ArcLend domain NFT. The name becomes available again after the transaction confirms.",
+            "Your wallet will permanently burn this Lendora domain NFT. The name becomes available again after the transaction confirms.",
         });
         return;
       }
@@ -559,12 +559,12 @@ export function ActionConfirmCard({
           receiveLabel: "Wallet username",
           receiveAmount: displayDomain,
           route: [
-            "ArcLend domain registry",
+            "Lendora domain registry",
             displayDomain,
             "Primary username",
           ],
           detail:
-            "Your wallet will call setPrimaryDomain on-chain. This sets your primary username across ArcLend.",
+            "Your wallet will call setPrimaryDomain on-chain. This sets your primary username across Lendora.",
         });
         return;
       }
@@ -579,7 +579,7 @@ export function ActionConfirmCard({
           amountLabel: "Listing price",
           amount: `${params.price} USDC`,
           receiveLabel: "Marketplace",
-          receiveAmount: "ArcLend domain marketplace",
+          receiveAmount: "Lendora domain marketplace",
           route: [
             displayDomain,
             "Marketplace approval",
@@ -655,11 +655,11 @@ export function ActionConfirmCard({
           receiveAmount: "Connected wallet",
           route: [
             "aToken supply position",
-            "ArcLend pool",
+            "Lendora pool",
             "Connected wallet",
           ],
           detail:
-            "ArcLend withdraws only the validated pending supply interest estimate from your aToken position. Principal remains supplied unless you separately withdraw it.",
+            "Lendora withdraws only the validated pending supply interest estimate from your aToken position. Principal remains supplied unless you separately withdraw it.",
         });
         return;
       }
@@ -680,11 +680,11 @@ export function ActionConfirmCard({
           route: [
             `${asset} wallet`,
             "PositionManager",
-            "ArcLend pool",
+            "Lendora pool",
             `${asset} position + NFT`,
           ],
           detail:
-            "PositionManager supplies to the unchanged ArcLend pool on your behalf. Your wallet receives the aToken position and an on-chain Position NFT receipt.",
+            "PositionManager supplies to the unchanged Lendora pool on your behalf. Your wallet receives the aToken position and an on-chain Position NFT receipt.",
         },
         withdraw: {
           eyebrow: "Withdraw review",
@@ -693,9 +693,9 @@ export function ActionConfirmCard({
           amount: `${amount} ${asset}`,
           receiveLabel: "Destination",
           receiveAmount: "Connected wallet",
-          route: [`${asset} supply position`, "ArcLend pool", `${asset} wallet`],
+          route: [`${asset} supply position`, "Lendora pool", `${asset} wallet`],
           detail:
-            "ArcLend redeems part of your supplied position and returns the asset to your wallet.",
+            "Lendora redeems part of your supplied position and returns the asset to your wallet.",
         },
         borrow: {
           eyebrow: "Borrow review",
@@ -706,11 +706,11 @@ export function ActionConfirmCard({
           receiveAmount: `${asset} wallet`,
           route: [
             "Collateral position",
-            "ArcLend pool",
+            "Lendora pool",
             `${asset} wallet`,
           ],
           detail:
-            "ArcLend checks your collateral and sends the borrowed asset to your wallet. Deployments with delegation support also mint a Position NFT receipt.",
+            "Lendora checks your collateral and sends the borrowed asset to your wallet. Deployments with delegation support also mint a Position NFT receipt.",
         },
         repay: {
           eyebrow: "Repay review",
@@ -719,9 +719,9 @@ export function ActionConfirmCard({
           amount: `${amount} ${asset}`,
           receiveLabel: "Result",
           receiveAmount: "Debt reduced",
-          route: [`${asset} wallet`, "ArcLend pool", `${asset} debt position`],
+          route: [`${asset} wallet`, "Lendora pool", `${asset} debt position`],
           detail:
-            "Your wallet sends the asset to ArcLend and the matching debt position is reduced.",
+            "Your wallet sends the asset to Lendora and the matching debt position is reduced.",
         },
       };
       if (

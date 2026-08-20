@@ -184,7 +184,7 @@ export function AgentChat() {
                   </motion.span>
                   <div>
                     <h2 className="flex items-center gap-1.5 text-sm font-semibold text-white">
-                      ArcLend Assistant
+                      Lendora Assistant
                       <Zap className="h-3 w-3 text-emerald-300" />
                     </h2>
                     <p className="flex items-center gap-1.5 text-[10px] text-white/40">
@@ -204,7 +204,7 @@ export function AgentChat() {
                   </button>
                   <button
                     type="button"
-                    aria-label="Close ArcLend Assistant"
+                    aria-label="Close Lendora Assistant"
                     onClick={() => setOpen(false)}
                     className="rounded-lg p-2 text-white/45 transition hover:bg-white/[0.06] hover:text-white"
                   >
@@ -416,7 +416,7 @@ export function AgentChat() {
 
       <motion.button
         type="button"
-        aria-label={open ? "Close ArcLend Assistant" : "Open ArcLend Assistant"}
+        aria-label={open ? "Close Lendora Assistant" : "Open Lendora Assistant"}
         aria-expanded={open}
         onClick={toggle}
         whileHover={{ scale: 1.06 }}

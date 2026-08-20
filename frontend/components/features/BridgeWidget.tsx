@@ -425,7 +425,7 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
       </GlassButton>
 
       <p className="text-center text-[11px] leading-5 text-white/35">
-        Your connected wallets sign every transaction. ArcLend never creates or
+        Your connected wallets sign every transaction. Lendora never creates or
         stores a private key or Solana keypair.
       </p>
     </div>

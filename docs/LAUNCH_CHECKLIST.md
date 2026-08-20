@@ -1,4 +1,4 @@
-# ArcLend Arc Testnet Launch Checklist
+# Lendora Arc Testnet Launch Checklist
 
 ## Verified in Repository
 

@@ -272,7 +272,7 @@ function MarketsTable({ markets, onOpen }: { markets: MarketAsset[]; onOpen: (mo
         <div>
           <h2 className="text-xl font-semibold">Markets</h2>
           <p className="mt-1 text-xs text-white/36">
-            Supply, borrow, and utilization across ArcLend reserves.
+            Supply, borrow, and utilization across Lendora reserves.
           </p>
         </div>
       </div>
@@ -502,7 +502,7 @@ function MyTransactions() {
             Transaction history could not be loaded. Use refresh to retry.
           </div>
         ) : events.length === 0 ? (
-          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4 text-sm text-white/45">No ArcLend app transactions found for this wallet.</div>
+          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4 text-sm text-white/45">No Lendora app transactions found for this wallet.</div>
         ) : (
           events.map((event) => (
             <div key={event.hash} className="flex flex-col gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
@@ -535,7 +535,7 @@ function MyTransactions() {
       </div>
       {!isLoading && !error && events.length > 0 && !historyComplete ? (
         <p className="mt-3 text-xs text-white/35">
-          Showing the latest {events.length} ArcLend app transactions. Older explorer pages were not loaded.
+          Showing the latest {events.length} Lendora app transactions. Older explorer pages were not loaded.
         </p>
       ) : null}
     </GlassCard>
@@ -563,7 +563,7 @@ export default function DashboardPage() {
     <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 pb-12 sm:px-6 lg:px-8">
       <PageHeader
         icon={<BarChart2 />}
-        title="ArcLend Markets"
+        title="Lendora Markets"
         description="A single view of stablecoin liquidity, live rates, and your lending position across Arc Network."
       />
       {isError ? (

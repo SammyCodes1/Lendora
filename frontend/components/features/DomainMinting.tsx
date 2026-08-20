@@ -35,7 +35,7 @@ import { announcePrimaryDomainChanged } from "@/lib/domainEvents";
 import { showToast } from "@/lib/toast";
 
 // ── Contract config ────────────────────────────────────────────────────────
-// ArcLend WalletDomain contract on Arc Testnet
+// Lendora WalletDomain contract on Arc Testnet
 const WALLET_DOMAIN_ADDRESS = deployments.WalletDomain as Address;
 const ARC_EXPLORER = "https://testnet.arcscan.app";
 const DISPLAY_DOMAIN_SUFFIX = ".arclend";
@@ -1940,7 +1940,7 @@ export function DomainMinting() {
           <Globe className="h-5 w-5 text-blue-300" />
         </div>
         <div>
-          <h2 className="text-white font-semibold text-base leading-tight">ArcLend Domain Names</h2>
+          <h2 className="text-white font-semibold text-base leading-tight">Lendora Domain Names</h2>
           <p className="text-xs text-white/40 mt-0.5">WalletDomain · Arc Testnet</p>
         </div>
         <div className="ml-auto flex items-center gap-3">

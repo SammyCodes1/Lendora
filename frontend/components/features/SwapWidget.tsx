@@ -72,7 +72,7 @@ type SwapProgressStep = {
 };
 
 const routeMeta: Record<RouteKey, { label: string; detail: string }> = {
-  arclend: { label: "ArcLend", detail: "Native USDC/EURC pool" },
+  arclend: { label: "Lendora", detail: "Native USDC/EURC pool" },
   curve: { label: "Curve", detail: "Stable pool" },
   xylo: { label: "Xylo", detail: "V2 router" },
   v3: { label: "Synthra V3", detail: "Concentrated liquidity" },
@@ -319,7 +319,7 @@ export function SwapWidget() {
     const towerAmountIn = towerSwapAmountIn(parsedAmount);
 
     try {
-      // Peer quotes only — ArcLend does not wrap Curve/Xylo/V3/Tower.
+      // Peer quotes only — Lendora does not wrap Curve/Xylo/V3/Tower.
       const [[curve, xylo, tower, arclend], v3Quotes] = await Promise.all([
         Promise.allSettled([
           stablePair

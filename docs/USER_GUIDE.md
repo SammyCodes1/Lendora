@@ -1,10 +1,10 @@
-# ArcLend User Guide
+# Lendora User Guide
 
 ## 1. Get Arc Testnet USDC
 
 1. Open `https://faucet.circle.com`.
 2. Select Arc Testnet.
-3. Enter the wallet address you will connect to ArcLend.
+3. Enter the wallet address you will connect to Lendora.
 4. Request testnet USDC.
 5. Confirm the balance on `https://testnet.arcscan.app`.
 
@@ -26,7 +26,7 @@ Save the network and switch to Arc Testnet before using lending actions.
 
 ## 3. Supply USDC and Earn APY
 
-1. Open ArcLend and connect your wallet.
+1. Open Lendora and connect your wallet.
 2. Select **Lend** or choose **Supply** from the Dashboard market table.
 3. Enter a USDC amount.
 4. Approve the LendingPool to use that amount through the ERC-20 interface.

@@ -4,7 +4,7 @@ const target = await fetch(
   "http://127.0.0.1:9224/json/new?http://localhost:3000/dashboard",
   { method: "PUT" },
 ).then((response) => response.json());
-if (!target) throw new Error("No ArcLend browser target found");
+if (!target) throw new Error("No Lendora browser target found");
 
 const socket = new WebSocket(target.webSocketDebuggerUrl);
 await new Promise((resolve, reject) => {

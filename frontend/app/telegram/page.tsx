@@ -3,9 +3,9 @@ import type { Metadata } from "next";
 import { TelegramMiniApp } from "@/app/telegram/TelegramMiniApp";
 
 export const metadata: Metadata = {
-  title: "ArcLend — Telegram",
+  title: "Lendora — Telegram",
   description:
-    "Sign ArcLend transactions from your Telegram Mini App.",
+    "Sign Lendora transactions from your Telegram Mini App.",
   robots: { index: false, follow: false },
 };
 

@@ -624,14 +624,14 @@ export async function GET(
       oracleHistoryComplete,
       valuationComplete,
       methodology:
-        "Gross lifetime notional counts one amount for every successful ArcLend protocol event: supply, withdraw, borrow, repay, earn deposit, earn withdrawal, liquidation, and marketplace purchase. Entry and exit actions are both counted, so this is activity volume rather than net deposits or TVL.",
+        "Gross lifetime notional counts one amount for every successful Lendora protocol event: supply, withdraw, borrow, repay, earn deposit, earn withdrawal, liquidation, and marketplace purchase. Entry and exit actions are both counted, so this is activity volume rather than net deposits or TVL.",
       valuation:
-        "USDC, EURC, and USDT use a $1 stablecoin convention. Other assets use the latest ArcLend oracle price available at that action's block.",
+        "USDC, EURC, and USDT use a $1 stablecoin convention. Other assets use the latest Lendora oracle price available at that action's block.",
       scope:
-        "Only ArcLend lending, earn, liquidation, and marketplace contracts are counted. Swaps (including ArcLend SwapPool), bridges, and shared public DEX routers are excluded.",
+        "Only Lendora lending, earn, liquidation, and marketplace contracts are counted. Swaps (including Lendora SwapPool), bridges, and shared public DEX routers are excluded.",
       exclusions: [
-        "Wallet transfers unrelated to ArcLend",
-        "Swaps through ArcLend SwapPool or shared public routes (Curve, Xylo, Tower, Synthra)",
+        "Wallet transfers unrelated to Lendora",
+        "Swaps through Lendora SwapPool or shared public routes (Curve, Xylo, Tower, Synthra)",
         "Bridges (including CCTP / Gateway)",
         "Approvals, fees, aToken/debt-token minting, and internal transfers",
         "The collateral side of a liquidation",

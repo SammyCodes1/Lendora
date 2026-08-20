@@ -83,7 +83,7 @@ export function useSwap() {
       // Tower takes fee on input; quote adapter with the post-fee amount.
       const towerAmountIn = towerSwapAmountIn(parsedAmount);
 
-      // Each DEX is quoted independently — ArcLend is one peer route, not a meta-router.
+      // Each DEX is quoted independently — Lendora is one peer route, not a meta-router.
       const [[curve, xylo, tower, arclend], v3Quotes] = await Promise.all([
         Promise.allSettled([
           stablePair
