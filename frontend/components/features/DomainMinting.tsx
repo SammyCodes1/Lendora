@@ -68,6 +68,11 @@ const abi = parseAbi([
   "function makeCommitment(string name,address owner,bytes32 secret) view returns (bytes32)",
   "function commitDomain(bytes32 commitment) external",
   "function mintDomain(string name,bytes32 secret) external returns (uint256)",
+  "error InvalidDomainName()",
+  "error DomainNotOwned()",
+  "error InvalidCommitment()",
+  "error CommitmentTooNew()",
+  "error CommitmentExpired()",
   "function setPrimaryDomain(string name) external",
   "function burnDomain(string name) external",
   "function approve(address to, uint256 tokenId) external",
@@ -1451,6 +1456,36 @@ function DomainMarketplace() {
 }
 
 // ── Mint domain ──────────────────────────────────────────────────────────────
+function describeMintError(error: unknown) {
+  const raw = error instanceof Error ? error.message : String(error);
+  const lower = raw.toLowerCase();
+  if (lower.includes("user rejected") || lower.includes("rejected the request")) {
+    return "Transaction rejected.";
+  }
+  if (lower.includes("commitmenttoonew") || lower.includes("too new")) {
+    return "The registry needs one confirmed block after commit. Wait a moment and try again.";
+  }
+  if (lower.includes("invalidcommitment") || lower.includes("commitmentexpired")) {
+    return "The mint commit did not confirm in time. Try again.";
+  }
+  if (lower.includes("already") || lower.includes("erc721invalidsender")) {
+    return "Domain already registered. Try another name.";
+  }
+  if (lower.includes("insufficient") || lower.includes("exceeds the balance")) {
+    return "Mint failed — not enough USDC for gas.";
+  }
+  return "Mint failed — check your USDC balance for gas or try again.";
+}
+
+async function waitForBlock(
+  publicClient: NonNullable<ReturnType<typeof usePublicClient>>,
+  blockNumber: bigint,
+) {
+  while ((await publicClient.getBlockNumber()) < blockNumber) {
+    await new Promise((resolve) => window.setTimeout(resolve, 250));
+  }
+}
+
 function MintDomain({ onMinted }: { onMinted?: () => void }) {
   const publicClient = usePublicClient({ chainId: 5042002 });
   const { address, isConnected } = useArcLendAccount();
@@ -1460,6 +1495,8 @@ function MintDomain({ onMinted }: { onMinted?: () => void }) {
   const [showModal, setShowModal] = useState(false);
   const [mintedName, setMintedName] = useState("");
   const [settingPrimary, setSettingPrimary] = useState(false);
+  const [mintError, setMintError] = useState<string | null>(null);
+  const [isWorking, setIsWorking] = useState(false);
 
   const {
     txHash: hash,
@@ -1501,37 +1538,48 @@ function MintDomain({ onMinted }: { onMinted?: () => void }) {
     if (!address || !input.trim() || !available || !publicClient) return;
     const name = normalizeDomainInput(input);
     setMintedName(name);
-    const secretBytes = new Uint8Array(32);
-    crypto.getRandomValues(secretBytes);
-    const secret = toHex(secretBytes, { size: 32 });
-    const commitment = await publicClient.readContract({
-      address: WALLET_DOMAIN_ADDRESS,
-      abi,
-      functionName: "makeCommitment",
-      args: [name, address, secret],
-    });
-    const commitResult = await writeContractAsync({
-      address: WALLET_DOMAIN_ADDRESS,
-      abi,
-      functionName: "commitDomain",
-      args: [commitment],
-    });
-    const commitHash = resultHash(commitResult);
-    if (!commitHash) {
-      throw new Error("Commit/reveal domain minting currently requires a browser wallet.");
+    setMintError(null);
+    setIsWorking(true);
+    try {
+      const secretBytes = new Uint8Array(32);
+      crypto.getRandomValues(secretBytes);
+      const secret = toHex(secretBytes, { size: 32 });
+      const commitment = await publicClient.readContract({
+        address: WALLET_DOMAIN_ADDRESS,
+        abi,
+        functionName: "makeCommitment",
+        args: [name, address, secret],
+      });
+      const commitResult = await writeContractAsync({
+        address: WALLET_DOMAIN_ADDRESS,
+        abi,
+        functionName: "commitDomain",
+        args: [commitment],
+      });
+      const commitHash = resultHash(commitResult);
+      if (!commitHash) {
+        throw new Error("Commit/reveal domain minting currently requires a browser wallet.");
+      }
+      const commitReceipt = await publicClient.waitForTransactionReceipt({
+        hash: commitHash,
+      });
+      await waitForBlock(publicClient, commitReceipt.blockNumber + 1n);
+      const revealResult = await writeContractAsync({
+        address: WALLET_DOMAIN_ADDRESS,
+        abi,
+        functionName: "mintDomain",
+        args: [name, secret],
+      });
+      const revealHash = resultHash(revealResult);
+      if (revealHash) {
+        await publicClient.waitForTransactionReceipt({ hash: revealHash });
+      }
+      setShowModal(true);
+    } catch (error) {
+      setMintError(describeMintError(error));
+    } finally {
+      setIsWorking(false);
     }
-    await publicClient.waitForTransactionReceipt({ hash: commitHash });
-    const revealResult = await writeContractAsync({
-      address: WALLET_DOMAIN_ADDRESS,
-      abi,
-      functionName: "mintDomain",
-      args: [name, secret],
-    });
-    const revealHash = resultHash(revealResult);
-    if (revealHash) {
-      await publicClient.waitForTransactionReceipt({ hash: revealHash });
-    }
-    setShowModal(true);
   };
 
   const handleSetPrimary = async () => {
@@ -1578,7 +1626,7 @@ function MintDomain({ onMinted }: { onMinted?: () => void }) {
     onMinted?.();
   };
 
-  const isMinting = isPending;
+  const isMinting = isPending || isWorking;
   const name = normalizeDomainInput(input);
 
   return (
@@ -1611,6 +1659,7 @@ function MintDomain({ onMinted }: { onMinted?: () => void }) {
             onChange={(e) => {
               setInput(normalizeDomainInput(e.target.value).replace(/[^a-z0-9-]/g, ""));
               reset();
+              setMintError(null);
             }}
             onKeyDown={(e) => e.key === "Enter" && handleMint()}
             placeholder="yourname"
@@ -1667,16 +1716,10 @@ function MintDomain({ onMinted }: { onMinted?: () => void }) {
         )}
 
         {/* Error */}
-        {writeError && (
+        {(mintError || writeError) && (
           <div className="flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/[0.07] p-3 text-xs text-red-200">
             <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-            <span>
-              {writeError.message.includes("User rejected")
-                ? "Transaction rejected."
-                : writeError.message.includes("already")
-                ? "Domain already registered. Try another name."
-                : "Mint failed — check your USDC balance for gas or try again."}
-            </span>
+            <span>{mintError ?? describeMintError(writeError)}</span>
           </div>
         )}
       </div>

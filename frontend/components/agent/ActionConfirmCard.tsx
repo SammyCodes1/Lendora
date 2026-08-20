@@ -130,6 +130,11 @@ const walletDomainAbi = parseAbi([
   "function mintDomain(string domainName,bytes32 secret) external returns (uint256)",
   "function setPrimaryDomain(string domainName) external",
   "function burnDomain(string domainName) external",
+  "error InvalidDomainName()",
+  "error DomainNotOwned()",
+  "error InvalidCommitment()",
+  "error CommitmentTooNew()",
+  "error CommitmentExpired()",
 ]);
 const domainMarketplaceAbi = parseAbi([
   "function list(uint256 tokenId,uint256 price) external",
@@ -941,6 +946,12 @@ export function ActionConfirmCard({
           throw new Error("Commit/reveal domain minting currently requires a browser wallet.");
         }
         await waitForSubmitted(commitmentHash);
+        const commitReceipt = await publicClient.waitForTransactionReceipt({
+          hash: commitmentHash,
+        });
+        while ((await publicClient.getBlockNumber()) < commitReceipt.blockNumber + 1n) {
+          await new Promise((resolve) => window.setTimeout(resolve, 250));
+        }
         const hash = await submitContract({
           chainId: 5_042_002,
           address: WALLET_DOMAIN_ADDRESS,
