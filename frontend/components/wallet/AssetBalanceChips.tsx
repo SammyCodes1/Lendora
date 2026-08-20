@@ -18,7 +18,6 @@ const KNOWN_TOKENS: Record<number, Record<Address, TokenConfig>> = {
   5042002: {
     "0x3600000000000000000000000000000000000000": { symbol: "USDC", decimals: 6, alwaysShow: true },
     "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a": { symbol: "EURC", decimals: 6, alwaysShow: true },
-    "0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF": { symbol: "cirBTC", decimals: 8, alwaysShow: false },
     "0x175CdB1D338945f0D851A741ccF787D343E57952": { symbol: "USDT", decimals: 18, alwaysShow: false },
   },
   // Sepolia (11155111)
@@ -49,19 +48,16 @@ function TokenIcon({ symbol }: { symbol: string }) {
   const sym = symbol.toUpperCase();
   const isUsdc = sym === "USDC";
   const isEurc = sym === "EURC";
-  const isBtc = sym.includes("BTC");
   const isUsdt = sym === "USDT";
 
-  const label = isUsdc ? "$" : isEurc ? "€" : isBtc ? "₿" : isUsdt ? "₮" : symbol.slice(0, 2);
+  const label = isUsdc ? "$" : isEurc ? "€" : isUsdt ? "₮" : symbol.slice(0, 2);
   const colorClass = isUsdc
     ? "border-blue-300/40 bg-blue-400/15 text-blue-200"
     : isEurc
       ? "border-cyan-300/40 bg-cyan-300/15 text-cyan-100"
-      : isBtc
-        ? "border-amber-300/40 bg-amber-400/15 text-amber-200"
-        : isUsdt
-          ? "border-emerald-300/40 bg-emerald-400/15 text-emerald-200"
-          : "border-purple-300/40 bg-purple-400/15 text-purple-200";
+      : isUsdt
+        ? "border-emerald-300/40 bg-emerald-400/15 text-emerald-200"
+        : "border-purple-300/40 bg-purple-400/15 text-purple-200";
 
   return (
     <span
@@ -125,7 +121,7 @@ export function AssetBalanceChips({ mobile = false }: { mobile?: boolean }) {
     },
   });
 
-  // Filter chips to show strictly USDC, EURC, cirBTC, and USDT
+  // Filter chips to show strictly USDC, EURC, and USDT
   const chips = useMemo<DisplayChip[]>(() => {
     if (!address) return [];
 
