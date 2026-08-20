@@ -44,7 +44,7 @@ export default function ReferralsPage() {
                 <h2 className="text-lg font-semibold text-white">Rewards Flow</h2>
                 <div className="mt-4 grid gap-2 text-sm text-white/58">
                   {[
-                    "Share your referral link or .arclend identity.",
+                    "Share your referral link or .lendora identity.",
                     "Vault deposits record volume, level, and points on-chain.",
                     "USDC and EURC deposits accrue matching token rewards.",
                   ].map((item, index) => (

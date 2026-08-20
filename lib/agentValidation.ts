@@ -232,7 +232,7 @@ function isSwapToken(
 }
 
 function normalizeDomainName(value: string) {
-  const normalized = value.trim().toLowerCase().replace(/\.(?:arclend|arc)$/, "");
+  const normalized = value.trim().toLowerCase().replace(/\.(?:lendora|arclend|arc)$/, "");
   if (!/^[a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])$/.test(normalized)) {
     return null;
   }
@@ -241,7 +241,7 @@ function normalizeDomainName(value: string) {
 }
 
 function displayDomainName(domain: string) {
-  return `${domain}.arclend`;
+  return `${domain}.lendora`;
 }
 
 function marketplaceListingTuple(value: unknown) {
@@ -622,11 +622,11 @@ export async function validateAgentAction(
 
     if (action.tool === "mintDomain") {
       if (typeof params.domain !== "string") {
-        return hardBlock(walletKey, "Choose a valid .arclend domain to mint.");
+        return hardBlock(walletKey, "Choose a valid .lendora domain to mint.");
       }
       const domain = normalizeDomainName(params.domain);
       if (!domain) {
-        return hardBlock(walletKey, "Choose a valid .arclend domain to mint.");
+        return hardBlock(walletKey, "Choose a valid .lendora domain to mint.");
       }
 
       let tokenId: bigint;
@@ -671,11 +671,11 @@ export async function validateAgentAction(
 
     if (action.tool === "burnDomain") {
       if (typeof params.domain !== "string") {
-        return hardBlock(walletKey, "Choose a valid .arclend domain to burn.");
+        return hardBlock(walletKey, "Choose a valid .lendora domain to burn.");
       }
       const domain = normalizeDomainName(params.domain);
       if (!domain) {
-        return hardBlock(walletKey, "Choose a valid .arclend domain to burn.");
+        return hardBlock(walletKey, "Choose a valid .lendora domain to burn.");
       }
 
       let tokenId: bigint;
@@ -736,11 +736,11 @@ export async function validateAgentAction(
 
     if (action.tool === "setPrimaryDomain") {
       if (typeof params.domain !== "string") {
-        return hardBlock(walletKey, "Choose a valid .arclend domain to set as primary.");
+        return hardBlock(walletKey, "Choose a valid .lendora domain to set as primary.");
       }
       const domain = normalizeDomainName(params.domain);
       if (!domain) {
-        return hardBlock(walletKey, "Choose a valid .arclend domain to set as primary.");
+        return hardBlock(walletKey, "Choose a valid .lendora domain to set as primary.");
       }
 
       let tokenId: bigint;
@@ -786,11 +786,11 @@ export async function validateAgentAction(
         return hardBlock(walletKey, "Domain marketplace is not deployed.");
       }
       if (typeof params.domain !== "string") {
-        return hardBlock(walletKey, "Choose a valid .arclend domain to list.");
+        return hardBlock(walletKey, "Choose a valid .lendora domain to list.");
       }
       const domain = normalizeDomainName(params.domain);
       if (!domain) {
-        return hardBlock(walletKey, "Choose a valid .arclend domain to list.");
+        return hardBlock(walletKey, "Choose a valid .lendora domain to list.");
       }
       const price = parseAmount(params.price);
       if (price === null) {
@@ -854,11 +854,11 @@ export async function validateAgentAction(
         return hardBlock(walletKey, "Domain marketplace is not deployed.");
       }
       if (typeof params.domain !== "string") {
-        return hardBlock(walletKey, "Choose a valid .arclend domain to delist.");
+        return hardBlock(walletKey, "Choose a valid .lendora domain to delist.");
       }
       const domain = normalizeDomainName(params.domain);
       if (!domain) {
-        return hardBlock(walletKey, "Choose a valid .arclend domain to delist.");
+        return hardBlock(walletKey, "Choose a valid .lendora domain to delist.");
       }
 
       let tokenId: bigint;
@@ -916,11 +916,11 @@ export async function validateAgentAction(
         return hardBlock(walletKey, "Domain marketplace is not deployed.");
       }
       if (typeof params.domain !== "string") {
-        return hardBlock(walletKey, "Choose a valid .arclend domain to buy.");
+        return hardBlock(walletKey, "Choose a valid .lendora domain to buy.");
       }
       const domain = normalizeDomainName(params.domain);
       if (!domain) {
-        return hardBlock(walletKey, "Choose a valid .arclend domain to buy.");
+        return hardBlock(walletKey, "Choose a valid .lendora domain to buy.");
       }
       const maxPrice =
         params.maxPrice === undefined ? null : parseAmount(params.maxPrice);
@@ -1062,8 +1062,8 @@ export async function validateAgentAction(
         return hardBlock(
           walletKey,
           error instanceof Error && error.message === "unresolved-domain"
-            ? `The .arclend domain "${recipientInput}" is not registered.`
-            : "The recipient must be a valid 0x address or registered .arclend domain.",
+            ? `The .lendora domain "${recipientInput}" is not registered.`
+            : "The recipient must be a valid 0x address or registered .lendora domain.",
         );
       }
       const recipient = resolvedRecipient.address;
@@ -1107,11 +1107,11 @@ export async function validateAgentAction(
             recipient,
             ...(resolvedRecipient.domain
               ? {
-                  recipientDomain: `${resolvedRecipient.domain}.arclend`,
+                  recipientDomain: `${resolvedRecipient.domain}.lendora`,
                   recipientName:
                     typeof params.recipientName === "string"
                       ? params.recipientName
-                      : `${resolvedRecipient.domain}.arclend`,
+                      : `${resolvedRecipient.domain}.lendora`,
                 }
               : {}),
           } as AgentAction["params"],

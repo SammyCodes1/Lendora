@@ -10,7 +10,7 @@ import {
 } from "@/lib/domainEvents";
 
 const walletDomainAddress = deployments.WalletDomain as Address;
-const displayDomainSuffix = ".arclend";
+const displayDomainSuffix = ".lendora";
 const deploymentBlock = BigInt(
   (
     deployments as {
@@ -36,7 +36,7 @@ export function displayDomainName(name: string) {
   const normalized = name
     .trim()
     .toLowerCase()
-    .replace(/\.(?:arclend|arc)$/, "");
+    .replace(/\.(?:lendora|arclend|arc)$/, "");
   return normalized ? `${normalized}${displayDomainSuffix}` : "";
 }
 

@@ -40,7 +40,7 @@ import {
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
-const DOMAIN_SUFFIX_PATTERN = /\.(?:arclend|arc)$/;
+const DOMAIN_SUFFIX_PATTERN = /\.(?:lendora|arclend|arc)$/;
 const DOMAIN_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])$/;
 const walletDomainAbi = parseAbi([
   "function resolveDomain(string name) view returns (address)",
@@ -122,7 +122,7 @@ export function ReferralPanel({
 
       const domainName = normalizeDomainInput(candidate);
       if (!DOMAIN_NAME_PATTERN.test(domainName)) {
-        throw new Error("Enter a valid wallet address or .arclend domain.");
+        throw new Error("Enter a valid wallet address or .lendora domain.");
       }
 
       const resolved = (await publicClient!.readContract({
@@ -133,7 +133,7 @@ export function ReferralPanel({
       })) as Address;
 
       if (resolved === ZERO_ADDRESS) {
-        throw new Error(`${domainName}.arclend is not registered.`);
+        throw new Error(`${domainName}.lendora is not registered.`);
       }
 
       return resolved;
@@ -143,7 +143,7 @@ export function ReferralPanel({
 
   const registerReferrer = useCallback(async () => {
     if (!referrerInput.trim()) {
-      showToast("error", "Enter a referrer wallet address or .arclend domain.");
+      showToast("error", "Enter a referrer wallet address or .lendora domain.");
       return;
     }
     try {
@@ -494,7 +494,7 @@ export function ReferralPanel({
           <input
             value={referrerInput}
             onChange={(event) => setReferrerInput(event.target.value)}
-            placeholder="0x... or name.arclend"
+            placeholder="0x... or name.lendora"
             className="min-w-0 flex-1 bg-transparent font-mono text-sm text-white outline-none placeholder:text-white/25"
           />
           <GlassButton

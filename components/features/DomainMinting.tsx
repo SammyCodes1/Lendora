@@ -38,8 +38,8 @@ import { showToast } from "@/lib/toast";
 // Lendora WalletDomain contract on Arc Testnet
 const WALLET_DOMAIN_ADDRESS = deployments.WalletDomain as Address;
 const ARC_EXPLORER = "https://testnet.arcscan.app";
-const DISPLAY_DOMAIN_SUFFIX = ".arclend";
-const DOMAIN_SUFFIX_PATTERN = /\.(?:arclend|arc)$/;
+const DISPLAY_DOMAIN_SUFFIX = ".lendora";
+const DOMAIN_SUFFIX_PATTERN = /\.(?:lendora|arclend|arc)$/;
 const DOMAIN_MARKETPLACE_ADDRESS = (
   deployments as typeof deployments & {
     DomainMarketplace?: Address;
@@ -645,7 +645,7 @@ function ForwardLookup() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-xs text-white/40">
-        Enter a <span className="text-blue-300 font-medium">.arclend</span> domain name to find its
+        Enter a <span className="text-blue-300 font-medium">.lendora</span> domain name to find its
         owner.
       </p>
       <div className="flex gap-2">
@@ -659,7 +659,7 @@ function ForwardLookup() {
               setResult(null);
             }}
             onKeyDown={(e) => e.key === "Enter" && lookup()}
-            placeholder="name.arclend"
+            placeholder="name.lendora"
             className="w-full bg-white/[0.04] border border-white/10 rounded-lg py-3 pl-4 pr-4 text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500/40 focus:ring-1 focus:ring-blue-500/30 transition-all text-sm"
           />
         </div>
@@ -767,7 +767,7 @@ function ReverseLookup() {
     <div className="flex flex-col gap-4">
       <p className="text-xs text-white/40">
         Enter a wallet address to find all its{" "}
-        <span className="text-blue-300 font-medium">.arclend</span> domains.
+        <span className="text-blue-300 font-medium">.lendora</span> domains.
       </p>
       <div className="flex gap-2">
         <div className="relative flex-1">
@@ -834,7 +834,7 @@ function ReverseLookup() {
       {status === "notfound" && (
         <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4 flex items-center gap-2 text-white/50 text-sm">
           <XCircle className="h-4 w-4 text-red-400/70 shrink-0" />
-          <span>No .arclend domains found for this address.</span>
+          <span>No .lendora domains found for this address.</span>
         </div>
       )}
     </div>
@@ -878,7 +878,7 @@ function Registry() {
       {/* Header row */}
       <div className="flex items-center justify-between">
         <p className="text-xs text-white/40">
-          All registered <span className="text-blue-300 font-medium">.arclend</span> domains on-chain.
+          All registered <span className="text-blue-300 font-medium">.lendora</span> domains on-chain.
         </p>
         {!loading && (
           <span className="text-xs text-white/30">
@@ -1597,7 +1597,7 @@ function MintDomain({ onMinted }: { onMinted?: () => void }) {
 
       <div className="flex flex-col gap-5">
         <p className="text-xs text-white/40">
-          Register a <span className="text-blue-300 font-medium">.arclend</span> domain on Arc Testnet.
+          Register a <span className="text-blue-300 font-medium">.lendora</span> domain on Arc Testnet.
           <span className="ml-1 text-white/30">
             Gas is paid in <span className="text-white/60 font-medium">USDC</span>.
           </span>
@@ -1618,7 +1618,7 @@ function MintDomain({ onMinted }: { onMinted?: () => void }) {
             className="w-full bg-white/[0.04] border border-white/10 rounded-lg py-3 pl-4 pr-28 text-white placeholder:text-white/20 focus:outline-none focus:border-blue-500/40 focus:ring-1 focus:ring-blue-500/30 transition-all text-sm disabled:opacity-50"
           />
           <span className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 text-sm font-medium">
-            .arclend
+            .lendora
           </span>
 
         </div>
@@ -1829,7 +1829,7 @@ function MyDomains({ refreshKey }: { refreshKey: number }) {
     return (
       <div className="flex flex-col items-center gap-3 py-8 text-center">
         <Globe className="h-8 w-8 text-white/20" />
-        <p className="text-white/40 text-sm">You don&apos;t own any .arclend domains yet.</p>
+        <p className="text-white/40 text-sm">You don&apos;t own any .lendora domains yet.</p>
         <p className="text-xs text-white/25">Head to the Mint Domain tab to register one.</p>
       </div>
     );
@@ -1839,7 +1839,7 @@ function MyDomains({ refreshKey }: { refreshKey: number }) {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <p className="text-xs text-white/40">
-          Your <span className="text-blue-300 font-medium">.arclend</span> domains.
+          Your <span className="text-blue-300 font-medium">.lendora</span> domains.
         </p>
         <span className="text-xs text-white/30">{owned.length} owned</span>
       </div>

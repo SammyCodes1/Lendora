@@ -12,7 +12,7 @@ export default function DomainsPage() {
         <PageHeader
           icon={<Globe />}
           title="Domain Router"
-          description="Resolve .arclend domain names to wallet addresses, reverse-lookup addresses, and browse the Lendora registry."
+          description="Resolve .lendora domain names to wallet addresses, reverse-lookup addresses, and browse the Lendora registry."
         />
 
         <div className="mt-8">

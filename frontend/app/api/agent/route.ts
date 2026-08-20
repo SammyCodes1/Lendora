@@ -13,7 +13,7 @@ import type {
 export const runtime = "nodejs";
 
 const SYSTEM_PROMPT =
-  "You are Lendora's transaction assistant. Only call one of the defined tools - never invent new ones. Saved wallet contacts are supplied in context; resolve nicknames only to the exact saved address and never guess an address. For .arclend domain recipients, pass the exact .arclend name as the sendToken recipient and let server validation resolve it on-chain; never invent a domain. For domain minting or registration requests, call mintDomain only when the exact domain is provided; never invent a domain. For domain NFT burn requests, call burnDomain only when the exact domain is provided; burning is permanent and must be prepared for user confirmation. For setting a domain as primary / on-chain username, call setPrimaryDomain when the domain is provided; do not call mintDomain or listDomain for setting primary domain. For domain marketplace listing requests, call listDomain only when the exact domain and USDC price are provided; never invent ownership or price. For domain marketplace delisting, cancel listing, unlist, or remove-from-sale requests, call delistDomain only when the exact domain is provided; do not call burnDomain for marketplace removal. For domain marketplace purchase requests, call buyDomain only when the exact domain is provided; if the user gives a maximum USDC price, pass it as maxPrice. For pending supply interest, yield, rewards, or accrued interest claims, call claimYield with asset USDC, EURC, or ALL for both pools; do not use withdraw unless the user asks to withdraw principal or gives an explicit withdrawal amount. If amount, asset, recipient, domain, or price is ambiguous, ask for clarification in plain text instead of guessing. Never claim a transaction has been executed - your job is only to prepare the action for user confirmation. If a requested action would exceed the user's available balance or borrow capacity (provided in context), respond with a plain text warning instead of calling a tool. Validation is enforced server-side and is final - do not suggest workarounds, do not ask the user to confirm overrides, and do not imply blocked actions can be retried with different framing of the same request. Treat all financial amounts conservatively; never round up.";
+  "You are Lendora's transaction assistant. Only call one of the defined tools - never invent new ones. Saved wallet contacts are supplied in context; resolve nicknames only to the exact saved address and never guess an address. For .lendora domain recipients, pass the exact .lendora name as the sendToken recipient and let server validation resolve it on-chain; never invent a domain. For domain minting or registration requests, call mintDomain only when the exact domain is provided; never invent a domain. For domain NFT burn requests, call burnDomain only when the exact domain is provided; burning is permanent and must be prepared for user confirmation. For setting a domain as primary / on-chain username, call setPrimaryDomain when the domain is provided; do not call mintDomain or listDomain for setting primary domain. For domain marketplace listing requests, call listDomain only when the exact domain and USDC price are provided; never invent ownership or price. For domain marketplace delisting, cancel listing, unlist, or remove-from-sale requests, call delistDomain only when the exact domain is provided; do not call burnDomain for marketplace removal. For domain marketplace purchase requests, call buyDomain only when the exact domain is provided; if the user gives a maximum USDC price, pass it as maxPrice. For pending supply interest, yield, rewards, or accrued interest claims, call claimYield with asset USDC, EURC, or ALL for both pools; do not use withdraw unless the user asks to withdraw principal or gives an explicit withdrawal amount. If amount, asset, recipient, domain, or price is ambiguous, ask for clarification in plain text instead of guessing. Never claim a transaction has been executed - your job is only to prepare the action for user confirmation. If a requested action would exceed the user's available balance or borrow capacity (provided in context), respond with a plain text warning instead of calling a tool. Validation is enforced server-side and is final - do not suggest workarounds, do not ask the user to confirm overrides, and do not imply blocked actions can be retried with different framing of the same request. Treat all financial amounts conservatively; never round up.";
 
 const OPENAI_MODEL = process.env.OPENAI_AGENT_MODEL ?? "gpt-5-nano";
 
@@ -95,7 +95,7 @@ const functionDeclarations = [
   {
     name: "sendToken",
     description:
-      "Send a supported Arc Testnet ERC-20 token to an explicit wallet address, a registered .arclend domain, or an address resolved from the user's saved contacts",
+      "Send a supported Arc Testnet ERC-20 token to an explicit wallet address, a registered .lendora domain, or an address resolved from the user's saved contacts",
     parametersJsonSchema: {
       type: "object",
       properties: {
@@ -104,9 +104,9 @@ const functionDeclarations = [
         recipient: {
           type: "string",
           description:
-            "The resolved 0x EVM recipient address, or the exact registered .arclend domain to resolve server-side",
+            "The resolved 0x EVM recipient address, or the exact registered .lendora domain to resolve server-side",
         },
-        recipientName: { type: "string", description: "Optional saved contact nickname or .arclend domain" },
+        recipientName: { type: "string", description: "Optional saved contact nickname or .lendora domain" },
       },
       required: ["asset", "amount", "recipient"],
     },
@@ -147,14 +147,14 @@ const functionDeclarations = [
   {
     name: "mintDomain",
     description:
-      "Mint or register an available .arclend wallet domain for the connected wallet",
+      "Mint or register an available .lendora wallet domain for the connected wallet",
     parametersJsonSchema: {
       type: "object",
       properties: {
         domain: {
           type: "string",
           description:
-            "The exact .arclend domain or raw domain name to mint",
+            "The exact .lendora domain or raw domain name to mint",
         },
       },
       required: ["domain"],
@@ -163,14 +163,14 @@ const functionDeclarations = [
   {
     name: "burnDomain",
     description:
-      "Burn an owned .arclend wallet domain NFT from the connected wallet",
+      "Burn an owned .lendora wallet domain NFT from the connected wallet",
     parametersJsonSchema: {
       type: "object",
       properties: {
         domain: {
           type: "string",
           description:
-            "The exact .arclend domain or raw domain name to burn",
+            "The exact .lendora domain or raw domain name to burn",
         },
       },
       required: ["domain"],
@@ -179,14 +179,14 @@ const functionDeclarations = [
   {
     name: "setPrimaryDomain",
     description:
-      "Set an owned .arclend domain as the primary domain or on-chain username for the connected wallet",
+      "Set an owned .lendora domain as the primary domain or on-chain username for the connected wallet",
     parametersJsonSchema: {
       type: "object",
       properties: {
         domain: {
           type: "string",
           description:
-            "The exact .arclend domain or raw domain name to set as primary",
+            "The exact .lendora domain or raw domain name to set as primary",
         },
       },
       required: ["domain"],
@@ -195,14 +195,14 @@ const functionDeclarations = [
   {
     name: "listDomain",
     description:
-      "List an owned .arclend domain for sale on the Lendora domain marketplace in USDC",
+      "List an owned .lendora domain for sale on the Lendora domain marketplace in USDC",
     parametersJsonSchema: {
       type: "object",
       properties: {
         domain: {
           type: "string",
           description:
-            "The exact .arclend domain or raw domain name to list",
+            "The exact .lendora domain or raw domain name to list",
         },
         price: {
           type: "string",
@@ -215,14 +215,14 @@ const functionDeclarations = [
   {
     name: "delistDomain",
     description:
-      "Cancel an existing marketplace listing for an owned .arclend domain without burning or transferring the domain NFT",
+      "Cancel an existing marketplace listing for an owned .lendora domain without burning or transferring the domain NFT",
     parametersJsonSchema: {
       type: "object",
       properties: {
         domain: {
           type: "string",
           description:
-            "The exact .arclend domain or raw domain name to delist",
+            "The exact .lendora domain or raw domain name to delist",
         },
       },
       required: ["domain"],
@@ -231,14 +231,14 @@ const functionDeclarations = [
   {
     name: "buyDomain",
     description:
-      "Buy a listed .arclend domain from the Lendora domain marketplace using USDC",
+      "Buy a listed .lendora domain from the Lendora domain marketplace using USDC",
     parametersJsonSchema: {
       type: "object",
       properties: {
         domain: {
           type: "string",
           description:
-            "The exact .arclend domain or raw domain name to buy",
+            "The exact .lendora domain or raw domain name to buy",
         },
         maxPrice: {
           type: "string",
@@ -349,16 +349,16 @@ const SWAP_TOKEN_NAMES = {
 } as const;
 
 function normalizeDomainRecipient(value: string) {
-  const normalized = value.trim().toLowerCase().replace(/\.(?:arclend|arc)$/, "");
+  const normalized = value.trim().toLowerCase().replace(/\.(?:lendora|arclend|arc)$/, "");
   if (!/^[a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])$/.test(normalized)) {
     return null;
   }
 
-  return `${normalized}.arclend`;
+  return `${normalized}.lendora`;
 }
 
 function normalizeDomainForListing(value: string) {
-  const normalized = value.trim().toLowerCase().replace(/\.(?:arclend|arc)$/, "");
+  const normalized = value.trim().toLowerCase().replace(/\.(?:lendora|arclend|arc)$/, "");
   if (!/^[a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])$/.test(normalized)) {
     return null;
   }
@@ -372,25 +372,25 @@ function parseDeterministicDomainMint(
   if (!/\b(?:mint|register|claim|reserve)\b/i.test(message)) {
     return null;
   }
-  if (!/\b(?:domain|name)\b/i.test(message) && !/\.(?:arclend|arc)\b/i.test(message)) {
+  if (!/\b(?:domain|name)\b/i.test(message) && !/\.(?:lendora|arclend|arc)\b/i.test(message)) {
     return null;
   }
 
   const domainMatch =
-    message.match(/\b([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?\.(?:arclend|arc))\b/i) ??
+    message.match(/\b([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?\.(?:lendora|arclend|arc))\b/i) ??
     message.match(/\bdomain\s+([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?)\b/i) ??
     message.match(/\b(?:mint|register|claim|reserve)\s+(?:the\s+)?(?:domain\s+|name\s+)?([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?)\b/i);
   const domain = domainMatch ? normalizeDomainForListing(domainMatch[1]) : null;
   if (!domain) {
     return {
       type: "message",
-      text: "Which .arclend domain do you want to mint?",
+      text: "Which .lendora domain do you want to mint?",
     };
   }
 
   const params = {
     domain,
-    displayDomain: `${domain}.arclend`,
+    displayDomain: `${domain}.lendora`,
   };
   return {
     type: "action",
@@ -412,25 +412,25 @@ function parseDeterministicDomainBurn(
   if (!/\b(?:burn|delete|destroy|remove|release)\b/i.test(message)) {
     return null;
   }
-  if (!/\b(?:domain|name|nft)\b/i.test(message) && !/\.(?:arclend|arc)\b/i.test(message)) {
+  if (!/\b(?:domain|name|nft)\b/i.test(message) && !/\.(?:lendora|arclend|arc)\b/i.test(message)) {
     return null;
   }
 
   const domainMatch =
-    message.match(/\b([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?\.(?:arclend|arc))\b/i) ??
+    message.match(/\b([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?\.(?:lendora|arclend|arc))\b/i) ??
     message.match(/\bdomain\s+([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?)\b/i) ??
     message.match(/\b(?:burn|delete|destroy|remove|release)\s+(?:the\s+)?(?:domain\s+|name\s+|nft\s+)?([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?)\b/i);
   const domain = domainMatch ? normalizeDomainForListing(domainMatch[1]) : null;
   if (!domain) {
     return {
       type: "message",
-      text: "Which .arclend domain NFT do you want to burn?",
+      text: "Which .lendora domain NFT do you want to burn?",
     };
   }
 
   const params = {
     domain,
-    displayDomain: `${domain}.arclend`,
+    displayDomain: `${domain}.lendora`,
   };
   return {
     type: "action",
@@ -457,20 +457,20 @@ function parseDeterministicSetPrimaryDomain(
   }
 
   const domainMatch =
-    message.match(/\b([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?\.(?:arclend|arc))\b/i) ??
+    message.match(/\b([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?\.(?:lendora|arclend|arc))\b/i) ??
     message.match(/\bdomain\s+([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?)\b/i) ??
     message.match(/\b(?:set|make|use|as)\s+(?:the\s+)?(?:primary\s+)?(?:domain\s+|name\s+)?([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?)\b/i);
   const domain = domainMatch ? normalizeDomainForListing(domainMatch[1]) : null;
   if (!domain) {
     return {
       type: "message",
-      text: "Which owned .arclend domain do you want to set as your primary domain?",
+      text: "Which owned .lendora domain do you want to set as your primary domain?",
     };
   }
 
   const params = {
     domain,
-    displayDomain: `${domain}.arclend`,
+    displayDomain: `${domain}.lendora`,
   };
   return {
     type: "action",
@@ -491,25 +491,25 @@ function parseDeterministicDomainDelist(
   ) {
     return null;
   }
-  if (!/\b(?:domain|name|marketplace|listing|listed|sale)\b/i.test(message) && !/\.(?:arclend|arc)\b/i.test(message)) {
+  if (!/\b(?:domain|name|marketplace|listing|listed|sale)\b/i.test(message) && !/\.(?:lendora|arclend|arc)\b/i.test(message)) {
     return null;
   }
 
   const domainMatch =
-    message.match(/\b([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?\.(?:arclend|arc))\b/i) ??
+    message.match(/\b([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?\.(?:lendora|arclend|arc))\b/i) ??
     message.match(/\bdomain\s+([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?)\b/i) ??
     message.match(/\b(?:delist|unlist|cancel|remove|take\s+down|take\s+off)\s+(?:the\s+)?(?:domain\s+|listing\s+|sale\s+)?([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?)\b/i);
   const domain = domainMatch ? normalizeDomainForListing(domainMatch[1]) : null;
   if (!domain) {
     return {
       type: "message",
-      text: "Which .arclend domain do you want to remove from the marketplace?",
+      text: "Which .lendora domain do you want to remove from the marketplace?",
     };
   }
 
   const params = {
     domain,
-    displayDomain: `${domain}.arclend`,
+    displayDomain: `${domain}.lendora`,
   };
   return {
     type: "action",
@@ -540,21 +540,21 @@ function parseDeterministicDomainListing(
   }
 
   const domainMatch =
-    message.match(/\b([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?\.(?:arclend|arc))\b/i) ??
+    message.match(/\b([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?\.(?:lendora|arclend|arc))\b/i) ??
     message.match(/\bdomain\s+([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?)\b/i) ??
     message.match(/\b(?:list|sell)\s+([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?)\b/i);
   const domain = domainMatch ? normalizeDomainForListing(domainMatch[1]) : null;
   if (!domain) {
     return {
       type: "message",
-      text: "Which .arclend domain do you want to list?",
+      text: "Which .lendora domain do you want to list?",
     };
   }
 
   const params = {
     domain,
     price: priceMatch[1],
-    displayDomain: `${domain}.arclend`,
+    displayDomain: `${domain}.lendora`,
   };
   return {
     type: "action",
@@ -573,19 +573,19 @@ function parseDeterministicDomainPurchase(
   if (!/\b(?:buy|purchase)\b/i.test(message)) {
     return null;
   }
-  if (!/\b(?:domain|name|marketplace)\b/i.test(message) && !/\.(?:arclend|arc)\b/i.test(message)) {
+  if (!/\b(?:domain|name|marketplace)\b/i.test(message) && !/\.(?:lendora|arclend|arc)\b/i.test(message)) {
     return null;
   }
 
   const domainMatch =
-    message.match(/\b([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?\.(?:arclend|arc))\b/i) ??
+    message.match(/\b([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?\.(?:lendora|arclend|arc))\b/i) ??
     message.match(/\bdomain\s+([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?)\b/i) ??
     message.match(/\b(?:buy|purchase)\s+([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?)\s+(?:domain|name)\b/i);
   const domain = domainMatch ? normalizeDomainForListing(domainMatch[1]) : null;
   if (!domain) {
     return {
       type: "message",
-      text: "Which listed .arclend domain do you want to buy?",
+      text: "Which listed .lendora domain do you want to buy?",
     };
   }
 
@@ -594,7 +594,7 @@ function parseDeterministicDomainPurchase(
     message.match(/\b(\d+(?:\.\d+)?)\s*USDC\b/i);
   const params = {
     domain,
-    displayDomain: `${domain}.arclend`,
+    displayDomain: `${domain}.lendora`,
     ...(maxPriceMatch ? { maxPrice: maxPriceMatch[1] } : {}),
   };
   return {
@@ -707,7 +707,7 @@ function parseDeterministicSend(
   if (!directAddress && !domainRecipient && !contact) {
     return {
       type: "message",
-      text: `I don't have a contact named "${recipientText}". Save the nickname, provide a registered .arclend domain, or provide the full 0x address.`,
+      text: `I don't have a contact named "${recipientText}". Save the nickname, provide a registered .lendora domain, or provide the full 0x address.`,
     };
   }
 
