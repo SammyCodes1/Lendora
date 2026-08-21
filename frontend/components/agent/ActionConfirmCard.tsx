@@ -516,8 +516,8 @@ export function ActionConfirmCard({
             `Skip if HF < ${String(params.minHealthFactor)}`,
           ],
           detail: fromYield
-            ? `You authorize Lendora to pull ${params.amount} ${asset} ${String(params.cadence)} to this .lendora name from idle wallet funds (claimed yield), never supplied principal. Any run is skipped if health factor would fall below ${String(params.minHealthFactor)}.`
-            : `You authorize Lendora to pull ${params.amount} ${asset} ${String(params.cadence)}. Runs skip if health factor is below ${String(params.minHealthFactor)}.`,
+            ? `You authorize Lendora to pull ${params.amount} ${asset} ${String(params.cadence)} to this pinned .lendora name from claimed yield in your wallet, never supplied principal. Missed runs skip to the next cadence if health is below ${String(params.minHealthFactor)} or yield has not been claimed. The plan halts if the name is transferred.`
+            : `You authorize Lendora to pull ${params.amount} ${asset} ${String(params.cadence)}. Missed runs skip to the next cadence if health is below ${String(params.minHealthFactor)}. The plan pins the recipient and halts if a .lendora name moves.`,
         });
         return;
       }
@@ -910,9 +910,7 @@ export function ActionConfirmCard({
           throw new Error("Invalid health-factor floor");
         }
         const domainName = String(params.domainName ?? "");
-        const recipient = domainName
-          ? ZERO_ADDRESS
-          : (String(params.recipient) as Address);
+        const recipient = String(params.recipient) as Address;
         const submittedAt = performance.now();
         await ensureAllowance(token.address, amount * 104n, SPOKEN_PAY_ADDRESS);
         const hash = await submitContract({
@@ -930,7 +928,7 @@ export function ActionConfirmCard({
             minHealth,
             Boolean(params.fromYield),
           ],
-          gas: 400_000n,
+          gas: 500_000n,
         });
         await waitForSubmitted(hash);
         setReceipt({

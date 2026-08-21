@@ -1,6 +1,11 @@
 import { ethers } from "hardhat";
 import { readFile, writeFile } from "fs/promises";
 import path from "path";
+import dotenv from "dotenv";
+
+dotenv.config({
+  path: path.join(__dirname, "..", "..", "frontend", ".env.local"),
+});
 
 const CONTRACT_DEPLOYMENT_PATH = path.join(__dirname, "..", "deployments", "arc-testnet.json");
 const FRONTEND_DEPLOYMENT_PATH = path.join(
@@ -53,6 +58,16 @@ async function main() {
   }
 
   const address = await spokenPay.getAddress();
+  const keeperKey = process.env.KEEPER_PRIVATE_KEY;
+  if (keeperKey) {
+    const normalized = keeperKey.startsWith("0x") ? keeperKey : `0x${keeperKey}`;
+    const keeper = new ethers.Wallet(normalized).address;
+    if (keeper.toLowerCase() !== deployer.address.toLowerCase()) {
+      const tx = await spokenPay.setRelayer(keeper, true);
+      await tx.wait();
+      console.log("SpokenPay extra relayer:", keeper);
+    }
+  }
   await updateDeployment(address, receipt.blockNumber);
   console.log("SpokenPay deployed to:", address);
   console.log("SpokenPay deployment block:", receipt.blockNumber);

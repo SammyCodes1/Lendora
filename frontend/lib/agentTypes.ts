@@ -145,6 +145,7 @@ export type AgentContext = {
     Polygon_Amoy_Testnet: string;
   };
   reserves: Partial<Record<LendingAsset, AgentReserve>>;
+  timezoneOffsetMinutes?: number;
 };
 
 export type AgentTransactionReview = {

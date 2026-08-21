@@ -40,7 +40,59 @@ export function nextWeekdayUtcSeconds(weekday: number, from = new Date()): numbe
   return Math.floor(start.getTime() / 1000);
 }
 
-export function parseSpokenCadence(message: string): {
+/** Wall-clock parts in the timezone represented by `getTimezoneOffset()`. */
+export function localDateParts(
+  timezoneOffsetMinutes = new Date().getTimezoneOffset(),
+  from = Date.now(),
+) {
+  const local = new Date(from - timezoneOffsetMinutes * 60_000);
+  return {
+    weekday: local.getUTCDay(),
+    hours: local.getUTCHours(),
+    year: local.getUTCFullYear(),
+    month: local.getUTCMonth(),
+    date: local.getUTCDate(),
+  };
+}
+
+/** Next weekday at `hour`:00 in the timezone represented by getTimezoneOffset(). */
+export function nextWeekdayAtHour(
+  weekday: number,
+  hour = 9,
+  mode: "weekly" | "daily" = "weekly",
+  timezoneOffsetMinutes = new Date().getTimezoneOffset(),
+  from = Date.now(),
+) {
+  const local = localDateParts(timezoneOffsetMinutes, from);
+  if (mode === "daily") {
+    const alreadyPassed = local.hours >= hour;
+    const start = Date.UTC(
+      local.year,
+      local.month,
+      local.date + (alreadyPassed ? 1 : 0),
+      hour,
+      0,
+      0,
+    );
+    return Math.floor((start + timezoneOffsetMinutes * 60_000) / 1000);
+  }
+  let delta = (weekday - local.weekday + 7) % 7;
+  if (delta === 0 && local.hours >= hour) delta = 7;
+  const start = Date.UTC(
+    local.year,
+    local.month,
+    local.date + delta,
+    hour,
+    0,
+    0,
+  );
+  return Math.floor((start + timezoneOffsetMinutes * 60_000) / 1000);
+}
+
+export function parseSpokenCadence(
+  message: string,
+  timezoneOffsetMinutes?: number,
+): {
   intervalSeconds: number;
   firstRunAt: number;
   label: string;
@@ -60,12 +112,15 @@ export function parseSpokenCadence(message: string): {
   }
 
   const weekdayName = Object.keys(WEEKDAYS).find((day) =>
-    new RegExp(`\\b${day}s?\\b`).test(normalized),
+    new RegExp(`\\b${day}s?\\b(?!\\.(?:lendora|arclend|arc))`).test(normalized),
   );
+
+  const offset = timezoneOffsetMinutes ?? new Date().getTimezoneOffset();
+  const localWeekday = localDateParts(offset).weekday;
   if (weekdayName) {
     return {
       intervalSeconds: WEEK_SECONDS,
-      firstRunAt: nextWeekdayUtcSeconds(WEEKDAYS[weekdayName]),
+      firstRunAt: nextWeekdayAtHour(WEEKDAYS[weekdayName], 9, "weekly", offset),
       label: `every ${weekdayName}`,
       weekday: weekdayName,
     };
@@ -73,13 +128,13 @@ export function parseSpokenCadence(message: string): {
   if (/\bdaily\b/.test(normalized) || /\bevery\s+day\b/.test(normalized)) {
     return {
       intervalSeconds: DAY_SECONDS,
-      firstRunAt: Math.floor(Date.now() / 1000) + DAY_SECONDS,
+      firstRunAt: nextWeekdayAtHour(localWeekday, 9, "daily", offset),
       label: "every day",
     };
   }
   return {
     intervalSeconds: WEEK_SECONDS,
-    firstRunAt: Math.floor(Date.now() / 1000) + WEEK_SECONDS,
+    firstRunAt: nextWeekdayAtHour(localWeekday, 9, "weekly", offset),
     label: "every week",
   };
 }

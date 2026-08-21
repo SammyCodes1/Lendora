@@ -733,11 +733,12 @@ function parseDeterministicSwap(message: string): DeterministicResult | null {
 function parseDeterministicSchedulePayment(
   message: string,
   contacts: AgentContext["contacts"],
+  timezoneOffsetMinutes?: number,
 ): DeterministicResult | null {
   if (!/\b(?:send|transfer|pay|payout)\b/i.test(message)) {
     return null;
   }
-  const cadence = parseSpokenCadence(message);
+  const cadence = parseSpokenCadence(message, timezoneOffsetMinutes);
   if (!cadence) return null;
 
   const amountTokenMatch = message.match(
@@ -1365,7 +1366,10 @@ export async function POST(request: Request) {
     if (deterministicMint?.type === "action") {
       const validation = await validateAgentAction(
         deterministicMint.action,
-        { walletAddress: body.context.walletAddress },
+        {
+          walletAddress: body.context.walletAddress,
+          timezoneOffsetMinutes: body.context.timezoneOffsetMinutes,
+        },
       );
       if (!validation.valid) {
         return NextResponse.json({
@@ -1390,7 +1394,10 @@ export async function POST(request: Request) {
     if (deterministicDelist?.type === "action") {
       const validation = await validateAgentAction(
         deterministicDelist.action,
-        { walletAddress: body.context.walletAddress },
+        {
+          walletAddress: body.context.walletAddress,
+          timezoneOffsetMinutes: body.context.timezoneOffsetMinutes,
+        },
       );
       if (!validation.valid) {
         return NextResponse.json({
@@ -1415,7 +1422,10 @@ export async function POST(request: Request) {
     if (deterministicBurn?.type === "action") {
       const validation = await validateAgentAction(
         deterministicBurn.action,
-        { walletAddress: body.context.walletAddress },
+        {
+          walletAddress: body.context.walletAddress,
+          timezoneOffsetMinutes: body.context.timezoneOffsetMinutes,
+        },
       );
       if (!validation.valid) {
         return NextResponse.json({
@@ -1440,7 +1450,10 @@ export async function POST(request: Request) {
     if (deterministicSetPrimary?.type === "action") {
       const validation = await validateAgentAction(
         deterministicSetPrimary.action,
-        { walletAddress: body.context.walletAddress },
+        {
+          walletAddress: body.context.walletAddress,
+          timezoneOffsetMinutes: body.context.timezoneOffsetMinutes,
+        },
       );
       if (!validation.valid) {
         return NextResponse.json({
@@ -1465,7 +1478,10 @@ export async function POST(request: Request) {
     if (deterministicPurchase?.type === "action") {
       const validation = await validateAgentAction(
         deterministicPurchase.action,
-        { walletAddress: body.context.walletAddress },
+        {
+          walletAddress: body.context.walletAddress,
+          timezoneOffsetMinutes: body.context.timezoneOffsetMinutes,
+        },
       );
       if (!validation.valid) {
         return NextResponse.json({
@@ -1490,7 +1506,10 @@ export async function POST(request: Request) {
     if (deterministicListing?.type === "action") {
       const validation = await validateAgentAction(
         deterministicListing.action,
-        { walletAddress: body.context.walletAddress },
+        {
+          walletAddress: body.context.walletAddress,
+          timezoneOffsetMinutes: body.context.timezoneOffsetMinutes,
+        },
       );
       if (!validation.valid) {
         return NextResponse.json({
@@ -1515,7 +1534,10 @@ export async function POST(request: Request) {
     if (deterministicYieldClaim?.type === "action") {
       const validation = await validateAgentAction(
         deterministicYieldClaim.action,
-        { walletAddress: body.context.walletAddress },
+        {
+          walletAddress: body.context.walletAddress,
+          timezoneOffsetMinutes: body.context.timezoneOffsetMinutes,
+        },
       );
       if (!validation.valid) {
         return NextResponse.json({
@@ -1536,6 +1558,7 @@ export async function POST(request: Request) {
     if (deterministic?.type === "action") {
       const validation = await validateAgentAction(deterministic.action, {
         walletAddress: body.context.walletAddress,
+        timezoneOffsetMinutes: body.context.timezoneOffsetMinutes,
       });
       if (!validation.valid) {
         return NextResponse.json({
@@ -1569,6 +1592,7 @@ export async function POST(request: Request) {
     const deterministicSchedule = parseDeterministicSchedulePayment(
       body.message.trim(),
       body.context.contacts ?? [],
+      body.context.timezoneOffsetMinutes,
     );
     if (deterministicSchedule?.type === "message") {
       return NextResponse.json(deterministicSchedule satisfies AgentResponse);
@@ -1576,7 +1600,10 @@ export async function POST(request: Request) {
     if (deterministicSchedule?.type === "action") {
       const validation = await validateAgentAction(
         deterministicSchedule.action,
-        { walletAddress: body.context.walletAddress },
+        {
+          walletAddress: body.context.walletAddress,
+          timezoneOffsetMinutes: body.context.timezoneOffsetMinutes,
+        },
       );
       if (!validation.valid) {
         return NextResponse.json({
@@ -1600,6 +1627,7 @@ export async function POST(request: Request) {
     if (deterministicSend?.type === "action") {
       const validation = await validateAgentAction(deterministicSend.action, {
         walletAddress: body.context.walletAddress,
+        timezoneOffsetMinutes: body.context.timezoneOffsetMinutes,
       });
       if (!validation.valid) {
         return NextResponse.json({
@@ -1711,6 +1739,7 @@ export async function POST(request: Request) {
 
     const validation = await validateAgentAction(action, {
       walletAddress: body.context.walletAddress,
+      timezoneOffsetMinutes: body.context.timezoneOffsetMinutes,
     });
     if (!validation.valid) {
       return NextResponse.json({

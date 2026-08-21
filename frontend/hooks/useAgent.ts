@@ -360,6 +360,7 @@ export function useAgent() {
 
     return {
       walletAddress: address ?? null,
+      timezoneOffsetMinutes: new Date().getTimezoneOffset(),
       positions: {
         totalCollateralUsd: rawBalance(
           accountData?.totalCollateralUSD,

@@ -54,10 +54,12 @@ import type {
 import {
   healthFactorToWad,
   MIN_PAYMENT_INTERVAL_SECONDS,
+  parseSpokenCadence,
 } from "@/lib/spokenPay";
 
 type ValidationContext = {
   walletAddress: string | null;
+  timezoneOffsetMinutes?: number;
 };
 
 type ReserveSnapshot = {
@@ -1133,13 +1135,22 @@ export async function validateAgentAction(
         }
       }
       const domainName = resolvedRecipient.domain ?? "";
+      const parsedFirst = Number(payment.firstRunAt);
+      let firstRunAt = Number.isFinite(parsedFirst) ? Math.floor(parsedFirst) : 0;
+      if (firstRunAt <= 0) {
+        const cadence = parseSpokenCadence(
+          `pay every ${String(payment.cadence ?? "")}`,
+          context.timezoneOffsetMinutes,
+        );
+        firstRunAt = cadence?.firstRunAt ?? 0;
+      }
       const scheduleParams: SchedulePaymentParams = {
         asset: payment.asset,
         amount: String(payment.amount),
         recipient: resolvedRecipient.address,
         cadence: String(payment.cadence ?? "on a schedule"),
         intervalSeconds: String(Math.floor(intervalSeconds)),
-        firstRunAt: String(payment.firstRunAt ?? "0"),
+        firstRunAt: String(firstRunAt),
         minHealthFactor: String(payment.minHealthFactor ?? "1.10"),
         fromYield: Boolean(payment.fromYield),
         domainName,
