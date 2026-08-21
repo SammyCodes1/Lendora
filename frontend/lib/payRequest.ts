@@ -109,10 +109,37 @@ export function publicPayRequest(
 export function effectivePayRequestStatus(
   request: Pick<PayRequest, "status" | "expiresAt">,
 ): PayRequestStatus {
-  if (request.status === "open" && Date.now() >= request.expiresAt) {
+  if (
+    request.status === "open" &&
+    request.expiresAt > 0 &&
+    Date.now() >= request.expiresAt
+  ) {
     return "expired";
   }
   return request.status;
+}
+
+export function parseExpiresInSeconds(value: unknown): number | undefined {
+  const seconds =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim() !== ""
+        ? Number(value)
+        : Number.NaN;
+  if (!Number.isFinite(seconds)) return undefined;
+  return PAY_REQUEST_EXPIRY_OPTIONS.some((option) => option.seconds === seconds)
+    ? seconds
+    : undefined;
+}
+
+export function parseExpiresAt(value: unknown): number | undefined {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (raw == null || raw === "") return undefined;
+  const expiresAt = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isSafeInteger(expiresAt) || expiresAt <= 0) return undefined;
+  const max = Date.now() + 30 * 24 * 60 * 60 * 1000 + 60_000;
+  if (expiresAt > max) return undefined;
+  return expiresAt;
 }
 
 export function payRequestPath(request: {
@@ -123,9 +150,16 @@ export function payRequestPath(request: {
   amount: string;
   asset: PayRequestAsset;
   memo?: string;
+  expiresAt?: number;
 }) {
+  const expiryQuery =
+    request.expiresAt && request.expiresAt > 0
+      ? `exp=${request.expiresAt}`
+      : "";
   if (request.stored && request.id && isStoredPayRequestId(request.id)) {
-    return `/pay/${request.id}`;
+    return expiryQuery
+      ? `/pay/${request.id}?${expiryQuery}`
+      : `/pay/${request.id}`;
   }
   const params = new URLSearchParams({
     a: request.amount,
@@ -133,6 +167,9 @@ export function payRequestPath(request: {
     to: request.recipient,
   });
   if (request.memo) params.set("m", request.memo);
+  if (request.expiresAt && request.expiresAt > 0) {
+    params.set("exp", String(request.expiresAt));
+  }
   const domain = request.recipientDomain
     ? displayPayDomain(request.recipientDomain)
     : "";
@@ -146,6 +183,7 @@ export function fallbackPayRequestFromSearch(input: {
   asset?: string | string[];
   memo?: string | string[];
   to?: string | string[];
+  exp?: string | string[];
 }): PayRequest | null {
   const first = (value?: string | string[]) =>
     Array.isArray(value) ? value[0] : value;
@@ -167,7 +205,7 @@ export function fallbackPayRequestFromSearch(input: {
     memo: sanitizePayMemo(first(input.memo)),
     createdBy: recipient || "0x0000000000000000000000000000000000000000",
     createdAt: Date.now(),
-    expiresAt: Date.now() + DEFAULT_EXPIRY_SECONDS * 1000,
+    expiresAt: parseExpiresAt(input.exp) ?? 0,
     status: "open",
   };
 }

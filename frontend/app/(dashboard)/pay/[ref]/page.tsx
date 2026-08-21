@@ -78,6 +78,7 @@ export default async function PayRefPage({ params, searchParams }: PageProps) {
           asset={first(query.t)}
           memo={first(query.m)}
           to={first(query.to)}
+          exp={first(query.exp)}
         />
       </div>
     </PageTransition>

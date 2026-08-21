@@ -37,6 +37,7 @@ import {
   formatPayExpiry,
   isPayRequestAsset,
   isStoredPayRequestId,
+  parseExpiresAt,
   parsePayAmount,
   truncatePayAddress,
   type PayRequest,
@@ -51,6 +52,7 @@ type PayRequestPayProps = {
   asset?: string;
   memo?: string;
   to?: string;
+  exp?: string;
 };
 
 type ViewState = "loading" | "ready" | "missing" | "paying" | "success";
@@ -61,6 +63,7 @@ export function PayRequestPay({
   asset,
   memo,
   to,
+  exp,
 }: PayRequestPayProps) {
   const { address, isConnected } = useArcLendAccount();
   const chainId = useChainId();
@@ -86,7 +89,15 @@ export function PayRequestPay({
         return;
       }
       const body = (await response.json()) as { request: PayRequest };
-      setRequest(body.request);
+      const fromLink = parseExpiresAt(exp);
+      const storedExpiry = body.request.expiresAt;
+      const expiresAt =
+        storedExpiry > 0 && fromLink
+          ? Math.min(storedExpiry, fromLink)
+          : storedExpiry > 0
+            ? storedExpiry
+            : fromLink ?? 0;
+      setRequest({ ...body.request, expiresAt });
       setAmountLocked(true);
       setState("ready");
       return;
@@ -98,6 +109,7 @@ export function PayRequestPay({
       asset,
       memo,
       to,
+      exp,
     });
     if (fromQuery) {
       if (
@@ -136,7 +148,7 @@ export function PayRequestPay({
         recipientDomain: domain,
         createdBy: resolved,
         createdAt: Date.now(),
-        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+        expiresAt: parseExpiresAt(exp) ?? 0,
         status: "open",
       });
       setEditableAmount("");
@@ -153,7 +165,7 @@ export function PayRequestPay({
         recipient: ref,
         createdBy: ref,
         createdAt: Date.now(),
-        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+        expiresAt: parseExpiresAt(exp) ?? 0,
         status: "open",
       });
       setAmountLocked(false);
@@ -163,7 +175,7 @@ export function PayRequestPay({
 
     setRequest(null);
     setState("missing");
-  }, [amount, asset, memo, refValue, to]);
+  }, [amount, asset, exp, memo, refValue, to]);
 
   useEffect(() => {
     void load().catch(() => {
@@ -370,7 +382,9 @@ export function PayRequestPay({
                 )}
               >
                 {status}
-                {status === "open" ? ` · ${formatPayExpiry(request.expiresAt)}` : ""}
+                {status === "open" && request.expiresAt > 0
+                  ? ` · ${formatPayExpiry(request.expiresAt)}`
+                  : ""}
               </span>
             }
           />

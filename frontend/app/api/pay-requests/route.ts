@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { getAddress, isAddress } from "viem";
 import {
   isPayRequestAsset,
+  parseExpiresInSeconds,
   parsePayAmount,
-  PAY_REQUEST_EXPIRY_OPTIONS,
 } from "@/lib/payRequest";
 import { enforceRateLimit } from "@/lib/server/rateLimit";
 import {
@@ -66,11 +66,7 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    const expiresInSeconds =
-      typeof body.expiresInSeconds === "number" &&
-      PAY_REQUEST_EXPIRY_OPTIONS.some((option) => option.seconds === body.expiresInSeconds)
-        ? body.expiresInSeconds
-        : undefined;
+    const expiresInSeconds = parseExpiresInSeconds(body.expiresInSeconds);
     const created = await createStoredPayRequest({
       createdBy: body.wallet,
       asset: body.asset,
