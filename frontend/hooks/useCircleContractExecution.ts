@@ -7,6 +7,13 @@ import { installCircleSdkIframePatch } from "@/lib/circleW3sPatch";
 import type { Address, Hex } from "viem";
 import { useCircleEmailWallet } from "@/components/wallet/CircleEmailWalletProvider";
 
+type ExecuteTransferInput = {
+  destinationAddress: Address;
+  amount: string;
+  tokenAddress?: Address | "";
+  refId?: string;
+};
+
 type ExecuteContractInput =
   | {
       contractAddress: Address;
@@ -41,10 +48,10 @@ export function useCircleContractExecution() {
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const executeContract = useCallback(
-    async (input: ExecuteContractInput) => {
-      if (!emailWallet.wallet || !emailWallet.auth) {
-        throw new Error("Sign in with email wallet first.");
+  const runChallenge = useCallback(
+    async (challengeId: string) => {
+      if (!emailWallet.auth) {
+        throw new Error("Sign in with Google first.");
       }
       if (!circleAppId) {
         throw new Error("Circle App ID is not configured.");
@@ -59,6 +66,74 @@ export function useCircleContractExecution() {
         initializedRef.current = true;
       }
 
+      activeSdk.setAuthentication({
+        userToken: emailWallet.auth.userToken,
+        encryptionKey: emailWallet.auth.encryptionKey,
+      });
+
+      return new Promise<ChallengeResult | undefined>((resolve, reject) => {
+        activeSdk.execute(challengeId, (challengeError, result) => {
+          if (challengeError) {
+            reject(
+              new Error(challengeError.message || "Circle challenge failed."),
+            );
+            return;
+          }
+          resolve(result as ChallengeResult | undefined);
+        });
+      });
+    },
+    [emailWallet.auth],
+  );
+
+  const executeTransfer = useCallback(
+    async (input: ExecuteTransferInput) => {
+      if (!emailWallet.wallet || !emailWallet.auth) {
+        throw new Error("Sign in with Google first.");
+      }
+
+      setIsPending(true);
+      setError(null);
+      try {
+        const response = await fetch("/api/circle-wallet/transfer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...input,
+            walletId: emailWallet.wallet.id,
+            userToken: emailWallet.auth.userToken,
+          }),
+        });
+        const data = (await response.json()) as ExecuteContractResponse;
+        if (!response.ok || !data.challengeId) {
+          throw new Error(
+            data.error ?? data.message ?? "Could not create Circle transfer.",
+          );
+        }
+        const challengeResult = await runChallenge(data.challengeId);
+        return { ...data, challengeResult };
+      } catch (caught) {
+        const nextError =
+          caught instanceof Error
+            ? caught
+            : new Error("Circle transfer failed.");
+        setError(nextError);
+        throw nextError;
+      } finally {
+        setIsPending(false);
+      }
+    },
+    [emailWallet.auth, emailWallet.wallet, runChallenge],
+  );
+
+  const executeContract = useCallback(
+    async (input: ExecuteContractInput) => {
+      if (!emailWallet.wallet || !emailWallet.auth) {
+        throw new Error("Sign in with email wallet first.");
+      }
+      if (!circleAppId) {
+        throw new Error("Circle App ID is not configured.");
+      }
       setIsPending(true);
       setError(null);
       try {
@@ -78,23 +153,7 @@ export function useCircleContractExecution() {
           );
         }
 
-        activeSdk.setAuthentication({
-          userToken: emailWallet.auth.userToken,
-          encryptionKey: emailWallet.auth.encryptionKey,
-        });
-
-        const challengeResult = await new Promise<ChallengeResult | undefined>(
-          (resolve, reject) => {
-            activeSdk.execute(data.challengeId!, (challengeError, result) => {
-            if (challengeError) {
-              reject(new Error(challengeError.message || "Circle challenge failed."));
-              return;
-            }
-            resolve(result as ChallengeResult | undefined);
-            });
-          },
-        );
-
+        const challengeResult = await runChallenge(data.challengeId);
         return { ...data, challengeResult };
       } catch (caught) {
         const nextError =
@@ -105,11 +164,12 @@ export function useCircleContractExecution() {
         setIsPending(false);
       }
     },
-    [emailWallet.auth, emailWallet.wallet],
+    [emailWallet.auth, emailWallet.wallet, runChallenge],
   );
 
   return {
     executeContract,
+    executeTransfer,
     isPending,
     error,
     isAvailable: Boolean(emailWallet.wallet && emailWallet.auth),

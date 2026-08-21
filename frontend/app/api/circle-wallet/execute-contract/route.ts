@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       walletId,
       contractAddress: getAddress(contractAddress),
       blockchain: CIRCLE_CONTRACT_BLOCKCHAIN,
-      amount: body.amount,
+      ...(body.amount ? { amount: body.amount } : {}),
       refId: body.refId,
       idempotencyKey: crypto.randomUUID(),
       fee: {

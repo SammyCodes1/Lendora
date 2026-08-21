@@ -4,6 +4,9 @@ import { useCallback, useState } from "react";
 import {
   encodeFunctionData,
   formatEther,
+  formatUnits,
+  getAddress,
+  isAddress,
   type Abi,
   type Address,
   type Hash,
@@ -11,6 +14,7 @@ import {
 import { useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
 import { useCircleContractExecution } from "@/hooks/useCircleContractExecution";
+import { ARC_DEX_TOKENS } from "@/lib/arcDex";
 
 export type ArcLendContractWriteRequest = {
   chainId?: number;
@@ -41,6 +45,23 @@ function circleAbiParameter(value: unknown): unknown {
   return value;
 }
 
+function tokenDecimals(token: Address) {
+  const match = Object.values(ARC_DEX_TOKENS).find(
+    (item) => item.address.toLowerCase() === token.toLowerCase(),
+  );
+  return match?.decimals ?? 6;
+}
+
+function isErc20Transfer(request: ArcLendContractWriteRequest) {
+  return (
+    request.functionName === "transfer" &&
+    Array.isArray(request.args) &&
+    request.args.length >= 2 &&
+    typeof request.args[0] === "string" &&
+    isAddress(request.args[0])
+  );
+}
+
 export type ArcLendContractWriteResult =
   | { source: "wallet"; hash: Hash; challengeId?: never }
   | { source: "email"; hash?: Hash; challengeId: string };
@@ -69,6 +90,34 @@ export function useArcLendContractWrite() {
       setCircleChallengeId(null);
 
       if (source === "email") {
+        if (isErc20Transfer(request)) {
+          const destination = getAddress(String(request.args![0]));
+          const rawAmount = request.args![1];
+          const amount =
+            typeof rawAmount === "bigint"
+              ? formatUnits(rawAmount, tokenDecimals(request.address))
+              : String(rawAmount);
+          const response = await circleWrite.executeTransfer({
+            destinationAddress: destination,
+            amount,
+            tokenAddress: request.address,
+          });
+          if (!response.challengeId) {
+            throw new Error("Circle did not return a transfer challenge.");
+          }
+          setCircleChallengeId(response.challengeId);
+          setCircleSuccess(true);
+          const txHashCandidate = (
+            response.challengeResult as { data?: { txHash?: string } } | undefined
+          )?.data?.txHash;
+          const hash =
+            typeof txHashCandidate === "string" &&
+            /^0x[a-fA-F0-9]{64}$/.test(txHashCandidate)
+              ? (txHashCandidate as Hash)
+              : undefined;
+          return { source: "email", challengeId: response.challengeId, hash };
+        }
+
         const signature = circleFunctionSignature(
           request.abi,
           request.functionName,
