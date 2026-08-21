@@ -191,7 +191,7 @@ export default function SpokenPayPage() {
           description="Authorize a recurring payout to a .lendora name. Runs skip if health factor would fall, and halt if the name moves."
           stats={[
             { label: "Active plans", value: String(activeCount), tone: "positive" },
-            { label: "Relayer", value: "daily 9:00 UTC" },
+            { label: "Relayer", value: "Run now" },
           ]}
         />
 

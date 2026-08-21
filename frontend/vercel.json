@@ -1,9 +1,2 @@
-{
-  "crons": [
-    {
-      "path": "/api/spoken-pay/run",
-      "schedule": "0 9 * * *"
-    }
-  ]
-}
+{}
 
