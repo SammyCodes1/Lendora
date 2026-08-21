@@ -120,15 +120,10 @@ export function canonicalSiteOrigin() {
   }
 }
 
-function isLocalHost(hostname: string) {
-  return hostname === "localhost" || hostname === "127.0.0.1";
-}
-
 /** Circle sends this exact value to Google as redirect_uri. No trailing slash. */
 export function googleRedirectUri() {
   if (typeof window === "undefined") return canonicalSiteOrigin();
-  if (isLocalHost(window.location.hostname)) return window.location.origin;
-  return canonicalSiteOrigin();
+  return window.location.origin.replace(/\/$/, "");
 }
 
 let deviceIdQuery: Promise<string> | null = null;
@@ -155,7 +150,7 @@ export function circleLoginErrorMessage(error: unknown, fallback: string) {
   if (/deviceid/i.test(message)) {
     const origin =
       typeof window !== "undefined" ? window.location.origin : CANONICAL_SITE_ORIGIN;
-    return `Couldn't reach Circle's wallet service from ${origin}. Open ${CANONICAL_SITE_ORIGIN}, allow pw-auth.circle.com if a blocker is on, and add that exact origin in Circle Console (User-Controlled → Configurator).`;
+    return `Couldn't reach Circle's wallet service from ${origin}. Allow pw-auth.circle.com if a blocker is on, and add this exact origin in Google (JS origin + redirect URI) and Circle Console (User-Controlled → Configurator).`;
   }
   return message;
 }
