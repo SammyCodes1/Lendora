@@ -42,11 +42,11 @@ const links: LinkItem[] = [
   { href: "/borrow", label: "Borrow" },
   { href: "/positions", label: "Positions" },
   { href: "/swap", label: "Swap" },
+  { href: "/spoken", label: "Spoken pay" },
   {
     label: "More",
     sublinks: [
       { href: "/pay", label: "Request pay" },
-      { href: "/spoken", label: "Spoken pay" },
       { href: "/multisend", label: "MultiSend" },
       { href: "/bridge", label: "Bridge" },
       { href: "/liquidate", label: "Liquidate" },
