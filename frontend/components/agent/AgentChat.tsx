@@ -30,9 +30,32 @@ import { cn } from "@/lib/utils";
 
 const suggestions = [
   "Supply 100 USDC",
-  "Check my health factor",
+  "Request 40 USDC",
   "Send 40 USDC to ada.lendora every Friday from my yield, keep health above 1.5",
 ];
+
+function AgentMessageText({ content }: { content: string }) {
+  const parts = content.split(/(https?:\/\/[^\s]+)/g);
+  return (
+    <>
+      {parts.map((part, index) =>
+        part.startsWith("http") ? (
+          <a
+            key={`${part}-${index}`}
+            href={part}
+            target="_blank"
+            rel="noreferrer"
+            className="break-all text-emerald-100 underline decoration-emerald-200/40 underline-offset-2 hover:text-white"
+          >
+            {part}
+          </a>
+        ) : (
+          <span key={`${index}-${part.slice(0, 12)}`}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
 
 function AgentAvatarLetter({
   letter,
@@ -481,7 +504,7 @@ export function AgentChat() {
                               }}
                             />
                           ) : null}
-                          {message.content}
+                          <AgentMessageText content={message.content} />
                         </motion.div>
                         {message.receipt ? (
                           <AgentTransactionReceiptCard

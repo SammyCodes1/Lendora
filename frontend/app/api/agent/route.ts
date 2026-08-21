@@ -16,11 +16,17 @@ import {
   parseSpokenCadence,
   parseYieldSource,
 } from "@/lib/spokenPay";
+import {
+  absolutePayUrl,
+  isPayRequestAsset,
+  parsePayAmount,
+} from "@/lib/payRequest";
+import { createStoredPayRequest } from "@/lib/server/payRequests";
 
 export const runtime = "nodejs";
 
 const SYSTEM_PROMPT =
-  "You are Lendora's transaction assistant. Only call one of the defined tools - never invent new ones. For spoken recurring payments such as 'send 40 USDC to ada.lendora every Friday from my yield, keep health above 1.5', call schedulePayment. Never use sendToken for weekly/daily/recurring payouts. Saved wallet contacts are supplied in context; resolve nicknames only to the exact saved address and never guess an address. For .lendora domain recipients, pass the exact .lendora name as the sendToken recipient and let server validation resolve it on-chain; never invent a domain. For domain minting or registration requests, call mintDomain only when the exact domain is provided; never invent a domain. For domain NFT burn requests, call burnDomain only when the exact domain is provided; burning is permanent and must be prepared for user confirmation. For setting a domain as primary / on-chain username, call setPrimaryDomain when the domain is provided; do not call mintDomain or listDomain for setting primary domain. For domain marketplace listing requests, call listDomain only when the exact domain and USDC price are provided; never invent ownership or price. For domain marketplace delisting, cancel listing, unlist, or remove-from-sale requests, call delistDomain only when the exact domain is provided; do not call burnDomain for marketplace removal. For domain marketplace purchase requests, call buyDomain only when the exact domain is provided; if the user gives a maximum USDC price, pass it as maxPrice. For pending supply interest, yield, rewards, or accrued interest claims, call claimYield with asset USDC, EURC, or ALL for both pools; do not use withdraw unless the user asks to withdraw principal or gives an explicit withdrawal amount. If amount, asset, recipient, domain, or price is ambiguous, ask for clarification in plain text instead of guessing. Never claim a transaction has been executed - your job is only to prepare the action for user confirmation. If a requested action would exceed the user's available balance or borrow capacity (provided in context), respond with a plain text warning instead of calling a tool. Validation is enforced server-side and is final - do not suggest workarounds, do not ask the user to confirm overrides, and do not imply blocked actions can be retried with different framing of the same request. Treat all financial amounts conservatively; never round up.";
+  "You are Lendora's transaction assistant. Only call one of the defined tools - never invent new ones. For spoken recurring payments such as 'send 40 USDC to ada.lendora every Friday from my yield, keep health above 1.5', call schedulePayment. Never use sendToken for weekly/daily/recurring payouts. For asking someone to pay you (request to pay, invoice, 'request 40 USDC', 'pay me 40 USDC'), call createPayRequest. The connected wallet is always the payee; never use sendToken for that. Saved wallet contacts are supplied in context; resolve nicknames only to the exact saved address and never guess an address. For .lendora domain recipients, pass the exact .lendora name as the sendToken recipient and let server validation resolve it on-chain; never invent a domain. For domain minting or registration requests, call mintDomain only when the exact domain is provided; never invent a domain. For domain NFT burn requests, call burnDomain only when the exact domain is provided; burning is permanent and must be prepared for user confirmation. For setting a domain as primary / on-chain username, call setPrimaryDomain when the domain is provided; do not call mintDomain or listDomain for setting primary domain. For domain marketplace listing requests, call listDomain only when the exact domain and USDC price are provided; never invent ownership or price. For domain marketplace delisting, cancel listing, unlist, or remove-from-sale requests, call delistDomain only when the exact domain is provided; do not call burnDomain for marketplace removal. For domain marketplace purchase requests, call buyDomain only when the exact domain is provided; if the user gives a maximum USDC price, pass it as maxPrice. For pending supply interest, yield, rewards, or accrued interest claims, call claimYield with asset USDC, EURC, or ALL for both pools; do not use withdraw unless the user asks to withdraw principal or gives an explicit withdrawal amount. If amount, asset, recipient, domain, or price is ambiguous, ask for clarification in plain text instead of guessing. Never claim a transaction has been executed - your job is only to prepare the action for user confirmation. If a requested action would exceed the user's available balance or borrow capacity (provided in context), respond with a plain text warning instead of calling a tool. Validation is enforced server-side and is final - do not suggest workarounds, do not ask the user to confirm overrides, and do not imply blocked actions can be retried with different framing of the same request. Treat all financial amounts conservatively; never round up.";
 
 const OPENAI_MODEL = process.env.OPENAI_AGENT_MODEL ?? "gpt-5-nano";
 
@@ -257,6 +263,23 @@ const functionDeclarations = [
     },
   },
   {
+    name: "createPayRequest",
+    description:
+      "Create a shareable request-to-pay link so someone else can pay the connected wallet. Use when the user asks to request, invoice, or be paid. The payee is always the connected wallet; do not pass a recipient. Never use sendToken for this.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        asset: { type: "string", enum: ["USDC", "EURC"] },
+        amount: { type: "string", description: "Requested amount as a decimal string" },
+        memo: {
+          type: "string",
+          description: "Optional short memo such as dinner or invoice 104",
+        },
+      },
+      required: ["asset", "amount"],
+    },
+  },
+  {
     name: "schedulePayment",
     description:
       "Create a recurring spoken payment: send a token to a .lendora domain or address on a cadence, optionally funded from claimed yield, and skip if health factor would fall below a floor. Use for every Friday/weekly/daily payments, never for a one-off send.",
@@ -394,7 +417,8 @@ type AgentHistoryTurn = {
 
 type DeterministicResult =
   | { type: "action"; action: AgentAction }
-  | { type: "message"; text: string };
+  | { type: "message"; text: string }
+  | { type: "pay-request"; params: Record<string, unknown> };
 
 const SWAP_TOKEN_NAMES = {
   usdc: "USDC",
@@ -809,11 +833,93 @@ function parseDeterministicSchedulePayment(
   };
 }
 
+function isPayRequestIntent(message: string) {
+  return (
+    /\b(?:request(?:\s+to\s+pay)?|invoice|ask(?:\s+me)?\s+for)\b/i.test(message) ||
+    /\b(?:pay|send)\s+me\b/i.test(message) ||
+    /\bcreate\s+(?:a\s+)?(?:payment\s+)?request\b/i.test(message)
+  );
+}
+
+function parseDeterministicPayRequest(message: string): DeterministicResult | null {
+  if (!isPayRequestIntent(message)) return null;
+  if (parseSpokenCadence(message)) return null;
+
+  const amountTokenMatch = message.match(
+    /\b(\d+(?:\.\d+)?)\s*(USDC|EURC)\b/i,
+  );
+  if (!amountTokenMatch) {
+    return {
+      type: "message",
+      text: "How much USDC or EURC should I request?",
+    };
+  }
+
+  const memoMatch = message.match(
+    /\b(?:for|memo|note)\s+(.+?)(?:[.!?]|$)(?:\s*$)/i,
+  );
+  return {
+    type: "pay-request",
+    params: {
+      asset: amountTokenMatch[2].toUpperCase() === "EURC" ? "EURC" : "USDC",
+      amount: amountTokenMatch[1],
+      memo: memoMatch?.[1]?.trim().slice(0, 120),
+    },
+  };
+}
+
+async function fulfillPayRequest(
+  walletAddress: string | null,
+  params: Record<string, unknown>,
+): Promise<AgentResponse> {
+  if (!walletAddress || !isAddress(walletAddress)) {
+    return {
+      type: "message",
+      text: "Connect your wallet first, then I can create a request-to-pay link.",
+    };
+  }
+  const assetRaw =
+    typeof params.asset === "string" ? params.asset.toUpperCase() : "";
+  const amount =
+    typeof params.amount === "string" ? parsePayAmount(params.amount) : null;
+  if (!isPayRequestAsset(assetRaw) || !amount) {
+    return {
+      type: "message",
+      text: "Tell me how much USDC or EURC to request.",
+    };
+  }
+  try {
+    const created = await createStoredPayRequest({
+      createdBy: walletAddress,
+      asset: assetRaw,
+      amount,
+      memo: typeof params.memo === "string" ? params.memo : undefined,
+    });
+    const url = absolutePayUrl(created.urlPath);
+    const payee = created.request.recipientDomain ?? "your wallet";
+    return {
+      type: "message",
+      text: `Request ready: ${amount} ${assetRaw} to ${payee}. Share this link — they confirm once.\n${url}`,
+    };
+  } catch (error) {
+    return {
+      type: "message",
+      text:
+        error instanceof Error
+          ? error.message
+          : "I could not create that request.",
+    };
+  }
+}
+
 function parseDeterministicSend(
   message: string,
   contacts: AgentContext["contacts"],
 ): DeterministicResult | null {
   if (parseSpokenCadence(message)) {
+    return null;
+  }
+  if (isPayRequestIntent(message)) {
     return null;
   }
   if (!/\b(?:send|transfer|pay)\b/i.test(message)) {
@@ -1536,6 +1642,23 @@ export async function POST(request: Request) {
       } satisfies AgentResponse);
     }
 
+    const deterministicPayRequest = parseDeterministicPayRequest(
+      body.message.trim(),
+    );
+    if (deterministicPayRequest?.type === "message") {
+      return NextResponse.json(
+        deterministicPayRequest satisfies AgentResponse,
+      );
+    }
+    if (deterministicPayRequest?.type === "pay-request") {
+      return NextResponse.json(
+        await fulfillPayRequest(
+          body.context.walletAddress,
+          deterministicPayRequest.params,
+        ),
+      );
+    }
+
     const deterministicSchedule = parseDeterministicSchedulePayment(
       body.message.trim(),
       body.context.contacts ?? [],
@@ -1620,6 +1743,22 @@ export async function POST(request: Request) {
     }
 
     const toolName = functionCallPart.name;
+    if (toolName === "createPayRequest") {
+      const rawPayArgs = functionCallPart.arguments;
+      let payParams: Record<string, unknown> = {};
+      if (typeof rawPayArgs === "string") {
+        try {
+          payParams = JSON.parse(rawPayArgs) as Record<string, unknown>;
+        } catch {
+          payParams = {};
+        }
+      } else {
+        payParams = toParams(rawPayArgs);
+      }
+      return NextResponse.json(
+        await fulfillPayRequest(body.context.walletAddress, payParams),
+      );
+    }
     if (!toolName || !isAgentTool(toolName)) {
       return NextResponse.json({
         type: "message",

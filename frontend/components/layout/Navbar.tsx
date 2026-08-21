@@ -45,6 +45,7 @@ const links: LinkItem[] = [
   {
     label: "More",
     sublinks: [
+      { href: "/pay", label: "Request pay" },
       { href: "/multisend", label: "MultiSend" },
       { href: "/bridge", label: "Bridge" },
       { href: "/liquidate", label: "Liquidate" },
