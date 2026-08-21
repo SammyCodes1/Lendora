@@ -56,7 +56,7 @@ export function PayRequestCreate() {
   const { address, isConnected } = useArcLendAccount();
   const { primaryDomain } = usePrimaryDomain(address);
   const [asset, setAsset] = useState<PayRequestAsset>("USDC");
-  const [amount, setAmount] = useState("40");
+  const [amount, setAmount] = useState("");
   const [memo, setMemo] = useState("");
   const [expiry, setExpiry] = useState(PAY_REQUEST_EXPIRY_OPTIONS[1].seconds);
   const [busy, setBusy] = useState(false);
@@ -218,7 +218,7 @@ export function PayRequestCreate() {
           <div>
             <SectionLabel>New request</SectionLabel>
             <h2 className="mt-2 font-display text-2xl text-white sm:text-3xl">
-              Ask for {parsedAmount ?? "—"} {asset}
+              Ask for {asset}
             </h2>
             <p className="mt-2 max-w-md text-sm leading-6 text-white/50">
               Pays {payeeLabel}. The payer sees your .lendora name, not a raw
@@ -256,7 +256,7 @@ export function PayRequestCreate() {
               value={amount}
               onChange={(event) => setAmount(event.target.value)}
               inputMode="decimal"
-              placeholder="40"
+              placeholder=""
               className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 font-mono text-2xl text-white outline-none placeholder:text-white/25 focus:border-emerald-200/40"
             />
           </label>
