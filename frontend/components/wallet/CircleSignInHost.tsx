@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CircleEmailWalletDialog } from "@/components/wallet/CircleEmailWalletDialog";
 import { useCircleEmailWallet } from "@/components/wallet/CircleEmailWalletProvider";
+import { isCircleOAuthReturn } from "@/lib/circleSocialLogin";
 
 export function CircleSignInHost() {
   const { signInRequested, clearSignInRequest, setSession } =
@@ -11,6 +12,10 @@ export function CircleSignInHost() {
 
   useEffect(() => {
     if (!signInRequested) return;
+    if (isCircleOAuthReturn()) {
+      clearSignInRequest();
+      return;
+    }
     setOpen(true);
     clearSignInRequest();
   }, [clearSignInRequest, signInRequested]);

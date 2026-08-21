@@ -12,6 +12,7 @@ import {
 import {
   CIRCLE_PENDING_AUTH_STORAGE_KEY,
   CIRCLE_SESSION_STORAGE_KEY,
+  isCircleOAuthReturn,
 } from "@/lib/circleSocialLogin";
 
 export type CircleEmailWallet = {
@@ -78,7 +79,9 @@ export function CircleEmailWalletProvider({
       const pending = JSON.parse(rawPending) as CircleEmailWalletAuth;
       if (pending.userToken && pending.encryptionKey) {
         setPendingAuth(pending);
-        setSignInRequested(true);
+        if (!isCircleOAuthReturn()) {
+          setSignInRequested(true);
+        }
       }
     } catch {
       window.sessionStorage.removeItem(CIRCLE_SESSION_STORAGE_KEY);

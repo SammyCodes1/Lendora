@@ -12,6 +12,18 @@ export function isCircleOAuthHash(hash: string) {
   return /(?:^|#|&)(?:id_token|access_token)=/.test(hash);
 }
 
+/** True while Google is sending the user back with an OAuth hash. */
+export function isCircleOAuthReturn() {
+  if (typeof window === "undefined") return false;
+  if (isCircleOAuthHash(window.location.hash)) return true;
+  try {
+    const stored = window.sessionStorage.getItem(OAUTH_HASH_STORAGE_KEY);
+    return Boolean(stored && isCircleOAuthHash(stored));
+  } catch {
+    return false;
+  }
+}
+
 export function restoreOAuthHash() {
   if (typeof window === "undefined") return false;
   const current = window.location.hash;
@@ -56,7 +68,9 @@ export function clearOAuthHash() {
 export function readSocialOAuthState(): SocialOAuthState | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(SOCIAL_OAUTH_STORAGE_KEY);
+    const raw =
+      window.localStorage.getItem(SOCIAL_OAUTH_STORAGE_KEY) ??
+      window.sessionStorage.getItem(SOCIAL_OAUTH_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as SocialOAuthState;
     if (!parsed.deviceToken || !parsed.deviceEncryptionKey) return null;
@@ -67,12 +81,26 @@ export function readSocialOAuthState(): SocialOAuthState | null {
 }
 
 export function writeSocialOAuthState(state: SocialOAuthState) {
-  window.localStorage.setItem(SOCIAL_OAUTH_STORAGE_KEY, JSON.stringify(state));
+  const raw = JSON.stringify(state);
+  window.localStorage.setItem(SOCIAL_OAUTH_STORAGE_KEY, raw);
+  try {
+    window.sessionStorage.setItem(SOCIAL_OAUTH_STORAGE_KEY, raw);
+  } catch {
+    /* ignore quota / private mode */
+  }
 }
 
 export function clearSocialOAuthState() {
   window.localStorage.removeItem(SOCIAL_OAUTH_STORAGE_KEY);
-  // Circle's Web SDK also stores these while the Google redirect is in flight.
+  try {
+    window.sessionStorage.removeItem(SOCIAL_OAUTH_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+  clearCircleSdkOAuthKeys();
+}
+
+export function clearCircleSdkOAuthKeys() {
   window.localStorage.removeItem("socialLoginProvider");
   window.localStorage.removeItem("state");
   window.localStorage.removeItem("nonce");
@@ -84,12 +112,29 @@ export function googleRedirectUri() {
   return window.location.origin;
 }
 
+let deviceIdQuery: Promise<string> | null = null;
+
+export function requestCircleDeviceId(sdk: {
+  getDeviceId: () => Promise<string>;
+}) {
+  deviceIdQuery ??= sdk.getDeviceId().finally(() => {
+    deviceIdQuery = null;
+  });
+  return deviceIdQuery;
+}
+
 export function circleLoginErrorMessage(error: unknown, fallback: string) {
-  if (error instanceof Error && error.message) return error.message;
-  if (typeof error === "object" && error && "message" in error) {
-    const message = (error as { message?: unknown }).message;
-    if (typeof message === "string" && message.trim()) return message;
+  let message = fallback;
+  if (error instanceof Error && error.message) message = error.message;
+  else if (typeof error === "object" && error && "message" in error) {
+    const value = (error as { message?: unknown }).message;
+    if (typeof value === "string" && value.trim()) message = value;
+  } else if (typeof error === "string" && error.trim()) {
+    message = error;
   }
-  if (typeof error === "string" && error.trim()) return error;
-  return fallback;
+
+  if (/deviceid/i.test(message)) {
+    return "Couldn't reach Circle's wallet service. Allow pw-auth.circle.com if a blocker is on, then try Google sign-in again.";
+  }
+  return message;
 }

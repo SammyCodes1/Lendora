@@ -11,6 +11,8 @@ import {
   circleLoginErrorMessage,
   clearSocialOAuthState,
   googleRedirectUri,
+  isCircleOAuthReturn,
+  requestCircleDeviceId,
   type SocialOAuthState,
   writeSocialOAuthState,
 } from "@/lib/circleSocialLogin";
@@ -48,14 +50,6 @@ const DEVICE_ID_STORAGE_KEY = "arclend:circle-device-id";
 function apiError(data: CircleWalletResponse, fallback: string) {
   const detail = data.error ?? data.message ?? fallback;
   return data.code ? `[${data.code}] ${detail}` : detail;
-}
-
-function readCachedDeviceId() {
-  try {
-    return window.localStorage.getItem(DEVICE_ID_STORAGE_KEY) ?? "";
-  } catch {
-    return "";
-  }
 }
 
 function shortAddress(address: string) {
@@ -137,6 +131,9 @@ export function CircleEmailWalletDialog({
 
   useEffect(() => {
     if (!open) return;
+    if (isCircleOAuthReturn()) {
+      return;
+    }
     if (!circleAppId) {
       setStatus("NEXT_PUBLIC_CIRCLE_APP_ID is not configured.");
       return;
@@ -179,23 +176,22 @@ export function CircleEmailWalletDialog({
       onLoginComplete,
     );
     sdkRef.current = sdk;
-
-    const cachedDeviceId = readCachedDeviceId();
-    if (cachedDeviceId) {
-      setDeviceId(cachedDeviceId);
-    }
+    setDeviceId("");
 
     let cancelled = false;
     void (async () => {
+      setStatus("Connecting to Circle…");
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          const nextDeviceId = await sdk.getDeviceId();
+          const nextDeviceId = await requestCircleDeviceId(sdk);
           if (cancelled) return;
           setDeviceId(nextDeviceId);
           window.localStorage.setItem(DEVICE_ID_STORAGE_KEY, nextDeviceId);
+          setStatus("Sign in with Google to continue.");
           return;
         } catch (error) {
           if (cancelled) return;
+          window.localStorage.removeItem(DEVICE_ID_STORAGE_KEY);
           if (attempt < 2) {
             setStatus("Connecting to Circle…");
             await wait(800);
@@ -206,6 +202,7 @@ export function CircleEmailWalletDialog({
             "Could not initialize Circle wallet. Check your connection and try again.",
           );
           setStatus(message);
+          showToast("error", message);
         }
       }
     })();

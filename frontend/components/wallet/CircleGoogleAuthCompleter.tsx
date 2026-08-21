@@ -80,8 +80,13 @@ export function CircleGoogleAuthCompleter() {
     startedRef.current = true;
     setFinishing(true);
 
-    // Remove from sessionStorage immediately so re-runs can never retrigger.
-    try { window.sessionStorage.removeItem(OAUTH_HASH_STORAGE_KEY); } catch { /* ignore */ }
+    // Hash stays on the URL for Circle's SDK. Drop the session copy so a
+    // later wallet-create dialog is not treated as an in-flight OAuth return.
+    try {
+      window.sessionStorage.removeItem(OAUTH_HASH_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
 
     const dismiss = () => {
       startedRef.current = false;
