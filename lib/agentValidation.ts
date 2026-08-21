@@ -40,11 +40,6 @@ import lendingPoolAbi from "@/constants/abis/LendingPool.json";
 import priceOracleAbi from "@/constants/abis/MockPriceOracle.json";
 import deployments from "@/constants/deployments.json";
 import {
-  ARCANA_MARKETS_ADDRESS,
-  ARC_USDC_ADDRESS,
-  arcanaMarketsAbi,
-} from "@/constants/arcana";
-import {
   ARC_DEX_TOKENS,
   isStableSwapPair,
   synthraV3FeesForPair,
@@ -530,96 +525,6 @@ export async function validateAgentAction(
   const params = action.params as Record<string, unknown>;
 
   try {
-    if (action.tool === "predict") {
-      const amount = parseAmount(params.amount);
-      if (amount === null) {
-        return hardBlock(walletKey, "That prediction amount isn't valid.");
-      }
-      const marketId = Number(params.marketId);
-      if (
-        !Number.isSafeInteger(marketId) ||
-        marketId < 1 ||
-        marketId > 250
-      ) {
-        return hardBlock(walletKey, "Choose a valid Arcana market ID.");
-      }
-      if (params.side !== "YES" && params.side !== "NO") {
-        return hardBlock(walletKey, "Choose either YES or NO.");
-      }
-
-      const blockNumber = await arcClient.getBlockNumber();
-      const [marketCount, marketResult, walletBalance, configuredUsdc] =
-        await Promise.all([
-          arcClient.readContract({
-            address: ARCANA_MARKETS_ADDRESS,
-            abi: arcanaMarketsAbi,
-            functionName: "marketCount",
-            blockNumber,
-          }),
-          arcClient.readContract({
-            address: ARCANA_MARKETS_ADDRESS,
-            abi: arcanaMarketsAbi,
-            functionName: "getMarket",
-            args: [BigInt(marketId)],
-            blockNumber,
-          }),
-          arcClient.readContract({
-            address: ARC_USDC_ADDRESS,
-            abi: erc20Abi,
-            functionName: "balanceOf",
-            args: [wallet],
-            blockNumber,
-          }),
-          arcClient.readContract({
-            address: ARCANA_MARKETS_ADDRESS,
-            abi: arcanaMarketsAbi,
-            functionName: "usdc",
-            blockNumber,
-          }),
-        ]);
-
-      if (
-        BigInt(marketId) > marketCount ||
-        configuredUsdc.toLowerCase() !== ARC_USDC_ADDRESS.toLowerCase()
-      ) {
-        return hardBlock(walletKey, "That Arcana market isn't available.");
-      }
-      const {
-        title,
-        endTime,
-        resolved,
-        cancelled,
-      } = marketResult;
-      const now = BigInt(Math.floor(Date.now() / 1_000));
-      if (!title || resolved || cancelled || now >= endTime) {
-        return hardBlock(
-          walletKey,
-          "That Arcana market is no longer open for predictions.",
-        );
-      }
-      if (amount > walletBalance) {
-        return hardBlock(
-          walletKey,
-          `You only have ${formatUnits(walletBalance, 6)} USDC available.`,
-        );
-      }
-
-      return {
-        valid: true,
-        action: {
-          ...action,
-          params: {
-            marketId,
-            side: params.side,
-            amount: String(params.amount),
-            marketTitle: title,
-          },
-        },
-        walletAddress: wallet,
-        validatedAt: Date.now(),
-      };
-    }
-
     if (action.tool === "mintDomain") {
       if (typeof params.domain !== "string") {
         return hardBlock(walletKey, "Choose a valid .lendora domain to mint.");

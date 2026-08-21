@@ -138,26 +138,6 @@ const functionDeclarations = [
     },
   },
   {
-    name: "predict",
-    description:
-      "Buy YES or NO shares in an open Arcana prediction market using Arc Testnet USDC. A numeric market ID, side, and exact amount are required.",
-    parametersJsonSchema: {
-      type: "object",
-      properties: {
-        marketId: {
-          type: "number",
-          description: "The numeric Arcana market ID shown on the Predictions page",
-        },
-        side: { type: "string", enum: ["YES", "NO"] },
-        amount: {
-          type: "string",
-          description: "The USDC amount to predict, as a decimal string",
-        },
-      },
-      required: ["marketId", "side", "amount"],
-    },
-  },
-  {
     name: "mintDomain",
     description:
       "Mint or register an available .lendora wallet domain for the connected wallet",
@@ -987,51 +967,6 @@ function parseDeterministicSend(
   };
 }
 
-function parseDeterministicPrediction(
-  message: string,
-): DeterministicResult | null {
-  if (!/\b(?:predict|bet|wager)\b/i.test(message)) {
-    return null;
-  }
-  const marketMatch = message.match(/\bmarket\s*#?\s*(\d+)\b/i);
-  if (!marketMatch) {
-    return {
-      type: "message",
-      text: "Which Arcana market ID do you want to predict on? You can find it on the Predictions page.",
-    };
-  }
-  const sideMatch = message.match(/\b(YES|NO)\b/i);
-  if (!sideMatch) {
-    return {
-      type: "message",
-      text: "Should the prediction be YES or NO?",
-    };
-  }
-  const amountMatch = message.match(
-    /\b(\d+(?:\.\d+)?)\s*USDC\b/i,
-  );
-  if (!amountMatch) {
-    return {
-      type: "message",
-      text: "How much USDC do you want to predict?",
-    };
-  }
-  const params = {
-    marketId: Number(marketMatch[1]),
-    side: sideMatch[1].toUpperCase() as "YES" | "NO",
-    amount: amountMatch[1],
-  };
-  return {
-    type: "action",
-    action: {
-      type: "action",
-      tool: "predict",
-      params,
-      explanation: summarizeAction("predict", params),
-    },
-  };
-}
-
 function parseDeterministicYieldClaim(
   message: string,
 ): DeterministicResult | null {
@@ -1207,7 +1142,6 @@ function isAgentTool(value: string): value is AgentTool {
     value === "swap" ||
     value === "sendToken" ||
     value === "bridge" ||
-    value === "predict" ||
     value === "mintDomain" ||
     value === "burnDomain" ||
     value === "setPrimaryDomain" ||
@@ -1249,8 +1183,6 @@ function summarizeAction(tool: AgentTool, rawParams: object): string {
       return `I'll prepare a spoken payment of ${String(params.amount ?? "the requested amount")} ${String(params.asset ?? "USDC")} to ${String(params.recipientName ?? params.recipient ?? "the recipient")} ${String(params.cadence ?? "on a schedule")}, ${params.fromYield ? "from claimed yield" : "from your wallet"}, and skip any run if health factor would fall below ${String(params.minHealthFactor ?? "1.10")}.`;
     case "bridge":
       return `I'll prepare a USDC bridge from ${String(params.sourceChain ?? "the source chain")} for ${String(params.amount ?? "the requested amount")}.`;
-    case "predict":
-      return `I'll prepare a ${String(params.amount ?? "requested")} USDC ${String(params.side ?? "YES/NO")} prediction on Arcana market #${String(params.marketId ?? "unknown")}.`;
     case "mintDomain":
       return `I'll prepare a domain mint for ${String(params.displayDomain ?? params.domain ?? "the domain")}.`;
     case "burnDomain":
@@ -1558,31 +1490,6 @@ export async function POST(request: Request) {
     if (deterministicListing?.type === "action") {
       const validation = await validateAgentAction(
         deterministicListing.action,
-        { walletAddress: body.context.walletAddress },
-      );
-      if (!validation.valid) {
-        return NextResponse.json({
-          type: "message",
-          text: validation.reason,
-        } satisfies AgentResponse);
-      }
-      return NextResponse.json({
-        type: "action",
-        validated: validation,
-      } satisfies AgentResponse);
-    }
-
-    const deterministicPrediction = parseDeterministicPrediction(
-      body.message.trim(),
-    );
-    if (deterministicPrediction?.type === "message") {
-      return NextResponse.json(
-        deterministicPrediction satisfies AgentResponse,
-      );
-    }
-    if (deterministicPrediction?.type === "action") {
-      const validation = await validateAgentAction(
-        deterministicPrediction.action,
         { walletAddress: body.context.walletAddress },
       );
       if (!validation.valid) {

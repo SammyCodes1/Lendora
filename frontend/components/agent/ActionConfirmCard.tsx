@@ -70,11 +70,6 @@ import {
 } from "@/hooks/useArcLendContractWrite";
 import { announcePrimaryDomainChanged } from "@/lib/domainEvents";
 import deployments from "@/constants/deployments.json";
-import {
-  ARCANA_MARKETS_ADDRESS,
-  ARC_USDC_ADDRESS,
-  arcanaMarketsAbi,
-} from "@/constants/arcana";
 
 type ActionConfirmCardProps = {
   validatedAction: ValidatedAgentAction;
@@ -173,7 +168,6 @@ function actionIcon(tool: AgentAction["tool"]) {
   if (tool === "bridge") return ArrowLeftRight;
   if (tool === "sendToken") return SendHorizontal;
   if (tool === "schedulePayment") return CalendarClock;
-  if (tool === "predict") return Sparkles;
   if (tool === "mintDomain") return Sparkles;
   if (tool === "burnDomain") return RefreshCw;
   if (tool === "setPrimaryDomain") return Star;
@@ -524,24 +518,6 @@ export function ActionConfirmCard({
           detail: fromYield
             ? `You authorize Lendora to pull ${params.amount} ${asset} ${String(params.cadence)} to this .lendora name from idle wallet funds (claimed yield), never supplied principal. Any run is skipped if health factor would fall below ${String(params.minHealthFactor)}.`
             : `You authorize Lendora to pull ${params.amount} ${asset} ${String(params.cadence)}. Runs skip if health factor is below ${String(params.minHealthFactor)}.`,
-        });
-        return;
-      }
-
-      if (action.tool === "predict") {
-        setReview({
-          eyebrow: "Prediction review",
-          title: `${params.side} on market #${params.marketId}`,
-          amountLabel: "USDC committed",
-          amount: `${params.amount} USDC`,
-          receiveLabel: "Position",
-          receiveAmount: `${params.side} shares`,
-          route: [
-            "USDC wallet",
-            "ArcanaMarkets",
-            `${params.side} position`,
-          ],
-          detail: `${String(params.marketTitle ?? "Arcana prediction market")}. ArcanaMarkets is an external Arc Testnet contract. Shares are issued 1:1 with the USDC amount, and payout depends on the resolved outcome and pool composition.`,
         });
         return;
       }
@@ -960,42 +936,6 @@ export function ActionConfirmCard({
         setReceipt({
           ...review,
           title: `Spoken payment armed ${String(params.cadence)}`,
-          transactionHash: hash,
-          explorerUrl: hash ? `https://testnet.arcscan.app/tx/${hash}` : undefined,
-          finalityMs: Math.max(
-            0,
-            Math.round(performance.now() - submittedAt),
-          ),
-        });
-        return;
-      }
-
-      if (action.tool === "predict") {
-        if (!publicClient) {
-          throw new Error("Arc client unavailable");
-        }
-        const predictionAmount = parseUnits(String(params.amount), 6);
-        await ensureAllowance(
-          ARC_USDC_ADDRESS,
-          predictionAmount,
-          ARCANA_MARKETS_ADDRESS,
-        );
-        const submittedAt = performance.now();
-        const hash = await submitContract({
-          chainId: 5_042_002,
-          address: ARCANA_MARKETS_ADDRESS,
-          abi: arcanaMarketsAbi,
-          functionName: "buyShares",
-          args: [
-            BigInt(Number(params.marketId)),
-            params.side === "YES",
-            predictionAmount,
-          ],
-        });
-        await waitForSubmitted(hash);
-        setReceipt({
-          ...review,
-          title: `${params.side} prediction confirmed`,
           transactionHash: hash,
           explorerUrl: hash ? `https://testnet.arcscan.app/tx/${hash}` : undefined,
           finalityMs: Math.max(

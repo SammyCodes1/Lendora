@@ -10,7 +10,6 @@ export type AgentTool =
   | "swap"
   | "sendToken"
   | "bridge"
-  | "predict"
   | "mintDomain"
   | "burnDomain"
   | "setPrimaryDomain"
@@ -57,12 +56,6 @@ export type AgentActionParams =
       recipientDomain?: string;
     }
   | { asset: "USDC"; amount: string; sourceChain: string }
-  | {
-      marketId: number;
-      side: "YES" | "NO";
-      amount: string;
-      marketTitle?: string;
-    }
   | {
       domain: string;
       price?: string;

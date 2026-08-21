@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAddress, isAddress } from "viem";
 import deployments from "@/constants/deployments.json";
-import { ARCANA_MARKETS_ADDRESS } from "@/constants/arcana";
 import { enforceRateLimit } from "@/lib/server/rateLimit";
 import { ARC_TESTNET_CONTRACTS } from "@/constants/contracts";
 import { ARC_DEX_ROUTERS, ARC_DEX_TOKENS } from "@/lib/arcDex";
@@ -62,7 +61,6 @@ function appAddresses() {
   collectAddresses(ARC_TESTNET_CONTRACTS, addresses);
   collectAddresses(ARC_DEX_TOKENS, addresses);
   collectAddresses(ARC_DEX_ROUTERS, addresses);
-  collectAddresses(ARCANA_MARKETS_ADDRESS, addresses);
   return addresses;
 }
 

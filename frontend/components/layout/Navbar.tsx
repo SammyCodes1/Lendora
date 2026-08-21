@@ -51,7 +51,6 @@ const links: LinkItem[] = [
       { href: "/liquidate", label: "Liquidate" },
       { href: "/domains", label: "Domain Mints" },
       { href: "/referrals", label: "Referrals", disabled: true },
-      { href: "/predictions", label: "Predictions", disabled: true },
     ],
   },
 ];
