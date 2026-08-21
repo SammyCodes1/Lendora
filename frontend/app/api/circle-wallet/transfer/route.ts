@@ -1,5 +1,6 @@
 import { getAddress, isAddress } from "viem";
 import { NextResponse } from "next/server";
+import type { TokenBlockchain } from "@circle-fin/user-controlled-wallets";
 import {
   CIRCLE_WALLET_BLOCKCHAIN,
   CIRCLE_WALLET_FEE_LEVEL,
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
       walletId,
       destinationAddress: getAddress(destinationAddress),
       amounts: [amount],
-      blockchain: CIRCLE_WALLET_BLOCKCHAIN,
+      blockchain: CIRCLE_WALLET_BLOCKCHAIN as TokenBlockchain,
       tokenAddress: isNativeUsdc ? "" : getAddress(tokenAddress),
       refId: body.refId,
       idempotencyKey: crypto.randomUUID(),
