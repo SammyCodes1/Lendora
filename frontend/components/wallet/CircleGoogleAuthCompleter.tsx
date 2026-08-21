@@ -14,6 +14,7 @@ import {
   restoreOAuthHash,
   OAUTH_HASH_STORAGE_KEY,
 } from "@/lib/circleSocialLogin";
+import { installCircleSdkIframePatch } from "@/lib/circleW3sPatch";
 import { showToast } from "@/lib/toast";
 
 const circleAppId = process.env.NEXT_PUBLIC_CIRCLE_APP_ID ?? "";
@@ -164,6 +165,7 @@ export function CircleGoogleAuthCompleter() {
     };
 
     // Do not call getDeviceId() here — it races the SDK's own iframe.
+    installCircleSdkIframePatch();
     new W3SSdk(
       {
         appSettings: { appId: circleAppId },

@@ -106,10 +106,29 @@ export function clearCircleSdkOAuthKeys() {
   window.localStorage.removeItem("nonce");
 }
 
+/** Production site registered in Google OAuth and Circle Console. No trailing slash. */
+export const CANONICAL_SITE_ORIGIN = "https://www.arclend.cv";
+
+export function canonicalSiteOrigin() {
+  const configured =
+    process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL;
+  if (!configured) return CANONICAL_SITE_ORIGIN;
+  try {
+    return new URL(configured).origin;
+  } catch {
+    return CANONICAL_SITE_ORIGIN;
+  }
+}
+
+function isLocalHost(hostname: string) {
+  return hostname === "localhost" || hostname === "127.0.0.1";
+}
+
 /** Circle sends this exact value to Google as redirect_uri. No trailing slash. */
 export function googleRedirectUri() {
-  if (typeof window === "undefined") return "";
-  return window.location.origin;
+  if (typeof window === "undefined") return canonicalSiteOrigin();
+  if (isLocalHost(window.location.hostname)) return window.location.origin;
+  return canonicalSiteOrigin();
 }
 
 let deviceIdQuery: Promise<string> | null = null;
@@ -134,7 +153,9 @@ export function circleLoginErrorMessage(error: unknown, fallback: string) {
   }
 
   if (/deviceid/i.test(message)) {
-    return "Couldn't reach Circle's wallet service. Allow pw-auth.circle.com if a blocker is on, then try Google sign-in again.";
+    const origin =
+      typeof window !== "undefined" ? window.location.origin : CANONICAL_SITE_ORIGIN;
+    return `Couldn't reach Circle's wallet service from ${origin}. Open ${CANONICAL_SITE_ORIGIN}, allow pw-auth.circle.com if a blocker is on, and add that exact origin in Circle Console (User-Controlled → Configurator).`;
   }
   return message;
 }

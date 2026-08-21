@@ -16,6 +16,7 @@ import {
   type SocialOAuthState,
   writeSocialOAuthState,
 } from "@/lib/circleSocialLogin";
+import { installCircleSdkIframePatch } from "@/lib/circleW3sPatch";
 import { showToast } from "@/lib/toast";
 import type {
   CircleEmailWallet,
@@ -171,6 +172,7 @@ export function CircleEmailWalletDialog({
       });
     };
 
+    installCircleSdkIframePatch();
     const sdk = new W3SSdk(
       { appSettings: { appId: circleAppId } },
       onLoginComplete,

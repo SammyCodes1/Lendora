@@ -217,7 +217,7 @@ export function paySiteOrigin() {
     (process.env.VERCEL_PROJECT_PRODUCTION_URL
       ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
       : null);
-  return production ?? "https://lendora-alpha.vercel.app";
+  return production ?? "https://www.arclend.cv";
 }
 
 export function absolutePayUrl(path: string) {

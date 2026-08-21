@@ -18,6 +18,12 @@ const nextConfig = {
         destination: "https://www.arclend.cv/:path*",
         permanent: true,
       },
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "lendora-alpha.vercel.app" }],
+        destination: "https://www.arclend.cv/:path*",
+        permanent: true,
+      },
     ];
   },
   webpack(config) {

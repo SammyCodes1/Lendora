@@ -12,7 +12,7 @@ import { ToastProvider } from "@/components/ui/ToastProvider";
 import { ClientErrorBoundary } from "@/components/layout/ClientErrorBoundary";
 import { AppChrome } from "@/components/layout/AppChrome";
 
-const siteUrl = new URL("https://lendora-alpha.vercel.app");
+const siteUrl = new URL("https://www.arclend.cv");
 
 export const metadata: Metadata = {
   metadataBase: siteUrl,
@@ -64,6 +64,8 @@ export default function RootLayout({
   return (
     <html lang="en" data-scroll-behavior="smooth">
       <head>
+        <link rel="preconnect" href="https://pw-auth.circle.com" />
+        <link rel="dns-prefetch" href="https://pw-auth.circle.com" />
         <script
           dangerouslySetInnerHTML={{
             __html:

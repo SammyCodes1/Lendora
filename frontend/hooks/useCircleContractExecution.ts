@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { W3SSdk } from "@circle-fin/w3s-pw-web-sdk";
 import type { ChallengeResult } from "@circle-fin/w3s-pw-web-sdk/dist/src/types";
+import { installCircleSdkIframePatch } from "@/lib/circleW3sPatch";
 import type { Address, Hex } from "viem";
 import { useCircleEmailWallet } from "@/components/wallet/CircleEmailWalletProvider";
 
@@ -48,6 +49,7 @@ export function useCircleContractExecution() {
       if (!circleAppId) {
         throw new Error("Circle App ID is not configured.");
       }
+      installCircleSdkIframePatch();
       const activeSdk =
         sdkRef.current ??
         new W3SSdk({ appSettings: { appId: circleAppId } });
