@@ -636,7 +636,6 @@ export async function GET(
         "Approvals, fees, aToken/debt-token minting, and internal transfers",
         "The collateral side of a liquidation",
         "Failed or reverted transactions",
-        "Referral accounting events that duplicate an earn-vault deposit",
         "Claims, rewards, and interest accrual that are not new user notional",
       ],
       warnings,

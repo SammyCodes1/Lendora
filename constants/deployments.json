@@ -48,8 +48,6 @@
     "EURC": "0x57FA5403192657ed5B950C1CD4F06f361F38B14A"
   },
   "earnVaultDeploymentBlock": 52118878,
-  "EarnReferralController": "0xc9D5aD567a2ca40697161823eFC49Fef193A25EC",
-  "earnReferralControllerDeploymentBlock": 52118920,
   "artifactRuntimeHashes": {
     "LendingPool": "0x0fce1f3c8c4cdc8f715b1074dd8dbbad61654861ae80d641d4c087e5abcaaf91",
     "MockPriceOracle": "0xdca44601e1ed75abdeab0310917b821b86f29c5f4d33292b84c7003ac002d446",

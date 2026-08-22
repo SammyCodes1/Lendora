@@ -10,7 +10,6 @@
     "deploy:secure:finalize": "hardhat run scripts/finalize_secure_deployment.ts --network arc_testnet",
     "deploy:domain-marketplace": "hardhat run scripts/11_deploy_domain_marketplace.ts --network arc_testnet",
     "deploy:earn-vaults": "hardhat run scripts/12_deploy_earn_vaults.ts --network arc_testnet",
-    "deploy:earn-referrals": "hardhat run scripts/13_deploy_earn_referrals.ts --network arc_testnet",
     "verify:deployment": "hardhat run scripts/verify_deployment.ts --network arc_testnet",
     "export-abi": "hardhat run scripts/export-abis.ts",
     "setup:executor": "hardhat run scripts/setup_executor.ts --network arc_testnet",

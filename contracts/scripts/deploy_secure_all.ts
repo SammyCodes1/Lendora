@@ -115,13 +115,6 @@ async function main() {
     "EarnVault", ARC_TESTNET_ADDRESSES.EURC, lendingPool.address,
     "ArcLend Earn Vault EURC", "evEURC", deployer.address,
   );
-  const referralController = await deploy("EarnReferralController", deployer.address);
-  await (await referralController.contract.configureVault(
-    usdcVault.address, ARC_TESTNET_ADDRESSES.USDC, true,
-  )).wait();
-  await (await referralController.contract.configureVault(
-    eurcVault.address, ARC_TESTNET_ADDRESSES.EURC, true,
-  )).wait();
 
   const deploymentBlock = Math.min(
     addressesProvider.blockNumber,
@@ -157,8 +150,6 @@ async function main() {
     domainMarketplaceDeploymentBlock: domainMarketplace.blockNumber,
     earnVaults: { USDC: usdcVault.address, EURC: eurcVault.address },
     earnVaultDeploymentBlock: Math.min(usdcVault.blockNumber, eurcVault.blockNumber),
-    EarnReferralController: referralController.address,
-    earnReferralControllerDeploymentBlock: referralController.blockNumber,
     artifactRuntimeHashes: {
       LendingPool: await runtimeHash("LendingPool"),
       MockPriceOracle: await runtimeHash("MockPriceOracle"),

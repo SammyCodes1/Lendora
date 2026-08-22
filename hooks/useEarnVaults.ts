@@ -5,7 +5,6 @@ import type { Abi, Address } from "viem";
 import { formatUnits } from "viem";
 import { useReadContracts } from "wagmi";
 import earnVaultAbi from "@/constants/abis/EarnVault.json";
-import earnReferralControllerAbi from "@/constants/abis/EarnReferralController.json";
 import deployments from "@/constants/deployments.json";
 import { marketDefinitions } from "@/lib/markets";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
@@ -16,9 +15,6 @@ import {
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
 const abi = earnVaultAbi as Abi;
-const referralAbi = earnReferralControllerAbi as Abi;
-export const EARN_REFERRAL_CONTROLLER_ADDRESS =
-  ((deployments.EarnReferralController as Address | undefined) ?? ZERO_ADDRESS);
 
 export type EarnVaultMarket = {
   name: string;
@@ -32,17 +28,6 @@ export type EarnVaultMarket = {
   userAssets: bigint;
   availableAssets: bigint;
   assetsPerShare: number;
-  pendingReferralRewards: bigint;
-  referredVolume: bigint;
-};
-
-export type EarnReferralSummary = {
-  deployed: boolean;
-  referrer: Address;
-  level: number;
-  pendingPoints: bigint;
-  claimedPoints: bigint;
-  referredUsers: bigint;
 };
 
 function vaultAddress(symbol: "USDC" | "EURC") {
@@ -101,77 +86,10 @@ export function useEarnVaultMarkets() {
       refetchInterval: 4_000,
     },
   });
-  const referralDeployed = EARN_REFERRAL_CONTROLLER_ADDRESS !== ZERO_ADDRESS;
-  const referralReads = useReadContracts({
-    contracts: [
-      {
-        chainId: 5042002,
-        address: EARN_REFERRAL_CONTROLLER_ADDRESS,
-        abi: referralAbi,
-        functionName: "referrerOf",
-        args: [address ?? ZERO_ADDRESS],
-      },
-      {
-        chainId: 5042002,
-        address: EARN_REFERRAL_CONTROLLER_ADDRESS,
-        abi: referralAbi,
-        functionName: "referralLevel",
-        args: [address ?? ZERO_ADDRESS],
-      },
-      {
-        chainId: 5042002,
-        address: EARN_REFERRAL_CONTROLLER_ADDRESS,
-        abi: referralAbi,
-        functionName: "pendingPoints",
-        args: [address ?? ZERO_ADDRESS],
-      },
-      {
-        chainId: 5042002,
-        address: EARN_REFERRAL_CONTROLLER_ADDRESS,
-        abi: referralAbi,
-        functionName: "claimedPoints",
-        args: [address ?? ZERO_ADDRESS],
-      },
-      {
-        chainId: 5042002,
-        address: EARN_REFERRAL_CONTROLLER_ADDRESS,
-        abi: referralAbi,
-        functionName: "referredUsers",
-        args: [address ?? ZERO_ADDRESS],
-      },
-      ...definitions.flatMap((market) => [
-        {
-          chainId: 5042002,
-          address: EARN_REFERRAL_CONTROLLER_ADDRESS,
-          abi: referralAbi,
-          functionName: "pendingRewards",
-          args: [address ?? ZERO_ADDRESS, market.address],
-        },
-        {
-          chainId: 5042002,
-          address: EARN_REFERRAL_CONTROLLER_ADDRESS,
-          abi: referralAbi,
-          functionName: "referredVolume",
-          args: [address ?? ZERO_ADDRESS, market.address],
-        },
-      ]),
-    ],
-    query: {
-      enabled: referralDeployed && Boolean(address),
-      refetchInterval: 4_000,
-    },
-  });
 
   const markets = useMemo(() => {
     let deployedIndex = 0;
-    return definitions.map((definition, marketIndex): EarnVaultMarket => {
-      const referralOffset = 5 + marketIndex * 2;
-      const pendingReferralRewards = bigintResult(
-        referralReads.data?.[referralOffset]?.result,
-      );
-      const referredVolume = bigintResult(
-        referralReads.data?.[referralOffset + 1]?.result,
-      );
+    return definitions.map((definition): EarnVaultMarket => {
       if (definition.vault === ZERO_ADDRESS) {
         return {
           name: definition.name,
@@ -185,8 +103,6 @@ export function useEarnVaultMarkets() {
           userAssets: 0n,
           availableAssets: 0n,
           assetsPerShare: 1,
-          pendingReferralRewards,
-          referredVolume,
         };
       }
 
@@ -216,36 +132,16 @@ export function useEarnVaultMarkets() {
         userAssets,
         availableAssets,
         assetsPerShare,
-        pendingReferralRewards,
-        referredVolume,
       };
     });
-  }, [definitions, reads.data, referralReads.data]);
-
-  const referralSummary = useMemo(
-    (): EarnReferralSummary => ({
-      deployed: referralDeployed,
-      referrer:
-        typeof referralReads.data?.[0]?.result === "string"
-          ? (referralReads.data[0].result as Address)
-          : ZERO_ADDRESS,
-      level: Number(referralReads.data?.[1]?.result ?? 1),
-      pendingPoints: bigintResult(referralReads.data?.[2]?.result),
-      claimedPoints: bigintResult(referralReads.data?.[3]?.result),
-      referredUsers: bigintResult(referralReads.data?.[4]?.result),
-    }),
-    [referralDeployed, referralReads.data],
-  );
+  }, [definitions, reads.data]);
 
   return {
     markets,
-    referral: referralSummary,
     isLoading: reads.isPending,
-    isError: reads.isError || referralReads.isError,
-    error: reads.error || referralReads.error,
-    refetch: async () => {
-      await Promise.all([reads.refetch(), referralReads.refetch()]);
-    },
+    isError: reads.isError,
+    error: reads.error,
+    refetch: reads.refetch,
   };
 }
 
@@ -265,43 +161,6 @@ export function useEarnVaultAction() {
         abi,
         functionName: "deposit",
         args: [assets, receiver, minShares],
-      }).then(resultHash),
-    depositWithReferral: (
-      vault: Address,
-      assets: bigint,
-      receiver: Address,
-      referrer: Address,
-      minShares: bigint,
-    ) =>
-      write.writeContractAsync({
-        chainId: 5042002,
-        address: EARN_REFERRAL_CONTROLLER_ADDRESS,
-        abi: referralAbi,
-        functionName: "depositWithReferral",
-        args: [vault, assets, receiver, referrer, minShares],
-      }).then(resultHash),
-    registerReferrer: (referrer: Address) =>
-      write.writeContractAsync({
-        chainId: 5042002,
-        address: EARN_REFERRAL_CONTROLLER_ADDRESS,
-        abi: referralAbi,
-        functionName: "registerReferrer",
-        args: [referrer],
-      }).then(resultHash),
-    claimReferralRewards: (asset: Address, receiver: Address) =>
-      write.writeContractAsync({
-        chainId: 5042002,
-        address: EARN_REFERRAL_CONTROLLER_ADDRESS,
-        abi: referralAbi,
-        functionName: "claimRewards",
-        args: [asset, receiver],
-      }).then(resultHash),
-    claimReferralPoints: () =>
-      write.writeContractAsync({
-        chainId: 5042002,
-        address: EARN_REFERRAL_CONTROLLER_ADDRESS,
-        abi: referralAbi,
-        functionName: "claimPoints",
       }).then(resultHash),
     withdraw: (vault: Address, assets: bigint, receiver: Address, owner: Address) =>
       write.writeContractAsync({

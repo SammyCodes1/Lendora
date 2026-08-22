@@ -19,7 +19,6 @@ const A = {
   domainMarketplace: "0x633DE668C618E68878567Aa6D11a8289b4F398e5",
   usdcVault: "0xAA127DEB9c3f72f8D5364B49458f6b14F0540D5b",
   eurcVault: "0x57FA5403192657ed5B950C1CD4F06f361F38B14A",
-  referralController: "0xc9D5aD567a2ca40697161823eFC49Fef193A25EC",
 };
 
 const BLOCKS = {
@@ -52,7 +51,6 @@ async function main() {
   const primary: any = await ethers.getContractAt("MockPriceOracle", A.priceOracle);
   const fallback: any = await ethers.getContractAt("MockPriceOracle", A.fallbackPriceOracle);
   const positionNft: any = await ethers.getContractAt("PositionNFT", A.positionNft);
-  const controller: any = await ethers.getContractAt("EarnReferralController", A.referralController);
 
   if ((await pool.fallbackPriceOracle()) !== ethers.getAddress(A.fallbackPriceOracle)) throw new Error("Fallback oracle mismatch");
   if ((await pool.supplyCaps(ARC_TESTNET_ADDRESSES.USDC)) !== 1_000_000n * 10n ** 6n) throw new Error("USDC supply cap mismatch");
@@ -63,21 +61,6 @@ async function main() {
   if ((await fallback.maxPriceAge()) !== 604_800n) throw new Error("Fallback oracle age mismatch");
   if ((await provider.getLendingPool()) !== ethers.getAddress(A.lendingPool)) throw new Error("Provider pool mismatch");
   if ((await positionNft.minter()) !== ethers.getAddress(A.positionManager)) throw new Error("Position minter mismatch");
-
-  for (const [vault, asset] of [
-    [A.usdcVault, ARC_TESTNET_ADDRESSES.USDC],
-    [A.eurcVault, ARC_TESTNET_ADDRESSES.EURC],
-  ]) {
-    const config = await controller.vaultConfigs(vault);
-    if (!config.enabled) {
-      await (await controller.configureVault(vault, asset, true)).wait();
-    }
-  }
-
-  const referralTx = await ethers.provider.getTransactionReceipt(
-    "0x7229a0dc022057d863b9a886428b5ad88aa8f4c21ab58d0ce4bd06160c24899f",
-  );
-  if (!referralTx) throw new Error("Referral deployment receipt unavailable");
 
   const deployment = {
     chainId: 5_042_002,
@@ -106,8 +89,6 @@ async function main() {
     domainMarketplaceDeploymentBlock: BLOCKS.domainMarketplace,
     earnVaults: { USDC: A.usdcVault, EURC: A.eurcVault },
     earnVaultDeploymentBlock: BLOCKS.earnVault,
-    EarnReferralController: A.referralController,
-    earnReferralControllerDeploymentBlock: referralTx.blockNumber,
     artifactRuntimeHashes: {
       LendingPool: await runtimeHash("LendingPool"),
       MockPriceOracle: await runtimeHash("MockPriceOracle"),

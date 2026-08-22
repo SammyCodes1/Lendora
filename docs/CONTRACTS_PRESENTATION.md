@@ -10,7 +10,7 @@
 - Liquidators can repay unhealthy debt and receive discounted collateral.
 
 Speaker note:
-Lendora behaves like a compact Aave-style money market. The core pool owns accounting and risk checks, while helper contracts add receipts, vaults, referrals, and wallet domains around it.
+Lendora behaves like a compact Aave-style money market. The core pool owns accounting and risk checks, while helper contracts add receipts, vaults, and wallet domains around it.
 
 ## Slide 2: Contract Map
 
@@ -31,12 +31,11 @@ Lendora behaves like a compact Aave-style money market. The core pool owns accou
 
            PositionManager -> PositionNFT
            EarnVault -> LendingPool
-           EarnReferralController -> EarnVault
            WalletDomain -> DomainMarketplace
 ```
 
 Speaker note:
-The LendingPool is the center of the system. Most other contracts either wrap pool actions, represent pool positions, or support account identity and incentives.
+The LendingPool is the center of the system. Most other contracts either wrap pool actions, represent pool positions, or support account identity.
 
 ## Slide 3: Core LendingPool Responsibilities
 
@@ -349,20 +348,6 @@ Position NFTs are not the source of truth. They are account-bound receipts that 
 Speaker note:
 EarnVault packages lending into a simpler share-based product. Users hold vault shares instead of managing pool supply positions directly.
 
-## Slide 20: Referral Controller
-
-- Registers one referrer per user.
-- Prevents self-referrals and circular referral chains.
-- Routes deposits into configured EarnVaults.
-- Tracks eligible referred deposit volume.
-- Schedules referral rewards with a 30-day holding requirement.
-- Finalizes or forfeits scheduled rewards after the lock period.
-- Awards points for earn deposits and configured activity types.
-- Activity recorders can report lend, borrow, repay, domain mint, and domain purchase activity.
-
-Speaker note:
-The controller does not replace the vault. It sits in front of the vault to route deposits and apply incentive accounting.
-
 ## Slide 21: Wallet Domains
 
 - `WalletDomain` is an ERC-721 domain registry.
@@ -402,7 +387,7 @@ The marketplace is intentionally narrow: escrow is not used. It checks approval 
 - EURC reserve asset: `0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a`.
 
 Speaker note:
-The deployment includes both USDC and EURC markets, position receipts, domains, marketplace, earn vaults, and the referral controller.
+The deployment includes both USDC and EURC markets, position receipts, domains, marketplace, and earn vaults.
 
 ## Slide 24: Risk Configuration
 
@@ -464,7 +449,6 @@ This is the core protocol loop. Everything else in the repository either improve
 - MockPriceOracle provides bounded testnet pricing.
 - PositionManager and PositionNFT turn pool activity into non-transferable receipts.
 - EarnVault turns pool supply into a share-based savings product.
-- ReferralController adds deposit routing, rewards, and points.
 - WalletDomain and DomainMarketplace add identity and secondary trading.
 
 Speaker note:

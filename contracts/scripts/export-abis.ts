@@ -15,7 +15,6 @@ const CONTRACTS = [
   "WalletDomain",
   "DomainMarketplace",
   "EarnVault",
-  "EarnReferralController",
   "RecurringOrderExecutor",
   "SwapPool",
   "SpokenPay",

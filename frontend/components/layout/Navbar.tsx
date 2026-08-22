@@ -51,7 +51,6 @@ const links: LinkItem[] = [
       { href: "/bridge", label: "Bridge" },
       { href: "/liquidate", label: "Liquidate" },
       { href: "/domains", label: "Domain Mints" },
-      { href: "/referrals", label: "Referrals", disabled: true },
     ],
   },
 ];

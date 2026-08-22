@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -13,8 +13,7 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
-import { useSearchParams } from "next/navigation";
-import { formatUnits, isAddress, type Abi, type Address, type Hash } from "viem";
+import { formatUnits, type Abi, type Address, type Hash } from "viem";
 import {
   useChainId,
   usePublicClient,
@@ -26,14 +25,11 @@ import { PageTransition } from "@/components/layout/PageTransition";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { GlassCard } from "@/components/ui/GlassCard";
-import { Skeleton } from "@/components/ui/Skeleton";
 import { StatBadge } from "@/components/ui/StatBadge";
 import { TokenInput } from "@/components/ui/TokenInput";
 import {
-  EARN_REFERRAL_CONTROLLER_ADDRESS,
   useEarnVaultAction,
   useEarnVaultMarkets,
-  type EarnReferralSummary,
   type EarnVaultMarket,
 } from "@/hooks/useEarnVaults";
 import { useLiveMarkets } from "@/hooks/useLiveMarkets";
@@ -51,7 +47,6 @@ import {
 
 type VaultMode = "deposit" | "withdraw";
 
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
 const erc20WriteAbi = erc20Abi as Abi;
 
 function iconFor(symbol: EarnVaultMarket["symbol"]) {
@@ -61,14 +56,10 @@ function iconFor(symbol: EarnVaultMarket["symbol"]) {
 function VaultCard({
   vault,
   supplyApy,
-  referral,
-  referralAddress,
   onRefresh,
 }: {
   vault: EarnVaultMarket;
   supplyApy: string;
-  referral: EarnReferralSummary;
-  referralAddress: Address;
   onRefresh: () => Promise<unknown>;
 }) {
   const [mode, setMode] = useState<VaultMode>("deposit");
@@ -80,9 +71,7 @@ function VaultCard({
   const { switchChainAsync } = useSwitchChain();
   const publicClient = usePublicClient({ chainId: 5042002 });
   const walletBalance = useUserBalance(vault.asset, vault.deployed);
-  const depositSpender = referral.deployed
-    ? EARN_REFERRAL_CONTROLLER_ADDRESS
-    : vault.vault;
+  const depositSpender = vault.vault;
   const allowanceRead = useReadContract({
     chainId: 5042002,
     address: vault.asset,
@@ -188,20 +177,12 @@ function VaultCard({
       const minShares = (expectedShares * 9_950n) / 10_000n;
       const hash =
         mode === "deposit"
-          ? referral.deployed
-            ? await vaultAction.depositWithReferral(
-                vault.vault,
-                parsedAmount,
-                address as Address,
-                referralAddress,
-                minShares,
-              )
-            : await vaultAction.deposit(
-                vault.vault,
-                parsedAmount,
-                address as Address,
-                minShares,
-              )
+          ? await vaultAction.deposit(
+              vault.vault,
+              parsedAmount,
+              address as Address,
+              minShares,
+            )
           : await vaultAction.withdraw(
               vault.vault,
               parsedAmount,
@@ -245,8 +226,6 @@ function VaultCard({
     onRefresh,
     parsedAmount,
     publicClient,
-    referral.deployed,
-    referralAddress,
     vault,
     vaultAction,
   ]);
@@ -396,18 +375,9 @@ function VaultCard({
   );
 }
 
-function EarnPageContent() {
+export default function EarnPage() {
   const earnVaults = useEarnVaultMarkets();
   const liveMarkets = useLiveMarkets();
-  const searchParams = useSearchParams();
-  const { address } = useArcLendAccount();
-  const refParam = searchParams.get("ref");
-  const referralAddress =
-    refParam &&
-    isAddress(refParam) &&
-    (!address || refParam.toLowerCase() !== address.toLowerCase())
-      ? (refParam as Address)
-      : ZERO_ADDRESS;
   const totalUserAssets = earnVaults.markets.reduce(
     (sum, vault) => sum + Number(formatUnits(vault.userAssets, 6)),
     0,
@@ -420,7 +390,7 @@ function EarnPageContent() {
         <PageHeader
           icon={<PiggyBank />}
           title="Earn"
-          description="Deposit stablecoins into Lendora-managed vault shares backed by lending yield, referral routing, and protocol rewards. Vaults re-supply into the same lending pools — withdrawals can be limited by pool utilization, and share value inherits pool / bad-debt risk."
+          description="Deposit stablecoins into Lendora-managed vault shares backed by lending yield and protocol rewards. Vaults re-supply into the same lending pools — withdrawals can be limited by pool utilization, and share value inherits pool / bad-debt risk."
           stats={[
             {
               label: "Vaults live",
@@ -498,8 +468,6 @@ function EarnPageContent() {
                   key={vault.symbol}
                   vault={vault}
                   supplyApy={liveMarket?.supplyApy ?? "0.00%"}
-                  referral={earnVaults.referral}
-                  referralAddress={referralAddress}
                   onRefresh={async () => {
                     await Promise.all([
                       earnVaults.refetch(),
@@ -513,25 +481,5 @@ function EarnPageContent() {
         </div>
       </div>
     </PageTransition>
-  );
-}
-
-export default function EarnPage() {
-  return (
-    <Suspense
-      fallback={
-        <PageTransition>
-          <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 pb-12 sm:px-6 lg:px-8">
-            <Skeleton height={132} />
-            <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
-              <Skeleton height={360} />
-              <Skeleton height={520} />
-            </div>
-          </div>
-        </PageTransition>
-      }
-    >
-      <EarnPageContent />
-    </Suspense>
   );
 }
