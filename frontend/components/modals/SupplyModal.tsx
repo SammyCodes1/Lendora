@@ -26,6 +26,11 @@ import {
   parseTokenAmount,
 } from "./modalUtils";
 import { ModalShell } from "./ModalShell";
+import {
+  clearPendingSupply,
+  readPendingSupply,
+  writePendingSupply,
+} from "@/lib/supplyFlow";
 
 type SupplyModalProps = {
   open: boolean;
@@ -46,6 +51,7 @@ export function SupplyModal({ open, market, onClose }: SupplyModalProps) {
   } = useUserPositionNFTs();
   const balance = useUserBalance(market?.address ?? "0x0000000000000000000000000000000000000000");
   const parsedAmount = useMemo(() => parseTokenAmount(amount), [amount]);
+  const marketAddress = market?.address;
   const error = approveAction.error || supplyAction.error;
   useTransactionToast({
     isSuccess: supplyAction.isSuccess,
@@ -53,13 +59,22 @@ export function SupplyModal({ open, market, onClose }: SupplyModalProps) {
     successMessage: `${market?.symbol ?? "Asset"} supplied successfully`,
   });
   useEffect(() => {
-    if (open) {
+    if (!open || !marketAddress) return;
+
+    const pending = readPendingSupply();
+    if (
+      pending &&
+      pending.marketAddress.toLowerCase() === marketAddress.toLowerCase()
+    ) {
+      setAmount(pending.amount);
+    } else {
       setAmount("");
     }
-  }, [market?.address, open]);
+  }, [marketAddress, open]);
 
   useEffect(() => {
     if (supplyAction.isSuccess) {
+      clearPendingSupply();
       void refetchPositionNFTs();
     }
   }, [refetchPositionNFTs, supplyAction.isSuccess]);
@@ -84,13 +99,20 @@ export function SupplyModal({ open, market, onClose }: SupplyModalProps) {
       <div className="mt-6 space-y-4">
         <TokenInput
           value={amount}
-          onChange={setAmount}
+          onChange={(next) => {
+            setAmount(next);
+            if (open) writePendingSupply(market.address, next);
+          }}
           tokenName={market.name}
           tokenSymbol={market.symbol}
           balance={`${balance.formatted} ${market.symbol}`}
           icon={market.symbol === "USDC" ? CircleDollarSign : Euro}
           error={Boolean(error) || exceedsSupplyCap}
-          onMax={() => setAmount(formatExactTokenAmount(balance.balance))}
+          onMax={() => {
+            const next = formatExactTokenAmount(balance.balance);
+            setAmount(next);
+            writePendingSupply(market.address, next);
+          }}
         />
 
         <div className="grid gap-2 text-sm text-white/60">

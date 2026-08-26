@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   CheckCircle2,
@@ -36,6 +36,11 @@ import { useLiveMarkets } from "@/hooks/useLiveMarkets";
 import { formatRemainingCap, formatReserveCap } from "@/lib/markets";
 import { showToast } from "@/lib/toast";
 import { AssetMark, SectionLabel } from "@/components/ui/MarketVisuals";
+import {
+  clearPendingSupply,
+  readPendingSupply,
+  writePendingSupply,
+} from "@/lib/supplyFlow";
 
 type ModalState = {
   type: "supply" | "withdraw";
@@ -334,6 +339,35 @@ export default function LendPage() {
   const publicClient = usePublicClient({ chainId: 5042002 });
   const withdrawAction = useWithdrawAction();
   const { markets, isLoading, isError, isPaused, refetch } = useLiveMarkets();
+
+  useEffect(() => {
+    const pending = readPendingSupply();
+    if (!pending || modal) return;
+
+    const market = markets.find(
+      (candidate) =>
+        candidate.address.toLowerCase() === pending.marketAddress.toLowerCase(),
+    );
+    if (market) {
+      setModal({ type: "supply", market });
+    }
+  }, [markets, modal]);
+
+  const clearModal = useCallback(() => {
+    setModal(null);
+    clearPendingSupply();
+  }, []);
+
+  const openSupply = useCallback((market: MarketAsset) => {
+    writePendingSupply(market.address, "");
+    setModal({ type: "supply", market });
+  }, []);
+
+  const openWithdraw = useCallback((market: MarketAsset) => {
+    clearPendingSupply();
+    setModal({ type: "withdraw", market });
+  }, []);
+
   const [claimingSymbol, setClaimingSymbol] = useState<
     MarketAsset["symbol"] | null
   >(null);
@@ -499,7 +533,7 @@ export default function LendPage() {
             markets={markets}
             isLoading={isLoading}
             onWithdraw={(market) =>
-              setModal({ type: "withdraw", market })
+              openWithdraw(market)
             }
             onClaim={(market) => void claimMarket(market)}
             onClaimAll={() => void claimAll()}
@@ -518,14 +552,14 @@ export default function LendPage() {
                 market={market}
                 index={index}
                 disabled={isPaused}
-                onSupply={(selected) => setModal({ type: "supply", market: selected })}
+                onSupply={openSupply}
               />
             ))}
           </div>
         </div>
 
-        <SupplyModal open={modal?.type === "supply"} market={modal?.market ?? null} onClose={() => setModal(null)} />
-        <WithdrawModal open={modal?.type === "withdraw"} market={modal?.market ?? null} onClose={() => setModal(null)} />
+        <SupplyModal open={modal?.type === "supply"} market={modal?.market ?? null} onClose={clearModal} />
+        <WithdrawModal open={modal?.type === "withdraw"} market={modal?.market ?? null} onClose={clearModal} />
       </div>
     </PageTransition>
   );

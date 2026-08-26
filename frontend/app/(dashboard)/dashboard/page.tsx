@@ -37,6 +37,11 @@ import { HealthFactorValue } from "@/components/ui/HealthFactorValue";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { AssetMark, SectionLabel, UtilizationBar } from "@/components/ui/MarketVisuals";
 import { useCircleEmailWallet } from "@/components/wallet/CircleEmailWalletProvider";
+import {
+  clearPendingSupply,
+  readPendingSupply,
+  writePendingSupply,
+} from "@/lib/supplyFlow";
 
 type ActionModal = "supply" | "borrow" | "repay" | "withdraw" | null;
 type TxEvent = {
@@ -547,10 +552,32 @@ export default function DashboardPage() {
   const [selectedMarket, setSelectedMarket] = useState<MarketAsset | null>(null);
   const { markets, isPaused, isError } = useLiveMarkets();
 
-  const closeModal = useCallback(() => setActiveModal(null), []);
+  useEffect(() => {
+    const pending = readPendingSupply();
+    if (!pending || activeModal) return;
+
+    const market = markets.find(
+      (candidate) =>
+        candidate.address.toLowerCase() === pending.marketAddress.toLowerCase(),
+    );
+    if (!market) return;
+
+    setSelectedMarket(market);
+    setActiveModal("supply");
+  }, [activeModal, markets]);
+
+  const closeModal = useCallback(() => {
+    setActiveModal(null);
+    clearPendingSupply();
+  }, []);
   const openModal = useCallback((modal: ActionModal, market: MarketAsset) => {
     if (isPaused && (modal === "supply" || modal === "borrow")) {
       return;
+    }
+    if (modal === "supply") {
+      writePendingSupply(market.address, "");
+    } else {
+      clearPendingSupply();
     }
     setSelectedMarket(market);
     setActiveModal(modal);
