@@ -272,14 +272,29 @@ function cleanMethod(transaction: ExplorerTransaction) {
   return raw.trim();
 }
 
-function labelForMethod(method: string) {
+function formatMethodName(method: string): string {
+  const cleaned = method.replace(/_/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2");
+  return cleaned
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function labelForMethod(method: string, toAddress?: string | null, direction?: "in" | "out" | "self"): string {
   const normalized = method.toLowerCase();
-  if (!normalized) return "Contract interaction";
+  if (!normalized) return "Contract Interaction";
   if (normalized.includes("approve")) return "Approval";
   if (normalized.includes("supply")) return "Supply";
   if (normalized.includes("borrow")) return "Borrow";
   if (normalized.includes("repay")) return "Repay";
-  if (normalized.includes("withdraw")) return "Withdraw";
+  if (normalized.includes("withdraw")) {
+    const toLower = toAddress?.toLowerCase();
+    const isEarn =
+      toLower &&
+      (toLower === (deployments.earnVaults?.USDC as string)?.toLowerCase() ||
+        toLower === (deployments.earnVaults?.EURC as string)?.toLowerCase());
+    return isEarn ? "Earn Withdraw" : "Withdraw";
+  }
   if (
     normalized.includes("swap") ||
     normalized.includes("exchange") ||
@@ -291,17 +306,22 @@ function labelForMethod(method: string) {
     return "Bridge";
   }
   if (normalized.includes("mint") || normalized.includes("register")) {
-    return "Domain mint";
+    return "Domain Mint";
   }
   if (normalized.includes("burn")) return "Burn";
-  if (normalized.includes("list")) return "Marketplace listing";
+  if (normalized.includes("liquidat")) return "Liquidation";
+  if (normalized.includes("multisend") || normalized.includes("sendbatch")) return "MultiSend";
+  if (normalized.includes("spoken")) return "Spoken Pay";
+  if (normalized.includes("list")) return "Marketplace Listing";
   if (normalized.includes("buy") || normalized.includes("purchase")) {
-    return "Marketplace purchase";
+    return "Marketplace Purchase";
   }
   if (normalized.includes("claim")) return "Claim";
-  if (normalized.includes("deposit")) return "Earn deposit";
-  if (normalized.includes("transfer")) return "Request Pay";
-  return method.replace(/_/g, " ");
+  if (normalized.includes("deposit")) return "Earn Deposit";
+  if (normalized === "transfer" || normalized === "transferfrom") {
+    return direction === "in" ? "Transfer Received" : "Transfer";
+  }
+  return formatMethodName(method);
 }
 
 function statusFor(transaction: ExplorerTransaction) {
@@ -378,13 +398,6 @@ export async function GET(
       seenHashes.add(txHashLower);
 
       const method = cleanMethod(transaction);
-      const isPayReq = Boolean(matchingPayReq) || (method === "transfer" && from !== addressKey);
-
-      let label = matchingPayReq ? "Request Pay" : labelForMethod(method);
-      if (label === "transfer" || label === "Transfer") {
-        label = "Request Pay";
-      }
-
       const direction: "in" | "out" | "self" =
         matchingPayReq
           ? (String(matchingPayReq.recipient).toLowerCase() === addressKey ? "in" : "out")
@@ -393,6 +406,8 @@ export async function GET(
             : from === addressKey
               ? "out"
               : "in";
+
+      const label = matchingPayReq ? "Request Pay" : labelForMethod(method, to, direction);
 
       let { amount, asset, formattedAmount } = extractTxAmount(transaction);
       let memo: string | null = null;
@@ -407,7 +422,7 @@ export async function GET(
       transactions.push({
         hash: transaction.hash,
         label,
-        method: isPayReq ? "request_pay" : method || null,
+        method: matchingPayReq ? "request_pay" : method || null,
         status: statusFor(transaction),
         direction,
         from: (matchingPayReq?.paidBy as string) ?? transaction.from?.hash ?? null,
@@ -482,11 +497,12 @@ export async function GET(
         const asset = matchingPayReq ? String(matchingPayReq.asset) : symbol;
         const formattedAmount = matchingPayReq ? `${matchingPayReq.amount} ${matchingPayReq.asset}` : `${formatted} ${symbol}`;
         const memo = typeof matchingPayReq?.memo === "string" ? matchingPayReq.memo : null;
+        const label = matchingPayReq ? "Request Pay" : isIncoming ? "Transfer Received" : "Transfer";
 
         transactions.push({
           hash: transfer.transaction_hash,
-          label: "Request Pay",
-          method: "request_pay",
+          label,
+          method: matchingPayReq ? "request_pay" : "transfer",
           status: "Success",
           direction: isIncoming ? "in" : "out",
           from: (matchingPayReq?.paidBy as string) ?? transfer.from?.hash ?? null,
