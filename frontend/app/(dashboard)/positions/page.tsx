@@ -241,7 +241,7 @@ export default function PositionsPage() {
                       </div>
                       <GlassButton
                         variant="primary"
-                        className="px-3"
+                        className="shrink-0 px-3"
                         disabled={claimingKey !== null}
                         onClick={() => void claimReceipt(claimable)}
                       >
