@@ -52,7 +52,6 @@ export async function POST(request: Request) {
     }
 
     const common = {
-      userToken,
       walletId,
       contractAddress: getAddress(contractAddress),
       // Circle requires either walletId or walletAddress + blockchain. The
@@ -61,18 +60,15 @@ export async function POST(request: Request) {
       ...(body.amount ? { amount: body.amount } : {}),
       refId: body.refId,
       idempotencyKey: crypto.randomUUID(),
-      fee: {
-        type: "level" as const,
-        config: { feeLevel: CIRCLE_WALLET_FEE_LEVEL },
-      },
+      feeLevel: CIRCLE_WALLET_FEE_LEVEL,
     };
 
     const response = hasCallData
-      ? await circleWalletClient().createUserTransactionContractExecutionChallenge({
+      ? await circleWalletClient().createUserTransactionContractExecutionChallenge(userToken, {
           ...common,
           callData: body.callData!,
         })
-      : await circleWalletClient().createUserTransactionContractExecutionChallenge({
+      : await circleWalletClient().createUserTransactionContractExecutionChallenge(userToken, {
           ...common,
           abiFunctionSignature: body.abiFunctionSignature!.trim(),
           abiParameters: body.abiParameters ?? [],
