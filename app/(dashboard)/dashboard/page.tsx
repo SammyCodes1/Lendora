@@ -51,8 +51,13 @@ type TxEvent = {
   status: string;
   direction: "in" | "out" | "self";
   to: string | null;
+  from?: string | null;
   timestamp: string | null;
   blockNumber: number | null;
+  amount?: string | null;
+  asset?: string | null;
+  formattedAmount?: string | null;
+  memo?: string | null;
 };
 
 type TransactionsResponse = {
@@ -520,19 +525,43 @@ function MyTransactions() {
                 >
                   {shortHash(event.hash)}
                 </a>
-                {event.direction === "in" ? <ArrowDownCircle className="h-4 w-4" /> : <ArrowUpCircle className="h-4 w-4" />}
+                {event.direction === "in" ? (
+                  <ArrowDownCircle className="h-4 w-4 shrink-0 text-emerald-400" />
+                ) : (
+                  <ArrowUpCircle className="h-4 w-4 shrink-0 text-white/50" />
+                )}
                 <div className="min-w-0">
-                  <span className="block truncate text-white">{event.label}</span>
+                  <span className="block truncate font-medium text-white">{event.label}</span>
                   <span className="block truncate text-xs text-white/40">
-                    {event.method ?? "contract call"} to {shortAddress(event.to)}
+                    {event.memo ? (
+                      <span className="mr-1.5 italic text-white/60">&quot;{event.memo}&quot; · </span>
+                    ) : null}
+                    {event.direction === "in" && event.from
+                      ? `from ${shortAddress(event.from)}`
+                      : `${event.method ?? "contract call"} to ${shortAddress(event.to)}`}
                   </span>
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-2 text-xs">
-                <span className="font-mono text-white/50">{formatTransactionTime(event.timestamp)}</span>
-                <span className={cn("rounded-md border px-2 py-1 font-medium", statusClass(event.status))}>
-                  {event.status}
-                </span>
+              <div className="flex shrink-0 items-center justify-between gap-3 text-xs sm:justify-end">
+                {event.formattedAmount ? (
+                  <span
+                    className={cn(
+                      "font-mono text-sm font-semibold tracking-tight",
+                      event.direction === "in"
+                        ? "text-emerald-400"
+                        : "text-white/90",
+                    )}
+                  >
+                    {event.direction === "in" ? "+" : event.direction === "out" ? "-" : ""}
+                    {event.formattedAmount}
+                  </span>
+                ) : null}
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-white/50">{formatTransactionTime(event.timestamp)}</span>
+                  <span className={cn("rounded-md border px-2 py-1 font-medium", statusClass(event.status))}>
+                    {event.status}
+                  </span>
+                </div>
               </div>
             </div>
           ))
