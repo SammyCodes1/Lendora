@@ -9,6 +9,7 @@ import {
   circleLoginErrorMessage,
   clearOAuthHash,
   clearSocialOAuthState,
+  consumeSocialOAuthReturnPath,
   googleRedirectUri,
   readSocialOAuthState,
   restoreOAuthHash,
@@ -96,8 +97,10 @@ export function CircleGoogleAuthCompleter() {
 
     const goToApp = () => {
       clearOAuthHash();
-      if (window.location.pathname === "/") {
-        routerRef.current.replace("/dashboard");
+      const returnPath = consumeSocialOAuthReturnPath();
+      const currentPath = `${window.location.pathname}${window.location.search}`;
+      if (currentPath !== returnPath) {
+        routerRef.current.replace(returnPath);
       }
     };
 

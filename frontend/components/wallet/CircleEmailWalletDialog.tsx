@@ -11,6 +11,7 @@ import {
   circleLoginErrorMessage,
   clearSocialOAuthState,
   googleRedirectUri,
+  rememberSocialOAuthReturnPath,
   isCircleOAuthReturn,
   requestCircleDeviceId,
   type SocialOAuthState,
@@ -255,6 +256,7 @@ export function CircleEmailWalletDialog({
         deviceToken: data.deviceToken,
         deviceEncryptionKey: data.deviceEncryptionKey,
       });
+      rememberSocialOAuthReturnPath();
 
       sdkRef.current?.updateConfigs({
         appSettings: { appId: circleAppId },

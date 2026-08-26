@@ -2,6 +2,7 @@ export const SOCIAL_OAUTH_STORAGE_KEY = "arclend:social-oauth";
 export const CIRCLE_SESSION_STORAGE_KEY = "arclend:circle-wallet-session";
 export const CIRCLE_PENDING_AUTH_STORAGE_KEY = "arclend:circle-pending-auth";
 export const OAUTH_HASH_STORAGE_KEY = "arclend:oauth-hash";
+export const SOCIAL_OAUTH_RETURN_PATH_STORAGE_KEY = "arclend:social-oauth-return-path";
 
 export type SocialOAuthState = {
   deviceToken: string;
@@ -68,6 +69,51 @@ export function readSocialOAuthState(): SocialOAuthState | null {
 
 export function writeSocialOAuthState(state: SocialOAuthState) {
   window.localStorage.setItem(SOCIAL_OAUTH_STORAGE_KEY, JSON.stringify(state));
+}
+
+export function rememberSocialOAuthReturnPath() {
+  if (typeof window === "undefined") return;
+
+  const returnPath = `${window.location.pathname}${window.location.search}`;
+  if (returnPath === "/") {
+    try {
+      window.sessionStorage.removeItem(SOCIAL_OAUTH_RETURN_PATH_STORAGE_KEY);
+    } catch {
+      /* ignore quota / private mode */
+    }
+    return;
+  }
+
+  try {
+    window.sessionStorage.setItem(
+      SOCIAL_OAUTH_RETURN_PATH_STORAGE_KEY,
+      returnPath,
+    );
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+export function consumeSocialOAuthReturnPath() {
+  if (typeof window === "undefined") return "/dashboard";
+
+  try {
+    const returnPath = window.sessionStorage.getItem(
+      SOCIAL_OAUTH_RETURN_PATH_STORAGE_KEY,
+    );
+    window.sessionStorage.removeItem(SOCIAL_OAUTH_RETURN_PATH_STORAGE_KEY);
+
+    if (!returnPath || !returnPath.startsWith("/") || returnPath.startsWith("//")) {
+      return "/dashboard";
+    }
+
+    const parsed = new URL(returnPath, window.location.origin);
+    return parsed.origin === window.location.origin && !parsed.hash
+      ? `${parsed.pathname}${parsed.search}`
+      : "/dashboard";
+  } catch {
+    return "/dashboard";
+  }
 }
 
 export function clearSocialOAuthState() {
