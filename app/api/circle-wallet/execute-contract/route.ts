@@ -1,7 +1,6 @@
 import { getAddress, isAddress } from "viem";
 import { NextResponse } from "next/server";
 import {
-  CIRCLE_CONTRACT_BLOCKCHAIN,
   CIRCLE_WALLET_FEE_LEVEL,
   circleErrorDetails,
   circleWalletClient,
@@ -56,7 +55,9 @@ export async function POST(request: Request) {
       userToken,
       walletId,
       contractAddress: getAddress(contractAddress),
-      blockchain: CIRCLE_CONTRACT_BLOCKCHAIN,
+      // Circle requires either walletId or walletAddress + blockchain. The
+      // Google/social-login flow supplies a walletId, so including blockchain
+      // as well makes the request invalid before it reaches the chain.
       amount: body.amount,
       refId: body.refId,
       idempotencyKey: crypto.randomUUID(),
