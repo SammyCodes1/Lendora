@@ -60,5 +60,7 @@
   "MultiSend": "0x45E30b72f121c4Fc6803620950ef933969bCB005",
   "MultiSendDeploymentBlock": 56544435,
   "SpokenPay": "0xA2bDE71c883051A47C7A1D757Cb4F3AFdF5A85d2",
-  "spokenPayDeploymentBlock": 58164159
+  "spokenPayDeploymentBlock": 58164159,
+  "ArcDrop": "0xC9297F393f4b16c023B289CE5311D8071edD071e",
+  "ArcDropDeploymentBlock": 59024870
 }

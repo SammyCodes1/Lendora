@@ -1,0 +1,116 @@
+import "server-only";
+
+import { getRedis } from "@/lib/server/redis";
+import { isAddress } from "viem";
+
+// ─── Key helpers ─────────────────────────────────────────────────────────────
+
+/** slug -> dropId */
+export function dropSlugKey(slug: string) {
+  return `arcdrop:slug:${slug}`;
+}
+
+/** wallet -> sorted set of dropIds (score = createdAt ms) */
+export function dropWalletKey(wallet: string) {
+  return `arcdrop:user:${wallet.toLowerCase()}`;
+}
+
+// ─── Slug generation ──────────────────────────────────────────────────────────
+
+const BASE62_CHARS =
+  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const SLUG_LENGTH = 8;
+const SLUG_TTL_SECONDS = 90 * 24 * 60 * 60; // 90 days
+const WALLET_INDEX_CAP = 50;
+
+function generateSlug(): string {
+  const bytes = new Uint8Array(SLUG_LENGTH);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => BASE62_CHARS[b % 62]).join("");
+}
+
+export function isValidSlug(slug: string): boolean {
+  return /^[0-9A-Za-z]{6,12}$/.test(slug);
+}
+
+// ─── Redis operations ─────────────────────────────────────────────────────────
+
+function tryGetRedis() {
+  try {
+    return getRedis();
+  } catch {
+    return null;
+  }
+}
+
+/** Store slug → dropId and index the drop under the creator's wallet. */
+export async function storeDropSlug(input: {
+  dropId: number;
+  creatorWallet: string;
+}): Promise<{ slug: string } | { error: string }> {
+  if (!isAddress(input.creatorWallet)) {
+    return { error: "Invalid creator wallet address." };
+  }
+  if (!Number.isInteger(input.dropId) || input.dropId < 1) {
+    return { error: "Invalid drop ID." };
+  }
+
+  const redis = tryGetRedis();
+  if (!redis) {
+    return { error: "Redis is unavailable — cannot create shareable link." };
+  }
+
+  // Try up to 5 times in case of slug collision (astronomically unlikely for
+  // 62^8 ≈ 218 trillion combinations, but be defensive).
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const slug = generateSlug();
+    const slugKey = dropSlugKey(slug);
+
+    // Only set if key doesn't already exist (NX = "not exists").
+    const set = await redis.set(slugKey, input.dropId, {
+      ex: SLUG_TTL_SECONDS,
+      nx: true,
+    });
+
+    if (set === null) continue; // collision, try again
+
+    // Index under the creator's wallet (sorted set, score = now ms).
+    const walletKey = dropWalletKey(input.creatorWallet);
+    await redis.zadd(walletKey, { score: Date.now(), member: String(input.dropId) });
+    // Cap the index so the wallet key doesn't grow unbounded.
+    await redis.zremrangebyrank(walletKey, 0, -(WALLET_INDEX_CAP + 1));
+    await redis.expire(walletKey, SLUG_TTL_SECONDS);
+
+    return { slug };
+  }
+
+  return { error: "Could not generate a unique slug. Please try again." };
+}
+
+/** Resolve a slug to its dropId. Returns null if not found. */
+export async function resolveDropSlug(slug: string): Promise<number | null> {
+  if (!isValidSlug(slug)) return null;
+  const redis = tryGetRedis();
+  if (!redis) return null;
+  const raw = await redis.get<number | string>(dropSlugKey(slug));
+  if (raw === null || raw === undefined) return null;
+  const id = typeof raw === "number" ? raw : parseInt(String(raw), 10);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+/** Get all dropIds created by a wallet (most recent first). */
+export async function listWalletDropIds(wallet: string): Promise<number[]> {
+  if (!isAddress(wallet)) return [];
+  const redis = tryGetRedis();
+  if (!redis) return [];
+  // zrange with REV returns highest scores first (most recently created).
+  const members = await redis.zrange<(string | number)[]>(
+    dropWalletKey(wallet),
+    0,
+    WALLET_INDEX_CAP - 1,
+    { rev: true },
+  );
+  return members
+    .map((m) => (typeof m === "number" ? m : parseInt(String(m), 10)))
+    .filter((id) => Number.isInteger(id) && id > 0);
+}

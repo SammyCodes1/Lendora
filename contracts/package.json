@@ -19,6 +19,8 @@
     "switch:pyth-oracle": "hardhat run scripts/16_switch_to_pyth_oracle.ts --network arc_testnet",
     "deploy:swap-pool": "hardhat run scripts/17_deploy_swap_pool.ts --network arc_testnet",
     "deploy:spoken-pay": "hardhat run scripts/21_deploy_spoken_pay.ts --network arc_testnet",
+    "deploy:arcdrop": "hardhat run scripts/22_deploy_arcdrop.ts --network arc_testnet",
+    "test:arcdrop": "hardhat test test/ArcDrop.test.ts",
     "relayer:spoken-pay": "npx tsx scripts/spoken_pay_relayer.ts",
     "seed:swap-pool": "hardhat run scripts/seed_swap_pool.ts --network arc_testnet",
     "relayer": "npx tsx scripts/relayer.ts",
