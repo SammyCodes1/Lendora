@@ -3,13 +3,14 @@ import {
   createPublicClient,
   fallback,
   http,
-  parseAbi,
+  type Abi,
   type Address,
 } from "viem";
 import { arcTestnet } from "viem/chains";
 import { enforceRateLimit } from "@/lib/server/rateLimit";
 import { resolveDropSlug } from "@/lib/server/arcDrop";
 import deployments from "@/constants/deployments.json";
+import arcDropJson from "@/constants/abis/ArcDrop.json";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,11 +43,9 @@ const arcClient = createPublicClient({
   ),
 });
 
-// ─── ArcDrop ABI (only the view function needed on the server) ────────────────
+// ─── ArcDrop ABI ─────────────────────────────────────────────────────────────
 
-const arcDropAbi = parseAbi([
-  "function getDropStatus(uint256 dropId) view returns (tuple(address creator, address asset, uint256 totalAmount, uint256 remainingAmount, uint8 mode, uint256 maxClaimants, uint256 claimantsCount, uint256 perClaimAmount, bool active, uint256 createdAt, uint256 expiresAt))",
-]);
+const arcDropAbi = arcDropJson as Abi;
 
 const arcDropAddress = (deployments as Record<string, unknown>).ArcDrop as
   | Address
