@@ -56,6 +56,63 @@ export function parseDropAmount(value: string): bigint | null {
 
 export const ARCSCAN_TX_BASE = "https://testnet.arcscan.app/tx/";
 
+/** Hosts that serve the same Lendrop app and share Redis slugs. */
+export const DROP_SHARE_ORIGINS = [
+  "https://www.arclend.cv",
+  "https://lendora-alpha.vercel.app",
+] as const;
+
+export function dropPath(slug: string) {
+  return `/drop/${encodeURIComponent(slug)}`;
+}
+
+export function dropUrlOnOrigin(origin: string, slug: string) {
+  return `${origin.replace(/\/$/, "")}${dropPath(slug)}`;
+}
+
+export function allDropShareUrls(slug: string) {
+  return DROP_SHARE_ORIGINS.map((origin) => dropUrlOnOrigin(origin, slug));
+}
+
+export function clientDropUrl(slug: string) {
+  if (typeof window !== "undefined") {
+    return dropUrlOnOrigin(window.location.origin, slug);
+  }
+  return dropUrlOnOrigin(DROP_SHARE_ORIGINS[0], slug);
+}
+
+function originFromHost(hostHeader: string | null | undefined): string | null {
+  if (!hostHeader) return null;
+  const host = hostHeader.split(",")[0]!.trim().toLowerCase();
+  const hostname = host.replace(/:\d+$/, "");
+  if (hostname === "www.arclend.cv" || hostname === "arclend.cv") {
+    return "https://www.arclend.cv";
+  }
+  if (hostname === "lendora-alpha.vercel.app") {
+    return "https://lendora-alpha.vercel.app";
+  }
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    return `http://${host}`;
+  }
+  return null;
+}
+
+/** Prefer the host the user is on so copied links match that domain. */
+export function dropOriginFromRequest(request: Request): string {
+  const originHeader = request.headers.get("origin");
+  if (originHeader) {
+    try {
+      const mapped = originFromHost(new URL(originHeader).host);
+      if (mapped) return mapped;
+    } catch {
+      // ignore invalid Origin
+    }
+  }
+  const forwarded =
+    request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  return originFromHost(forwarded) ?? DROP_SHARE_ORIGINS[0];
+}
+
 export function effectiveDropStatus(drop: ApiDrop["drop"]): DropStatus {
   if (!drop.active) {
     // Distinguish cancelled vs fully-claimed by checking remainingAmount.
