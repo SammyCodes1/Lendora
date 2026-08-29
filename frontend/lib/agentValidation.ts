@@ -16,6 +16,7 @@
  * 14. Block domain burns unless the connected wallet owns the unlisted domain.
  * 15. Block yield claims unless live reserve indexes show positive pending supply interest.
  * 16. Block spoken recurring payments unless the recipient resolves, the interval is at least 15 minutes, health floor is >= 1.10, live HF is currently above that floor, and yield-only plans have an active supply position.
+ * 17. Block Lendrop creates unless the asset is live USDC/EURC, the wallet holds the full amount, equal-split amounts divide evenly across 1–10000 claimants, and expiry is 0 or at most 90 days.
  *
  * This module is the single server-side safety boundary between natural-language
  * interpretation and a confirmable wallet transaction. A false result is final.
@@ -48,9 +49,16 @@ import {
 import type {
   AgentAction,
   AgentValidationResult,
+  CreateLendropParams,
   LendingAsset,
+  LendropMode,
   SchedulePaymentParams,
 } from "@/lib/agentTypes";
+import {
+  DEFAULT_LENDROP_EXPIRY_SECONDS,
+  MAX_LENDROP_CLAIMANTS,
+  MAX_LENDROP_EXPIRY_SECONDS,
+} from "@/lib/arcDrop";
 import {
   healthFactorToWad,
   MIN_PAYMENT_INTERVAL_SECONDS,
@@ -151,6 +159,9 @@ const walletDomainAddress = deployments.WalletDomain as Address;
 const spokenPayAddress = (
   deployments as typeof deployments & { SpokenPay?: Address }
 ).SpokenPay;
+const arcDropAddress = (
+  deployments as typeof deployments & { ArcDrop?: Address }
+).ArcDrop;
 const domainMarketplaceAddress = (
   deployments as typeof deployments & { DomainMarketplace?: Address }
 ).DomainMarketplace;
@@ -226,6 +237,28 @@ function parseAmount(value: unknown, decimals = 6) {
   } catch {
     return null;
   }
+}
+
+function normalizeLendropMode(value: unknown): LendropMode | null {
+  if (value === 0 || value === "0") return "EQUAL_SPLIT";
+  if (value === 1 || value === "1") return "CLAIM_ALL";
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toUpperCase().replace(/[\s-]+/g, "_");
+  if (
+    normalized === "EQUAL_SPLIT" ||
+    normalized === "EQUAL" ||
+    normalized === "SPLIT"
+  ) {
+    return "EQUAL_SPLIT";
+  }
+  if (
+    normalized === "CLAIM_ALL" ||
+    normalized === "CLAIMALL" ||
+    normalized === "ALL"
+  ) {
+    return "CLAIM_ALL";
+  }
+  return null;
 }
 
 function isSwapToken(
@@ -1031,6 +1064,115 @@ export async function validateAgentAction(
                 }
               : {}),
           } as AgentAction["params"],
+        },
+        walletAddress: wallet,
+        validatedAt: Date.now(),
+      };
+    }
+
+    if (action.tool === "createLendrop") {
+      if (!arcDropAddress || arcDropAddress === ZERO_ADDRESS) {
+        return hardBlock(walletKey, "Lendrop is not live on this deployment yet.");
+      }
+      if (params.asset !== "USDC" && params.asset !== "EURC") {
+        return hardBlock(
+          walletKey,
+          `${supportedName(params.asset)} isn't supported for Lendrop. Use USDC or EURC.`,
+        );
+      }
+      const asset = params.asset as LendingAsset;
+      const amount = parseAmount(params.amount);
+      if (amount === null) {
+        return hardBlock(walletKey, "That amount isn't valid.");
+      }
+      const mode = normalizeLendropMode(params.mode);
+      if (!mode) {
+        return hardBlock(
+          walletKey,
+          "Tell me whether this Lendrop should be equal split or claim all.",
+        );
+      }
+
+      let maxClaimants = 1;
+      if (mode === "EQUAL_SPLIT") {
+        const rawClaimants =
+          typeof params.maxClaimants === "number"
+            ? params.maxClaimants
+            : typeof params.maxClaimants === "string"
+              ? Number(params.maxClaimants)
+              : NaN;
+        if (
+          !Number.isInteger(rawClaimants) ||
+          rawClaimants < 1 ||
+          rawClaimants > MAX_LENDROP_CLAIMANTS
+        ) {
+          return hardBlock(
+            walletKey,
+            "Equal split needs a whole number of claimants between 1 and 10000.",
+          );
+        }
+        maxClaimants = rawClaimants;
+        if (amount % BigInt(maxClaimants) !== 0n) {
+          return hardBlock(
+            walletKey,
+            `${String(params.amount)} ${asset} doesn't divide evenly across ${maxClaimants} claimants.`,
+          );
+        }
+      }
+
+      const rawExpiry =
+        params.expirySeconds === undefined || params.expirySeconds === ""
+          ? DEFAULT_LENDROP_EXPIRY_SECONDS
+          : typeof params.expirySeconds === "number"
+            ? params.expirySeconds
+            : typeof params.expirySeconds === "string"
+              ? Number(params.expirySeconds)
+              : NaN;
+      if (
+        !Number.isInteger(rawExpiry) ||
+        rawExpiry < 0 ||
+        rawExpiry > MAX_LENDROP_EXPIRY_SECONDS
+      ) {
+        return hardBlock(
+          walletKey,
+          "Lendrop expiry must be never, or at most 90 days.",
+        );
+      }
+
+      let walletBalance: bigint;
+      try {
+        walletBalance = await arcClient.readContract({
+          address: configuredReserves[asset].asset,
+          abi: erc20Abi,
+          functionName: "balanceOf",
+          args: [wallet],
+        });
+      } catch {
+        return invalidContext(walletKey);
+      }
+      if (amount > walletBalance) {
+        return hardBlock(
+          walletKey,
+          `You only have ${formatUnits(walletBalance, 6)} ${asset} available to share.`,
+        );
+      }
+
+      const dropParams: CreateLendropParams = {
+        asset,
+        amount: String(params.amount),
+        mode,
+        maxClaimants: String(maxClaimants),
+        expirySeconds: String(rawExpiry),
+      };
+      if (mode === "EQUAL_SPLIT") {
+        dropParams.perClaimAmount = formatUnits(amount / BigInt(maxClaimants), 6);
+      }
+
+      return {
+        valid: true,
+        action: {
+          ...action,
+          params: dropParams,
         },
         walletAddress: wallet,
         validatedAt: Date.now(),

@@ -6,6 +6,7 @@ import {
   ArrowLeftRight,
   ArrowUpCircle,
   Coins,
+  Gift,
   Loader2,
   RefreshCw,
   RotateCcw,
@@ -19,9 +20,11 @@ import {
   erc20Abi,
   formatUnits,
   parseAbi,
+  parseEventLogs,
   parseUnits,
   toFunctionSelector,
   toHex,
+  type Abi,
   type Address,
   type Hash,
 } from "viem";
@@ -70,6 +73,14 @@ import {
 } from "@/hooks/useArcLendContractWrite";
 import { announcePrimaryDomainChanged } from "@/lib/domainEvents";
 import deployments from "@/constants/deployments.json";
+import arcDropJson from "@/constants/abis/ArcDrop.json";
+import {
+  DROP_MODE_CLAIM_ALL,
+  DROP_MODE_EQUAL_SPLIT,
+  clientDropUrl,
+  formatLendropExpiry,
+  prependSavedLendrop,
+} from "@/lib/arcDrop";
 
 type ActionConfirmCardProps = {
   validatedAction: ValidatedAgentAction;
@@ -122,6 +133,10 @@ const DOMAIN_MARKETPLACE_ADDRESS = (
 const SPOKEN_PAY_ADDRESS = (
   deployments as typeof deployments & { SpokenPay?: Address }
 ).SpokenPay;
+const ARCDROP_ADDRESS = (
+  deployments as typeof deployments & { ArcDrop?: Address }
+).ArcDrop;
+const ARCDROP_ABI = arcDropJson as Abi;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const walletDomainAbi = parseAbi([
   "function approve(address to,uint256 tokenId) external",
@@ -167,6 +182,7 @@ function actionIcon(tool: AgentAction["tool"]) {
   if (tool === "repay") return RotateCcw;
   if (tool === "bridge") return ArrowLeftRight;
   if (tool === "sendToken") return SendHorizontal;
+  if (tool === "createLendrop") return Gift;
   if (tool === "schedulePayment") return CalendarClock;
   if (tool === "mintDomain") return Sparkles;
   if (tool === "burnDomain") return RefreshCw;
@@ -492,6 +508,39 @@ export function ActionConfirmCard({
           ],
           detail:
             "The connected wallet will send this exact token amount directly to the displayed Arc Testnet address. Verify the full address before signing.",
+        });
+        return;
+      }
+
+      if (action.tool === "createLendrop") {
+        const asset = String(params.asset);
+        const amount = String(params.amount);
+        const isClaimAll = params.mode === "CLAIM_ALL";
+        const claimants = String(params.maxClaimants ?? "1");
+        const perClaim = params.perClaimAmount
+          ? String(params.perClaimAmount)
+          : null;
+        const expiry = formatLendropExpiry(
+          Number(params.expirySeconds ?? "0"),
+        );
+        setReview({
+          eyebrow: "Lendrop review",
+          title: `Share ${amount} ${asset}`,
+          amountLabel: "Total locked",
+          amount: `${amount} ${asset}`,
+          receiveLabel: isClaimAll ? "First claimer" : "Each claim",
+          receiveAmount: isClaimAll
+            ? `All ${amount} ${asset}`
+            : `${perClaim ?? amount} ${asset} × ${claimants}`,
+          route: [
+            `${asset} wallet`,
+            "Approve Lendrop",
+            "createDrop",
+            "Shareable link",
+          ],
+          detail: isClaimAll
+            ? `You'll lock ${amount} ${asset} in Lendrop. The first wallet to open the link claims the full amount. Expires: ${expiry}.`
+            : `You'll lock ${amount} ${asset} in Lendrop, split equally across ${claimants} claimants (${perClaim ?? "even"} ${asset} each). Expires: ${expiry}.`,
         });
         return;
       }
@@ -889,6 +938,106 @@ export function ActionConfirmCard({
             0,
             Math.round(performance.now() - submittedAt),
           ),
+        });
+        return;
+      }
+
+      if (action.tool === "createLendrop") {
+        if (!publicClient) {
+          throw new Error("Arc client unavailable");
+        }
+        if (!ARCDROP_ADDRESS) {
+          throw new Error("Lendrop is not deployed");
+        }
+        const asset = String(params.asset) as "USDC" | "EURC";
+        const token = ARC_DEX_TOKENS[asset];
+        const amount = parseUnits(String(params.amount), 6);
+        const mode =
+          params.mode === "CLAIM_ALL"
+            ? DROP_MODE_CLAIM_ALL
+            : DROP_MODE_EQUAL_SPLIT;
+        const maxClaimants = BigInt(String(params.maxClaimants ?? "1"));
+        const expirySeconds = BigInt(String(params.expirySeconds ?? "0"));
+        const submittedAt = performance.now();
+        await ensureAllowance(token.address, amount, ARCDROP_ADDRESS);
+        const hash = await submitContract({
+          chainId: 5042002,
+          address: ARCDROP_ADDRESS,
+          abi: ARCDROP_ABI,
+          functionName: "createDrop",
+          args: [
+            token.address,
+            amount,
+            mode,
+            maxClaimants,
+            expirySeconds,
+          ],
+        });
+        if (!hash) {
+          throw new Error("Lendrop was submitted without a transaction hash");
+        }
+        const txReceipt = await publicClient.waitForTransactionReceipt({
+          hash,
+        });
+        const createdLogs = parseEventLogs({
+          abi: ARCDROP_ABI,
+          eventName: "DropCreated",
+          logs: txReceipt.logs,
+        });
+        const dropId =
+          createdLogs.length > 0
+            ? Number(
+                (createdLogs[0] as { args: { dropId: bigint } }).args.dropId,
+              )
+            : null;
+        let shareUrl: string | undefined;
+        if (dropId) {
+          try {
+            const linkResp = await fetch("/api/drop/create-link", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ dropId, creatorWallet: address }),
+            });
+            const linkBody = (await linkResp.json()) as {
+              slug?: string;
+              error?: string;
+            };
+            if (linkResp.ok && linkBody.slug) {
+              shareUrl = clientDropUrl(linkBody.slug);
+              const now = Math.floor(Date.now() / 1000);
+              const expiry = Number(params.expirySeconds ?? "0");
+              prependSavedLendrop({
+                dropId,
+                slug: linkBody.slug,
+                url: shareUrl,
+                asset,
+                totalAmount: amount.toString(),
+                mode,
+                maxClaimants: Number(maxClaimants),
+                expiresAt: expiry > 0 ? now + expiry : 0,
+                createdAt: now,
+                active: true,
+                claimantsCount: 0,
+                remainingAmount: amount.toString(),
+              });
+            }
+          } catch {
+            // Drop is on-chain; the share link is best-effort.
+          }
+        }
+        setReceipt({
+          ...review,
+          title: `${params.amount} ${asset} Lendrop created`,
+          receiveLabel: shareUrl ? "Share link" : "Drop",
+          receiveAmount:
+            shareUrl ?? (dropId ? `Drop #${dropId}` : "On-chain drop created"),
+          transactionHash: hash,
+          explorerUrl: `https://testnet.arcscan.app/tx/${hash}`,
+          finalityMs: Math.max(
+            0,
+            Math.round(performance.now() - submittedAt),
+          ),
+          shareUrl,
         });
         return;
       }

@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
+  Check,
   CheckCircle2,
   Clock3,
+  Copy,
   ExternalLink,
   Sparkles,
 } from "lucide-react";
@@ -16,6 +19,7 @@ export function AgentTransactionReceiptCard({
   receipt: AgentTransactionReceipt;
 }) {
   const reduceMotion = useReducedMotion();
+  const [copied, setCopied] = useState(false);
 
   return (
     <motion.div
@@ -124,6 +128,29 @@ export function AgentTransactionReceiptCard({
           </div>
         ))}
       </div>
+
+      {receipt.shareUrl ? (
+        <div className="relative mt-3 rounded-xl border border-emerald-200/15 bg-emerald-200/[0.05] p-2.5">
+          <p className="text-[9px] uppercase tracking-wider text-white/30">
+            Shareable Lendrop link
+          </p>
+          <p className="mt-1 break-all font-mono text-[10px] leading-4 text-white/80">
+            {receipt.shareUrl}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              void navigator.clipboard.writeText(receipt.shareUrl!);
+              setCopied(true);
+              window.setTimeout(() => setCopied(false), 1600);
+            }}
+            className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.055] px-2.5 py-1.5 text-[10px] font-medium text-white/75 transition hover:bg-white/[0.1] hover:text-white"
+          >
+            {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+            {copied ? "Copied" : "Copy link"}
+          </button>
+        </div>
+      ) : null}
 
       <div className="relative mt-3 flex items-center gap-2">
         <span className="min-w-0 flex-1 truncate font-mono text-[9px] text-white/35">

@@ -8,6 +8,8 @@ import type {
   AgentContext,
   AgentResponse,
   AgentTool,
+  CreateLendropParams,
+  LendropMode,
   SchedulePaymentParams,
 } from "@/lib/agentTypes";
 import {
@@ -22,11 +24,15 @@ import {
   parsePayAmount,
 } from "@/lib/payRequest";
 import { createStoredPayRequest } from "@/lib/server/payRequests";
+import {
+  DEFAULT_LENDROP_EXPIRY_SECONDS,
+  MAX_LENDROP_CLAIMANTS,
+} from "@/lib/arcDrop";
 
 export const runtime = "nodejs";
 
 const SYSTEM_PROMPT =
-  "You are Lendora's transaction assistant. Only call one of the defined tools - never invent new ones. For spoken recurring payments such as 'send 40 USDC to ada.lendora every Friday from my yield, keep health above 1.5', call schedulePayment. Never use sendToken for weekly/daily/recurring payouts. For asking someone to pay you (request to pay, invoice, 'request 40 USDC', 'pay me 40 USDC'), call createPayRequest. The connected wallet is always the payee; never use sendToken for that. Saved wallet contacts are supplied in context; resolve nicknames only to the exact saved address and never guess an address. For .lendora domain recipients, pass the exact .lendora name as the sendToken recipient and let server validation resolve it on-chain; never invent a domain. For domain minting or registration requests, call mintDomain only when the exact domain is provided; never invent a domain. For domain NFT burn requests, call burnDomain only when the exact domain is provided; burning is permanent and must be prepared for user confirmation. For setting a domain as primary / on-chain username, call setPrimaryDomain when the domain is provided; do not call mintDomain or listDomain for setting primary domain. For domain marketplace listing requests, call listDomain only when the exact domain and USDC price are provided; never invent ownership or price. For domain marketplace delisting, cancel listing, unlist, or remove-from-sale requests, call delistDomain only when the exact domain is provided; do not call burnDomain for marketplace removal. For domain marketplace purchase requests, call buyDomain only when the exact domain is provided; if the user gives a maximum USDC price, pass it as maxPrice. For pending supply interest, yield, rewards, or accrued interest claims, call claimYield with asset USDC, EURC, or ALL for both pools; do not use withdraw unless the user asks to withdraw principal or gives an explicit withdrawal amount. If amount, asset, recipient, domain, or price is ambiguous, ask for clarification in plain text instead of guessing. Never claim a transaction has been executed - your job is only to prepare the action for user confirmation. If a requested action would exceed the user's available balance or borrow capacity (provided in context), respond with a plain text warning instead of calling a tool. Validation is enforced server-side and is final - do not suggest workarounds, do not ask the user to confirm overrides, and do not imply blocked actions can be retried with different framing of the same request. Treat all financial amounts conservatively; never round up.";
+  "You are Lendora's transaction assistant. Only call one of the defined tools - never invent new ones. For spoken recurring payments such as 'send 40 USDC to ada.lendora every Friday from my yield, keep health above 1.5', call schedulePayment. Never use sendToken for weekly/daily/recurring payouts. For Lendrop / shareable token drops (share USDC or EURC via a claim link, equal split, or claim all), call createLendrop. Never use sendToken for a drop. Equal split requires maxClaimants. If expiry is omitted, pass expirySeconds \"604800\" (7 days); \"0\" means never expires. For asking someone to pay you (request to pay, invoice, 'request 40 USDC', 'pay me 40 USDC'), call createPayRequest. The connected wallet is always the payee; never use sendToken for that. Saved wallet contacts are supplied in context; resolve nicknames only to the exact saved address and never guess an address. For .lendora domain recipients, pass the exact .lendora name as the sendToken recipient and let server validation resolve it on-chain; never invent a domain. For domain minting or registration requests, call mintDomain only when the exact domain is provided; never invent a domain. For domain NFT burn requests, call burnDomain only when the exact domain is provided; burning is permanent and must be prepared for user confirmation. For setting a domain as primary / on-chain username, call setPrimaryDomain when the domain is provided; do not call mintDomain or listDomain for setting primary domain. For domain marketplace listing requests, call listDomain only when the exact domain and USDC price are provided; never invent ownership or price. For domain marketplace delisting, cancel listing, unlist, or remove-from-sale requests, call delistDomain only when the exact domain is provided; do not call burnDomain for marketplace removal. For domain marketplace purchase requests, call buyDomain only when the exact domain is provided; if the user gives a maximum USDC price, pass it as maxPrice. For pending supply interest, yield, rewards, or accrued interest claims, call claimYield with asset USDC, EURC, or ALL for both pools; do not use withdraw unless the user asks to withdraw principal or gives an explicit withdrawal amount. If amount, asset, recipient, domain, price, drop mode, or claimant count is ambiguous, ask for clarification in plain text instead of guessing. Never claim a transaction has been executed - your job is only to prepare the action for user confirmation. If a requested action would exceed the user's available balance or borrow capacity (provided in context), respond with a plain text warning instead of calling a tool. Validation is enforced server-side and is final - do not suggest workarounds, do not ask the user to confirm overrides, and do not imply blocked actions can be retried with different framing of the same request. Treat all financial amounts conservatively; never round up.";
 
 const OPENAI_MODEL = process.env.OPENAI_AGENT_MODEL ?? "gpt-5-nano";
 
@@ -122,6 +128,38 @@ const functionDeclarations = [
         recipientName: { type: "string", description: "Optional saved contact nickname or .lendora domain" },
       },
       required: ["asset", "amount", "recipient"],
+    },
+  },
+  {
+    name: "createLendrop",
+    description:
+      "Create a Lendrop: lock USDC or EURC into a shareable claim link. Use when the user wants to share tokens, create a drop, equal-split an amount among N people, or let the first claimer take everything (claim all). Never use sendToken for this.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        asset: { type: "string", enum: ["USDC", "EURC"] },
+        amount: {
+          type: "string",
+          description: "Total tokens to share, as a decimal string",
+        },
+        mode: {
+          type: "string",
+          enum: ["EQUAL_SPLIT", "CLAIM_ALL"],
+          description:
+            "EQUAL_SPLIT divides the total evenly across maxClaimants. CLAIM_ALL lets the first claimer take the full amount.",
+        },
+        maxClaimants: {
+          type: "string",
+          description:
+            "How many wallets can claim. Required for EQUAL_SPLIT (1-10000). Ignored for CLAIM_ALL (always 1).",
+        },
+        expirySeconds: {
+          type: "string",
+          description:
+            "Seconds until the drop expires. 0 = never. Default 604800 (7 days) if the user does not specify.",
+        },
+      },
+      required: ["asset", "amount", "mode"],
     },
   },
   {
@@ -735,6 +773,9 @@ function parseDeterministicSchedulePayment(
   contacts: AgentContext["contacts"],
   timezoneOffsetMinutes?: number,
 ): DeterministicResult | null {
+  if (isLendropIntent(message)) {
+    return null;
+  }
   if (!/\b(?:send|transfer|pay|payout)\b/i.test(message)) {
     return null;
   }
@@ -893,6 +934,174 @@ async function fulfillPayRequest(
   }
 }
 
+function isLendropIntent(message: string) {
+  if (/\b(?:lendrop|arcdrop|arc[\s-]?drop)\b/i.test(message)) {
+    return true;
+  }
+  if (
+    /\b(?:create|make|start|open|prepare|fund)\s+(?:a\s+|an\s+)?(?:shareable\s+)?(?:token\s+)?drop\b/i.test(
+      message,
+    )
+  ) {
+    return true;
+  }
+  if (
+    /\bshare\b/i.test(message) &&
+    /\b(?:USDC|EURC)\b/i.test(message) &&
+    /\b(?:equal\s*split|claim\s*all|among|between|drop)\b/i.test(message)
+  ) {
+    return true;
+  }
+  if (
+    /\bsplit\b/i.test(message) &&
+    /\b(?:USDC|EURC)\b/i.test(message) &&
+    /\b(?:among|between|across|equally|equal)\b/i.test(message)
+  ) {
+    return true;
+  }
+  if (
+    /\b(?:equal\s*split|claim\s*all)\b/i.test(message) &&
+    /\b(?:USDC|EURC)\b/i.test(message)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function parseLendropMode(message: string): LendropMode | null {
+  if (
+    /\bclaim\s*all\b/i.test(message) ||
+    /\bfirst\s+(?:person|claimer|wallet|one)\b/i.test(message) ||
+    /\bwinner\s+takes?\s+all\b/i.test(message)
+  ) {
+    return "CLAIM_ALL";
+  }
+  if (
+    /\bequal(?:ly)?\s*split\b/i.test(message) ||
+    /\bsplit\s+equal(?:ly)?\b/i.test(message) ||
+    /\bamong\s+\d+\b/i.test(message) ||
+    /\bbetween\s+\d+\b/i.test(message) ||
+    /\bacross\s+\d+\b/i.test(message)
+  ) {
+    return "EQUAL_SPLIT";
+  }
+  return null;
+}
+
+function parseLendropClaimants(message: string): number | null {
+  const among = message.match(
+    /\b(?:among|between|across|for)\s+(\d{1,5})\s*(?:people|persons|claimants|wallets|friends|users|slots)?\b/i,
+  );
+  if (among) {
+    const count = Number(among[1]);
+    return Number.isInteger(count) ? count : null;
+  }
+  const labeled = message.match(
+    /\b(\d{1,5})\s*(?:people|persons|claimants|wallets|friends|users|slots)\b/i,
+  );
+  if (labeled) {
+    const count = Number(labeled[1]);
+    return Number.isInteger(count) ? count : null;
+  }
+  return null;
+}
+
+function parseLendropExpirySeconds(message: string): string {
+  if (/\b(?:never|no expiry|doesn'?t expire|without expir)\b/i.test(message)) {
+    return "0";
+  }
+  if (/\b(?:a|one|1)\s+day\b/i.test(message) || /\b24\s*hours?\b/i.test(message)) {
+    return String(24 * 60 * 60);
+  }
+  if (/\b(?:a|one|1)\s+week\b/i.test(message) || /\b7\s*days?\b/i.test(message)) {
+    return String(7 * 24 * 60 * 60);
+  }
+  if (
+    /\b(?:a|one|1)\s+month\b/i.test(message) ||
+    /\b30\s*days?\b/i.test(message)
+  ) {
+    return String(30 * 24 * 60 * 60);
+  }
+  const hours = message.match(/\b(\d+)\s*hours?\b/i);
+  if (hours) {
+    return String(Number(hours[1]) * 3600);
+  }
+  const days = message.match(/\b(\d+)\s*days?\b/i);
+  if (days) {
+    return String(Number(days[1]) * 86400);
+  }
+  const weeks = message.match(/\b(\d+)\s*weeks?\b/i);
+  if (weeks) {
+    return String(Number(weeks[1]) * 7 * 86400);
+  }
+  return String(DEFAULT_LENDROP_EXPIRY_SECONDS);
+}
+
+function parseDeterministicLendrop(message: string): DeterministicResult | null {
+  if (!isLendropIntent(message)) {
+    return null;
+  }
+  if (parseSpokenCadence(message)) {
+    return null;
+  }
+  if (isPayRequestIntent(message) && !/\b(?:lendrop|arcdrop|drop)\b/i.test(message)) {
+    return null;
+  }
+
+  const amountTokenMatch = message.match(/\b(\d+(?:\.\d+)?)\s*(USDC|EURC)\b/i);
+  if (!amountTokenMatch) {
+    return {
+      type: "message",
+      text: "How much USDC or EURC should this Lendrop share?",
+    };
+  }
+
+  const mode = parseLendropMode(message);
+  if (!mode) {
+    return {
+      type: "message",
+      text: "Should this Lendrop be equal split or claim all?",
+    };
+  }
+
+  const claimants = parseLendropClaimants(message);
+  if (mode === "EQUAL_SPLIT" && claimants === null) {
+    return {
+      type: "message",
+      text: "How many people should split this Lendrop equally?",
+    };
+  }
+  if (
+    mode === "EQUAL_SPLIT" &&
+    (claimants === null ||
+      claimants < 1 ||
+      claimants > MAX_LENDROP_CLAIMANTS)
+  ) {
+    return {
+      type: "message",
+      text: "Equal split needs a whole number of claimants between 1 and 10000.",
+    };
+  }
+
+  const params: CreateLendropParams = {
+    asset: amountTokenMatch[2].toUpperCase() === "EURC" ? "EURC" : "USDC",
+    amount: amountTokenMatch[1],
+    mode,
+    maxClaimants: mode === "CLAIM_ALL" ? "1" : String(claimants ?? 1),
+    expirySeconds: parseLendropExpirySeconds(message),
+  };
+
+  return {
+    type: "action",
+    action: {
+      type: "action",
+      tool: "createLendrop",
+      params,
+      explanation: summarizeAction("createLendrop", params),
+    },
+  };
+}
+
 function parseDeterministicSend(
   message: string,
   contacts: AgentContext["contacts"],
@@ -901,6 +1110,9 @@ function parseDeterministicSend(
     return null;
   }
   if (isPayRequestIntent(message)) {
+    return null;
+  }
+  if (isLendropIntent(message)) {
     return null;
   }
   if (!/\b(?:send|transfer|pay)\b/i.test(message)) {
@@ -1152,7 +1364,8 @@ function isAgentTool(value: string): value is AgentTool {
     value === "checkHealthFactor" ||
     value === "checkBalance" ||
     value === "getMarketRates" ||
-    value === "schedulePayment"
+    value === "schedulePayment" ||
+    value === "createLendrop"
   );
 }
 
@@ -1180,6 +1393,10 @@ function summarizeAction(tool: AgentTool, rawParams: object): string {
       return `I'll prepare a swap from ${String(params.tokenIn ?? "the input token")} to ${String(params.tokenOut ?? "the output token")} for ${String(params.amountIn ?? "the requested amount")}.`;
     case "sendToken":
       return `I'll prepare a transfer of ${String(params.amount ?? "the requested amount")} ${String(params.asset ?? "token")} to ${String(params.recipientName ?? params.recipient ?? "the recipient")}.`;
+    case "createLendrop":
+      return params.mode === "CLAIM_ALL"
+        ? `I'll prepare a Lendrop of ${String(params.amount ?? "the requested amount")} ${String(params.asset ?? "token")} where the first claimer takes everything.`
+        : `I'll prepare a Lendrop of ${String(params.amount ?? "the requested amount")} ${String(params.asset ?? "token")} split equally across ${String(params.maxClaimants ?? "the requested number of")} claimants.`;
     case "schedulePayment":
       return `I'll prepare a spoken payment of ${String(params.amount ?? "the requested amount")} ${String(params.asset ?? "USDC")} to ${String(params.recipientName ?? params.recipient ?? "the recipient")} ${String(params.cadence ?? "on a schedule")}, ${params.fromYield ? "from claimed yield" : "from your wallet"}, and skip any run if health factor would fall below ${String(params.minHealthFactor ?? "1.10")}.`;
     case "bridge":
@@ -1534,6 +1751,32 @@ export async function POST(request: Request) {
     if (deterministicYieldClaim?.type === "action") {
       const validation = await validateAgentAction(
         deterministicYieldClaim.action,
+        {
+          walletAddress: body.context.walletAddress,
+          timezoneOffsetMinutes: body.context.timezoneOffsetMinutes,
+        },
+      );
+      if (!validation.valid) {
+        return NextResponse.json({
+          type: "message",
+          text: validation.reason,
+        } satisfies AgentResponse);
+      }
+      return NextResponse.json({
+        type: "action",
+        validated: validation,
+      } satisfies AgentResponse);
+    }
+
+    const deterministicLendrop = parseDeterministicLendrop(body.message.trim());
+    if (deterministicLendrop?.type === "message") {
+      return NextResponse.json(
+        deterministicLendrop satisfies AgentResponse,
+      );
+    }
+    if (deterministicLendrop?.type === "action") {
+      const validation = await validateAgentAction(
+        deterministicLendrop.action,
         {
           walletAddress: body.context.walletAddress,
           timezoneOffsetMinutes: body.context.timezoneOffsetMinutes,

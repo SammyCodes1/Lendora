@@ -26,7 +26,7 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { AssetMark, SectionLabel } from "@/components/ui/MarketVisuals";
 import { showToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
-import { ARCSCAN_TX_BASE, DROP_EXPIRY_OPTIONS, DROP_MODE_CLAIM_ALL, DROP_MODE_EQUAL_SPLIT, allDropShareUrls, clientDropUrl, formatDropAmount, parseDropAmount, type DropAsset, type DropClaim, type DropMode } from "@/lib/arcDrop";
+import { ARCSCAN_TX_BASE, DROP_EXPIRY_OPTIONS, DROP_MODE_CLAIM_ALL, DROP_MODE_EQUAL_SPLIT, allDropShareUrls, clientDropUrl, formatDropAmount, parseDropAmount, readSavedLendrops, writeSavedLendrops, type DropAsset, type DropClaim, type DropMode, type SavedLendrop } from "@/lib/arcDrop";
 import { DropClaimants } from "@/components/features/DropClaimants";
 import { ARC_TESTNET_CONTRACTS } from "@/constants/contracts";
 import deployments from "@/constants/deployments.json";
@@ -49,41 +49,7 @@ const ASSET_ADDRESSES: Record<DropAsset, `0x${string}`> = {
   EURC: ARC_TESTNET_CONTRACTS.EURC as `0x${string}`,
 };
 
-const STORAGE_KEY = "lendora:arcdrop:my-drops";
-
-// ─── Local storage shape ─────────────────────────────────────────────────────
-
-type SavedDrop = {
-  dropId: number;
-  slug: string;
-  url: string;
-  asset: DropAsset;
-  totalAmount: string; // bigint string
-  mode: DropMode;
-  maxClaimants: number;
-  expiresAt: number; // unix seconds (0 = never)
-  createdAt: number; // unix seconds
-  // Fetched live from chain
-  remainingAmount?: string;
-  claimantsCount?: number;
-  active?: boolean;
-};
-
-function readSaved(): SavedDrop[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as SavedDrop[];
-    return Array.isArray(parsed) ? parsed.slice(0, 50) : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeSaved(rows: SavedDrop[]) {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(rows.slice(0, 50)));
-}
+type SavedDrop = SavedLendrop;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -203,7 +169,7 @@ export default function ArcDropPage() {
   >({});
 
   useEffect(() => {
-    setMyDrops(readSaved());
+    setMyDrops(readSavedLendrops());
   }, []);
 
   // ── Derived: per-claim amount preview ──────────────────────────────────
@@ -361,7 +327,7 @@ export default function ArcDropPage() {
 
       setMyDrops((prev) => {
         const next = [savedDrop, ...prev.filter((d) => d.dropId !== dropId)];
-        writeSaved(next);
+        writeSavedLendrops(next);
         return next;
       });
 
@@ -423,7 +389,7 @@ export default function ArcDropPage() {
         const next = prev.map((d) =>
           d.dropId === drop.dropId ? { ...d, active: false } : d,
         );
-        writeSaved(next);
+        writeSavedLendrops(next);
         return next;
       });
       showToast("success", "Drop cancelled — remaining funds returned to your wallet.");
@@ -452,7 +418,7 @@ export default function ArcDropPage() {
             ? { ...d, active: false, remainingAmount: "0" }
             : d,
         );
-        writeSaved(next);
+        writeSavedLendrops(next);
         return next;
       });
       showToast("success", "Expired funds reclaimed.");

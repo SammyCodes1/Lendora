@@ -157,3 +157,68 @@ export const DROP_EXPIRY_OPTIONS = [
   { label: "30 days", seconds: 30 * 24 * 60 * 60 },
   { label: "Never", seconds: 0 },
 ] as const;
+
+export const LENDROP_MY_DROPS_KEY = "lendora:arcdrop:my-drops";
+export const LENDROP_MY_DROPS_CAP = 50;
+export const DEFAULT_LENDROP_EXPIRY_SECONDS = 7 * 24 * 60 * 60;
+export const MAX_LENDROP_EXPIRY_SECONDS = 90 * 24 * 60 * 60;
+export const MAX_LENDROP_CLAIMANTS = 10_000;
+
+export type SavedLendrop = {
+  dropId: number;
+  slug: string;
+  url: string;
+  asset: DropAsset;
+  totalAmount: string;
+  mode: DropMode;
+  maxClaimants: number;
+  expiresAt: number;
+  createdAt: number;
+  remainingAmount?: string;
+  claimantsCount?: number;
+  active?: boolean;
+};
+
+export function readSavedLendrops(): SavedLendrop[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(LENDROP_MY_DROPS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as SavedLendrop[];
+    return Array.isArray(parsed) ? parsed.slice(0, LENDROP_MY_DROPS_CAP) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function writeSavedLendrops(rows: SavedLendrop[]) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(
+    LENDROP_MY_DROPS_KEY,
+    JSON.stringify(rows.slice(0, LENDROP_MY_DROPS_CAP)),
+  );
+}
+
+export function prependSavedLendrop(drop: SavedLendrop) {
+  const next = [
+    drop,
+    ...readSavedLendrops().filter((row) => row.dropId !== drop.dropId),
+  ];
+  writeSavedLendrops(next);
+  return next;
+}
+
+export function formatLendropExpiry(expirySeconds: number) {
+  if (expirySeconds <= 0) return "Never";
+  const known = DROP_EXPIRY_OPTIONS.find((option) => option.seconds === expirySeconds);
+  if (known) return known.label;
+  if (expirySeconds % (24 * 60 * 60) === 0) {
+    const days = expirySeconds / (24 * 60 * 60);
+    return `${days} day${days === 1 ? "" : "s"}`;
+  }
+  if (expirySeconds % 3600 === 0) {
+    const hours = expirySeconds / 3600;
+    return `${hours} hour${hours === 1 ? "" : "s"}`;
+  }
+  return `${expirySeconds} seconds`;
+}
