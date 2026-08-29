@@ -26,7 +26,7 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { AssetMark, SectionLabel } from "@/components/ui/MarketVisuals";
 import { showToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
-import { ARCSCAN_TX_BASE, DROP_EXPIRY_OPTIONS, DROP_MODE_CLAIM_ALL, DROP_MODE_EQUAL_SPLIT, effectiveDropStatus, formatDropAmount, parseDropAmount, type ApiDrop, type DropAsset, type DropMode } from "@/lib/arcDrop";
+import { ARCSCAN_TX_BASE, DROP_EXPIRY_OPTIONS, DROP_MODE_CLAIM_ALL, DROP_MODE_EQUAL_SPLIT, allDropShareUrls, clientDropUrl, effectiveDropStatus, formatDropAmount, parseDropAmount, type ApiDrop, type DropAsset, type DropMode } from "@/lib/arcDrop";
 import { ARC_TESTNET_CONTRACTS } from "@/constants/contracts";
 import deployments from "@/constants/deployments.json";
 import erc20Json from "@/constants/abis/ERC20.json";
@@ -332,11 +332,12 @@ export default function ArcDropPage() {
         url?: string;
         error?: string;
       };
-      if (!linkResp.ok || !linkBody.slug || !linkBody.url) {
+      if (!linkResp.ok || !linkBody.slug) {
         throw new Error(linkBody.error ?? "Could not generate shareable link.");
       }
 
-      const { slug, url } = linkBody;
+      const slug = linkBody.slug;
+      const url = clientDropUrl(slug);
       const now = Math.floor(Date.now() / 1000);
       const savedDrop: SavedDrop = {
         dropId,
@@ -654,12 +655,30 @@ export default function ArcDropPage() {
                     Drop created — share this link
                   </p>
                   <p className="mt-2 break-all font-mono text-sm text-white">
-                    {created.url}
+                    {clientDropUrl(created.slug)}
                   </p>
+                  <p className="mt-3 text-[11px] uppercase tracking-wide text-white/40">
+                    Same drop on both domains
+                  </p>
+                  <ul className="mt-1 space-y-1">
+                    {allDropShareUrls(created.slug)
+                      .filter((shareUrl) => shareUrl !== clientDropUrl(created.slug))
+                      .map((shareUrl) => (
+                        <li key={shareUrl}>
+                          <button
+                            type="button"
+                            onClick={() => void copyLink(shareUrl)}
+                            className="break-all text-left font-mono text-xs text-white/50 hover:text-white"
+                          >
+                            {shareUrl}
+                          </button>
+                        </li>
+                      ))}
+                  </ul>
                   <div className="mt-4 flex flex-wrap gap-2">
                     <GlassButton
                       variant="primary"
-                      onClick={() => void copyLink(created.url)}
+                      onClick={() => void copyLink(clientDropUrl(created.slug))}
                     >
                       {copied ? (
                         <Check className="h-4 w-4" />
@@ -763,14 +782,14 @@ export default function ArcDropPage() {
                           {drop.active !== false && (
                             <button
                               type="button"
-                              onClick={() => void copyLink(drop.url)}
+                              onClick={() => void copyLink(clientDropUrl(drop.slug))}
                               className="text-xs text-emerald-100/80 hover:text-white"
                             >
                               Copy link
                             </button>
                           )}
                           <a
-                            href={drop.url}
+                            href={clientDropUrl(drop.slug)}
                             target="_blank"
                             rel="noreferrer"
                             className="text-xs text-white/40 hover:text-white"

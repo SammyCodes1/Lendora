@@ -2,18 +2,14 @@ import { NextResponse } from "next/server";
 import { isAddress } from "viem";
 import { enforceRateLimit } from "@/lib/server/rateLimit";
 import { storeDropSlug } from "@/lib/server/arcDrop";
+import {
+  allDropShareUrls,
+  dropOriginFromRequest,
+  dropUrlOnOrigin,
+} from "@/lib/arcDrop";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function siteOrigin(): string {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    (process.env.VERCEL_PROJECT_PRODUCTION_URL
-      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-      : "https://www.arclend.cv")
-  );
-}
 
 /**
  * POST /api/drop/create-link
@@ -75,8 +71,9 @@ export async function POST(request: Request) {
     }
 
     const { slug } = result;
-    const url = `${siteOrigin()}/drop/${slug}`;
-    return NextResponse.json({ slug, url });
+    const url = dropUrlOnOrigin(dropOriginFromRequest(request), slug);
+    const urls = allDropShareUrls(slug);
+    return NextResponse.json({ slug, url, urls });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Could not create drop link.";
