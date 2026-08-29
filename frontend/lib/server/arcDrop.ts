@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { Redis } from "@upstash/redis";
 import { getRedis } from "@/lib/server/redis";
 import { isAddress } from "viem";
 
@@ -35,11 +36,14 @@ export function isValidSlug(slug: string): boolean {
 
 // ─── Redis operations ─────────────────────────────────────────────────────────
 
-function tryGetRedis() {
+function tryGetRedis(): Redis | { error: string } {
   try {
     return getRedis();
-  } catch {
-    return null;
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Redis client failed to start.";
+    console.error("[lendrop] redis init failed", error);
+    return { error: `Redis is unavailable — ${message}` };
   }
 }
 
@@ -55,33 +59,44 @@ export async function storeDropSlug(input: {
     return { error: "Invalid drop ID." };
   }
 
-  const redis = tryGetRedis();
-  if (!redis) {
-    return { error: "Redis is unavailable — cannot create shareable link." };
+  const redisOrError = tryGetRedis();
+  if ("error" in redisOrError) {
+    return redisOrError;
   }
+  const redis = redisOrError;
 
-  // Try up to 5 times in case of slug collision (astronomically unlikely for
-  // 62^8 ≈ 218 trillion combinations, but be defensive).
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const slug = generateSlug();
-    const slugKey = dropSlugKey(slug);
+  try {
+    // Try up to 5 times in case of slug collision (astronomically unlikely for
+    // 62^8 ≈ 218 trillion combinations, but be defensive).
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const slug = generateSlug();
+      const slugKey = dropSlugKey(slug);
 
-    // Only set if key doesn't already exist (NX = "not exists").
-    const set = await redis.set(slugKey, input.dropId, {
-      ex: SLUG_TTL_SECONDS,
-      nx: true,
-    });
+      // Only set if key doesn't already exist (NX = "not exists").
+      const set = await redis.set(slugKey, input.dropId, {
+        ex: SLUG_TTL_SECONDS,
+        nx: true,
+      });
 
-    if (set === null) continue; // collision, try again
+      if (set === null) continue; // collision, try again
 
-    // Index under the creator's wallet (sorted set, score = now ms).
-    const walletKey = dropWalletKey(input.creatorWallet);
-    await redis.zadd(walletKey, { score: Date.now(), member: String(input.dropId) });
-    // Cap the index so the wallet key doesn't grow unbounded.
-    await redis.zremrangebyrank(walletKey, 0, -(WALLET_INDEX_CAP + 1));
-    await redis.expire(walletKey, SLUG_TTL_SECONDS);
+      // Index under the creator's wallet (sorted set, score = now ms).
+      const walletKey = dropWalletKey(input.creatorWallet);
+      await redis.zadd(walletKey, {
+        score: Date.now(),
+        member: String(input.dropId),
+      });
+      // Cap the index so the wallet key doesn't grow unbounded.
+      await redis.zremrangebyrank(walletKey, 0, -(WALLET_INDEX_CAP + 1));
+      await redis.expire(walletKey, SLUG_TTL_SECONDS);
 
-    return { slug };
+      return { slug };
+    }
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Redis write failed.";
+    console.error("[lendrop] redis write failed", error);
+    return { error: `Redis is unavailable — ${message}` };
   }
 
   return { error: "Could not generate a unique slug. Please try again." };
@@ -90,8 +105,9 @@ export async function storeDropSlug(input: {
 /** Resolve a slug to its dropId. Returns null if not found. */
 export async function resolveDropSlug(slug: string): Promise<number | null> {
   if (!isValidSlug(slug)) return null;
-  const redis = tryGetRedis();
-  if (!redis) return null;
+  const redisOrError = tryGetRedis();
+  if ("error" in redisOrError) return null;
+  const redis = redisOrError;
   const raw = await redis.get<number | string>(dropSlugKey(slug));
   if (raw === null || raw === undefined) return null;
   const id = typeof raw === "number" ? raw : parseInt(String(raw), 10);
@@ -101,8 +117,9 @@ export async function resolveDropSlug(slug: string): Promise<number | null> {
 /** Get all dropIds created by a wallet (most recent first). */
 export async function listWalletDropIds(wallet: string): Promise<number[]> {
   if (!isAddress(wallet)) return [];
-  const redis = tryGetRedis();
-  if (!redis) return [];
+  const redisOrError = tryGetRedis();
+  if ("error" in redisOrError) return [];
+  const redis = redisOrError;
   // zrange with REV returns highest scores first (most recently created).
   const members = await redis.zrange<(string | number)[]>(
     dropWalletKey(wallet),
