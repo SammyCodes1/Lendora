@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   AnimatePresence,
@@ -9,8 +9,10 @@ import {
 } from "framer-motion";
 import {
   ArrowRight,
+  Check,
   CheckCircle2,
   CircleDot,
+  Copy,
   ExternalLink,
   Loader2,
   ShieldCheck,
@@ -267,6 +269,33 @@ function RouteFlow({
   );
 }
 
+function ShareLinkBox({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  }
+
+  return (
+    <div className="mt-5 rounded-2xl border border-emerald-200/15 bg-emerald-200/[0.05] p-4">
+      <p className="text-xs text-white/40">Shareable Lendrop link</p>
+      <p className="mt-2 break-all font-mono text-xs leading-5 text-white/80">
+        {url}
+      </p>
+      <button
+        type="button"
+        onClick={() => void copy()}
+        className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.055] px-3 text-sm font-medium text-white transition hover:bg-white/[0.1]"
+      >
+        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+        {copied ? "Copied" : "Copy link"}
+      </button>
+    </div>
+  );
+}
+
 export function AgentTransactionFlow({
   open,
   review,
@@ -398,6 +427,8 @@ export function AgentTransactionFlow({
                 </p>
               </div>
             ) : null}
+
+            {receipt?.shareUrl ? <ShareLinkBox url={receipt.shareUrl} /> : null}
 
             {error ? (
               <p

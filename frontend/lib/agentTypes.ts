@@ -19,7 +19,19 @@ export type AgentTool =
   | "checkHealthFactor"
   | "checkBalance"
   | "getMarketRates"
-  | "schedulePayment";
+  | "schedulePayment"
+  | "createLendrop";
+
+export type LendropMode = "EQUAL_SPLIT" | "CLAIM_ALL";
+
+export type CreateLendropParams = {
+  asset: LendingAsset;
+  amount: string;
+  mode: LendropMode;
+  maxClaimants: string;
+  expirySeconds: string;
+  perClaimAmount?: string;
+};
 
 export type SchedulePaymentParams = {
   asset: LendingAsset;
@@ -65,6 +77,7 @@ export type AgentActionParams =
       seller?: string;
     }
   | SchedulePaymentParams
+  | CreateLendropParams
   | Record<string, never>
   | { asset: AgentAsset };
 
@@ -163,6 +176,7 @@ export type AgentTransactionReceipt = AgentTransactionReview & {
   transactionHash?: string;
   explorerUrl?: string;
   finalityMs: number;
+  shareUrl?: string;
 };
 
 export type AgentChatMessage = {
