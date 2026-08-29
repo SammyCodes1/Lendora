@@ -457,7 +457,7 @@ export default function ArcDropPage() {
       <div className="mx-auto flex max-w-7xl flex-col gap-8 px-4 pb-16 sm:px-6 lg:px-8">
         <PageHeader
           icon={<Gift />}
-          title="ArcDrop"
+          title="Lendrop"
           description="Create a claim link — deposit USDC or EURC and anyone with the link can claim their share directly to their own wallet."
         />
 
@@ -606,7 +606,7 @@ export default function ArcDropPage() {
               {!ARCDROP_ADDRESS && (
                 <div className="rounded-xl border border-amber-300/20 bg-amber-300/[0.06] px-4 py-3">
                   <p className="text-sm text-amber-200/80">
-                    ArcDrop contract is not yet deployed. Run{" "}
+                    Lendrop contract is not yet deployed. Run{" "}
                     <code className="font-mono text-xs">
                       scripts/22_deploy_arcdrop.ts
                     </code>{" "}

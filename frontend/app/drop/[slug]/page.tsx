@@ -253,7 +253,7 @@ export default function DropClaimPage() {
                     </div>
                     <div>
                       <p className="text-[11px] uppercase tracking-wide text-white/40">
-                        ArcDrop
+                        Lendrop
                       </p>
                       <p className="font-display text-lg text-white">
                         {formatDropAmount(drop.totalAmount)} {symbol}
@@ -406,7 +406,7 @@ export default function DropClaimPage() {
                         )}
                       </GlassButton>
                       <p className="text-center text-xs text-white/35">
-                        You sign your own transaction. ArcDrop never touches
+                        You sign your own transaction. Lendrop never touches
                         funds on your behalf.
                       </p>
                     </div>

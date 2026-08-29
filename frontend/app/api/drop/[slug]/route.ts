@@ -84,7 +84,7 @@ export async function GET(
 
   if (!arcDropAddress) {
     return NextResponse.json(
-      { error: "ArcDrop contract not deployed yet." },
+      { error: "Lendrop contract not deployed yet." },
       { status: 503 },
     );
   }

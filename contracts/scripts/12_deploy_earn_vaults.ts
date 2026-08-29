@@ -8,6 +8,13 @@ const DEPLOYMENT_PATH = path.join(
   "deployments",
   "arc-testnet.json",
 );
+const ROOT_DEPLOYMENT_PATH = path.join(
+  __dirname,
+  "..",
+  "..",
+  "constants",
+  "deployments.json",
+);
 const FRONTEND_DEPLOYMENT_PATH = path.join(
   __dirname,
   "..",
@@ -60,9 +67,11 @@ async function main() {
   if (!deployment.markets?.USDC?.asset || !deployment.markets?.EURC?.asset) {
     throw new Error("USDC and EURC market assets are required");
   }
+  const forceRedeploy = process.env.FORCE_REDEPLOY === "1";
   if (
-    isDeployedAddress(deployment.earnVaults?.USDC) ||
-    isDeployedAddress(deployment.earnVaults?.EURC)
+    !forceRedeploy &&
+    (isDeployedAddress(deployment.earnVaults?.USDC) ||
+      isDeployedAddress(deployment.earnVaults?.EURC))
   ) {
     throw new Error("Earn vaults are already recorded in deployment file");
   }
@@ -74,14 +83,14 @@ async function main() {
   const usdcVault = await deployVault(
     deployment.markets.USDC.asset,
     deployment.lendingPool,
-    "ArcLend Earn Vault USDC",
+    "Lendora Earn Vault USDC",
     "evUSDC",
     deployer.address,
   );
   const eurcVault = await deployVault(
     deployment.markets.EURC.asset,
     deployment.lendingPool,
-    "ArcLend Earn Vault EURC",
+    "Lendora Earn Vault EURC",
     "evEURC",
     deployer.address,
   );
@@ -101,8 +110,16 @@ async function main() {
     eurcReceipt.blockNumber,
   );
 
-  for (const outputPath of [DEPLOYMENT_PATH, FRONTEND_DEPLOYMENT_PATH]) {
-    fs.writeFileSync(outputPath, JSON.stringify(deployment, null, 2) + "\n");
+  for (const outputPath of [
+    DEPLOYMENT_PATH,
+    ROOT_DEPLOYMENT_PATH,
+    FRONTEND_DEPLOYMENT_PATH,
+  ]) {
+    if (!fs.existsSync(outputPath)) continue;
+    const existing = JSON.parse(fs.readFileSync(outputPath, "utf8")) as Deployment;
+    existing.earnVaults = deployment.earnVaults;
+    existing.earnVaultDeploymentBlock = deployment.earnVaultDeploymentBlock;
+    fs.writeFileSync(outputPath, JSON.stringify(existing, null, 2) + "\n");
   }
 
   console.log("USDC EarnVault:", deployment.earnVaults.USDC);

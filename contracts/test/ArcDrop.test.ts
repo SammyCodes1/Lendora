@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 import { expect } from "chai";
 import type { ContractTransactionResponse, Signer } from "ethers";
-import type { ArcDrop } from "../typechain-types";
+import type { Lendrop } from "../typechain-types";
 
 /**
  * ArcDrop test suite
@@ -23,8 +23,8 @@ function toUnits(human: bigint): bigint {
   return human * UNIT;
 }
 
-describe("ArcDrop", function () {
-  let arcDrop: ArcDrop;
+describe("Lendrop", function () {
+  let arcDrop: Lendrop;
   let usdc: Awaited<ReturnType<typeof ethers.deployContract>>;
   let creator: Signer;
   let claimant1: Signer;
@@ -44,12 +44,16 @@ describe("ArcDrop", function () {
 
     // Deploy a minimal ERC-20 mock for tests (MockStablecoin always uses 6 decimals)
     usdc = await ethers.deployContract("MockStablecoin", ["USDC", "USDC"]);
-    arcDrop = (await ethers.deployContract("ArcDrop")) as ArcDrop;
+    arcDrop = (await ethers.deployContract("Lendrop")) as Lendrop;
 
     // Mint USDC to creator
     await usdc.mint(creatorAddr, toUnits(100_000n));
     // Approve ArcDrop to spend creator's tokens
     await usdc.connect(creator).approve(await arcDrop.getAddress(), toUnits(100_000n));
+  });
+
+  it("exposes Lendrop as the on-chain name", async function () {
+    expect(await arcDrop.name()).to.equal("Lendrop");
   });
 
   // ─── Scenario 1: Equal Split — uneven amount rejected ─────────────────────
