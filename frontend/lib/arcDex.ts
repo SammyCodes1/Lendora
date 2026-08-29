@@ -31,7 +31,7 @@ export const ARC_DEX_ROUTERS = {
    * Lendora native constant-product pool (USDC/EURC).
    * Peer route — does not wrap or replace other DEX routers.
    */
-  arclend: "0x49FD6464Ebbe659aaF55034441B134E5030A4A4A",
+  arclend: "0xDdEf47EDEAf376dEa6f200f25460f58FadcDFc2D",
   /** TowerSwapExecutor — separate swap entrypoint (not Xylo/Curve/V3). */
   tower: "0x2De8906a641d65d490bC60A4179d961d59742bCb",
   /** TowerDexAdapter — route target called by Tower.executeSwap. */

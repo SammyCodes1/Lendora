@@ -43,9 +43,9 @@ async function main() {
   }
 
   const [deployer] = await ethers.getSigners();
-  console.log("Deploying ArcDrop with deployer:", deployer.address);
+  console.log("Deploying Lendrop with deployer:", deployer.address);
 
-  const Factory = await ethers.getContractFactory("ArcDrop");
+  const Factory = await ethers.getContractFactory("Lendrop");
   const arcDrop = await Factory.deploy();
   await arcDrop.waitForDeployment();
 
@@ -54,7 +54,7 @@ async function main() {
   const receipt = deployTx ? await deployTx.wait() : null;
   const blockNumber = receipt?.blockNumber;
 
-  console.log("✅ ArcDrop deployed at:", address);
+  console.log("✅ Lendrop deployed at:", address);
   if (blockNumber) console.log("   block:", blockNumber);
 
   // Verify initial state
@@ -64,7 +64,7 @@ async function main() {
   writeDeployment("ArcDrop", address, blockNumber);
 
   // Export ABI to all target directories
-  const artifact = await artifacts.readArtifact("ArcDrop");
+  const artifact = await artifacts.readArtifact("Lendrop");
   const abiJson = `${JSON.stringify(artifact.abi, null, 2)}\n`;
   for (const dir of [
     path.resolve(__dirname, "../../constants/abis"),

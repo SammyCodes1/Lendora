@@ -44,10 +44,10 @@
   "DomainMarketplace": "0x633DE668C618E68878567Aa6D11a8289b4F398e5",
   "domainMarketplaceDeploymentBlock": 58005146,
   "earnVaults": {
-    "USDC": "0xAA127DEB9c3f72f8D5364B49458f6b14F0540D5b",
-    "EURC": "0x57FA5403192657ed5B950C1CD4F06f361F38B14A"
+    "USDC": "0x91f08D65C7a45Cbda5d5517A343e6509650380EC",
+    "EURC": "0x9a8B99E55c2b29f48b8CcE96cAb6274AB32F93C5"
   },
-  "earnVaultDeploymentBlock": 52118878,
+  "earnVaultDeploymentBlock": 59457315,
   "artifactRuntimeHashes": {
     "LendingPool": "0x0fce1f3c8c4cdc8f715b1074dd8dbbad61654861ae80d641d4c087e5abcaaf91",
     "MockPriceOracle": "0xdca44601e1ed75abdeab0310917b821b86f29c5f4d33292b84c7003ac002d446",
@@ -58,12 +58,12 @@
   "PythPriceOracle": "0x0e865044A1664152451309067170274cd3F596E4",
   "pythContract": "0x2880aB155794e7179c9eE2e38200202908C17B43",
   "mockPriceOracle_deprecated": "0x5D401B38686245B57Efb682828877a3124d36653",
-  "SwapPool": "0x49FD6464Ebbe659aaF55034441B134E5030A4A4A",
-  "swapPoolDeploymentBlock": 55192926,
+  "SwapPool": "0xDdEf47EDEAf376dEa6f200f25460f58FadcDFc2D",
+  "swapPoolDeploymentBlock": 59457396,
   "MultiSend": "0x45E30b72f121c4Fc6803620950ef933969bCB005",
   "MultiSendDeploymentBlock": 56544435,
   "SpokenPay": "0xA2bDE71c883051A47C7A1D757Cb4F3AFdF5A85d2",
   "spokenPayDeploymentBlock": 58164159,
-  "ArcDrop": "0xC9297F393f4b16c023B289CE5311D8071edD071e",
-  "ArcDropDeploymentBlock": 59024870
+  "ArcDrop": "0x341f43A8B5E65A6B02360fc5f8e867145F9bfeea",
+  "ArcDropDeploymentBlock": 59458519
 }

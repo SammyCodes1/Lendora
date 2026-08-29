@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-/// @title ArcDrop
+/// @title Lendrop
 /// @notice Escrow-based claim-link drops for USDC and EURC.
 ///         A creator deposits tokens, configures a distribution mode, and
 ///         receives a shareable link. Anyone with the link calls claim() to
@@ -19,7 +19,12 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 ///         Funds live in this contract only between createDrop() and the
 ///         final claim/cancel/reclaim. The contract is never the intended
 ///         destination — it is purely an escrow until recipients pull.
-contract ArcDrop is ReentrancyGuard {
+contract Lendrop is ReentrancyGuard {
+    /// @notice On-chain product name shown by explorers and wallets.
+    function name() external pure returns (string memory) {
+        return "Lendrop";
+    }
+
     // ─── Types ────────────────────────────────────────────────────────────
 
     enum DropMode {

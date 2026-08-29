@@ -75,7 +75,7 @@ contract SwapPool is ERC20, Ownable, ReentrancyGuard {
         address _tokenA,
         address _tokenB,
         address owner_
-    ) ERC20("ArcLend Swap LP", "ALP-USDC-EURC") Ownable(owner_) {
+    ) ERC20("Lendora Swap LP", "ALP-USDC-EURC") Ownable(owner_) {
         require(_tokenA != address(0) && _tokenB != address(0), "SwapPool: zero token");
         require(_tokenA != _tokenB, "SwapPool: identical tokens");
         require(owner_ != address(0), "SwapPool: zero owner");
