@@ -7,6 +7,14 @@ export const DROP_MODE_CLAIM_ALL: DropMode = 1;
 
 export type DropAsset = "USDC" | "EURC";
 
+export type DropClaim = {
+  claimant: string;
+  amount: string;
+  claimantsCount: string;
+  txHash: string;
+  blockNumber: string;
+};
+
 /** Shape returned by GET /api/drop/[slug] */
 export type ApiDrop = {
   dropId: number;
@@ -23,7 +31,15 @@ export type ApiDrop = {
     createdAt: string;
     expiresAt: string; // "0" = no expiry
   };
+  claims?: DropClaim[];
 };
+
+export const ARCSCAN_ADDRESS_BASE = "https://testnet.arcscan.app/address/";
+
+export function truncateDropAddress(address: string) {
+  if (address.length < 12) return address;
+  return `${address.slice(0, 6)}…${address.slice(-4)}`;
+}
 
 export type DropStatus =
   | "active"

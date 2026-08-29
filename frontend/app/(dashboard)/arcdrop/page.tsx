@@ -26,7 +26,8 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { AssetMark, SectionLabel } from "@/components/ui/MarketVisuals";
 import { showToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
-import { ARCSCAN_TX_BASE, DROP_EXPIRY_OPTIONS, DROP_MODE_CLAIM_ALL, DROP_MODE_EQUAL_SPLIT, allDropShareUrls, clientDropUrl, effectiveDropStatus, formatDropAmount, parseDropAmount, type ApiDrop, type DropAsset, type DropMode } from "@/lib/arcDrop";
+import { ARCSCAN_TX_BASE, DROP_EXPIRY_OPTIONS, DROP_MODE_CLAIM_ALL, DROP_MODE_EQUAL_SPLIT, allDropShareUrls, clientDropUrl, formatDropAmount, parseDropAmount, type DropAsset, type DropClaim, type DropMode } from "@/lib/arcDrop";
+import { DropClaimants } from "@/components/features/DropClaimants";
 import { ARC_TESTNET_CONTRACTS } from "@/constants/contracts";
 import deployments from "@/constants/deployments.json";
 import erc20Json from "@/constants/abis/ERC20.json";
@@ -196,6 +197,10 @@ export default function ArcDropPage() {
   const [myDrops, setMyDrops] = useState<SavedDrop[]>([]);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
   const [reclaimingId, setReclaimingId] = useState<number | null>(null);
+  const [openClaimsId, setOpenClaimsId] = useState<number | null>(null);
+  const [claimsByDrop, setClaimsByDrop] = useState<
+    Record<number, DropClaim[] | "loading" | "error">
+  >({});
 
   useEffect(() => {
     setMyDrops(readSaved());
@@ -369,6 +374,28 @@ export default function ArcDropPage() {
       setErrorMsg(clean);
       setStep("error");
       showToast("error", clean);
+    }
+  }
+
+  async function toggleClaims(dropId: number) {
+    if (openClaimsId === dropId) {
+      setOpenClaimsId(null);
+      return;
+    }
+    setOpenClaimsId(dropId);
+    const existing = claimsByDrop[dropId];
+    if (Array.isArray(existing)) return;
+    setClaimsByDrop((prev) => ({ ...prev, [dropId]: "loading" }));
+    try {
+      const resp = await fetch(`/api/drop/claims?dropId=${dropId}`);
+      const body = (await resp.json()) as {
+        claims?: DropClaim[];
+        error?: string;
+      };
+      if (!resp.ok) throw new Error(body.error ?? "Could not load claimants.");
+      setClaimsByDrop((prev) => ({ ...prev, [dropId]: body.claims ?? [] }));
+    } catch {
+      setClaimsByDrop((prev) => ({ ...prev, [dropId]: "error" }));
     }
   }
 
@@ -788,6 +815,15 @@ export default function ArcDropPage() {
                               Copy link
                             </button>
                           )}
+                          <button
+                            type="button"
+                            onClick={() => void toggleClaims(drop.dropId)}
+                            className="text-xs text-white/40 hover:text-white"
+                          >
+                            {openClaimsId === drop.dropId
+                              ? "Hide claimants"
+                              : "Claimants"}
+                          </button>
                           <a
                             href={clientDropUrl(drop.slug)}
                             target="_blank"
@@ -825,6 +861,24 @@ export default function ArcDropPage() {
                             </button>
                           )}
                         </div>
+                        {openClaimsId === drop.dropId && (
+                          <div className="mt-3 border-t border-white/[0.06] pt-3">
+                            <DropClaimants
+                              claims={
+                                Array.isArray(claimsByDrop[drop.dropId])
+                                  ? (claimsByDrop[drop.dropId] as DropClaim[])
+                                  : []
+                              }
+                              symbol={drop.asset}
+                              loading={claimsByDrop[drop.dropId] === "loading"}
+                              error={
+                                claimsByDrop[drop.dropId] === "error"
+                                  ? "Could not load claimants."
+                                  : undefined
+                              }
+                            />
+                          </div>
+                        )}
                       </li>
                     );
                   })}
