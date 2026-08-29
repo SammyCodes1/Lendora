@@ -26,28 +26,11 @@ import {
   type ApiDrop,
 } from "@/lib/arcDrop";
 import deployments from "@/constants/deployments.json";
+import arcDropJson from "@/constants/abis/ArcDrop.json";
 
-// ─── ArcDrop ABI (claim only) ─────────────────────────────────────────────────
+// ─── ArcDrop ABI ─────────────────────────────────────────────────────────────
 
-const ARCDROP_ABI: Abi = [
-  {
-    name: "claim",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "dropId", type: "uint256" }],
-    outputs: [],
-  },
-  {
-    name: "hasClaimed",
-    type: "function",
-    stateMutability: "view",
-    inputs: [
-      { name: "dropId", type: "uint256" },
-      { name: "claimant", type: "address" },
-    ],
-    outputs: [{ name: "", type: "bool" }],
-  },
-];
+const ARCDROP_ABI: Abi = arcDropJson as Abi;
 
 const ARCDROP_ADDRESS = (deployments as Record<string, unknown>).ArcDrop as
   | `0x${string}`

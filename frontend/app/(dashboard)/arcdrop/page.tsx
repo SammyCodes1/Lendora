@@ -29,58 +29,13 @@ import { cn } from "@/lib/utils";
 import { ARCSCAN_TX_BASE, DROP_EXPIRY_OPTIONS, DROP_MODE_CLAIM_ALL, DROP_MODE_EQUAL_SPLIT, effectiveDropStatus, formatDropAmount, parseDropAmount, type ApiDrop, type DropAsset, type DropMode } from "@/lib/arcDrop";
 import { ARC_TESTNET_CONTRACTS } from "@/constants/contracts";
 import deployments from "@/constants/deployments.json";
+import erc20Json from "@/constants/abis/ERC20.json";
+import arcDropJson from "@/constants/abis/ArcDrop.json";
 
 // ─── ABIs ────────────────────────────────────────────────────────────────────
 
-const ERC20_ABI: Abi = [
-  {
-    name: "approve",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "spender", type: "address" },
-      { name: "amount", type: "uint256" },
-    ],
-    outputs: [{ name: "", type: "bool" }],
-  },
-];
-
-const ARCDROP_ABI: Abi = [
-  {
-    name: "createDrop",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "asset", type: "address" },
-      { name: "totalAmount", type: "uint256" },
-      { name: "mode", type: "uint8" },
-      { name: "maxClaimants", type: "uint256" },
-      { name: "expiresInSeconds", type: "uint256" },
-    ],
-    outputs: [{ name: "dropId", type: "uint256" }],
-  },
-  {
-    name: "cancelDrop",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "dropId", type: "uint256" }],
-    outputs: [],
-  },
-  {
-    name: "reclaimExpired",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [{ name: "dropId", type: "uint256" }],
-    outputs: [],
-  },
-  {
-    name: "nextDropId",
-    type: "function",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ name: "", type: "uint256" }],
-  },
-];
+const ERC20_ABI: Abi = erc20Json as Abi;
+const ARCDROP_ABI: Abi = arcDropJson as Abi;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -324,27 +279,22 @@ export default function ArcDropPage() {
       if (hash) {
         // Poll for receipt then parse DropCreated log
         try {
-          const { createPublicClient, http, parseAbiItem } = await import("viem");
+          const { createPublicClient, http, parseEventLogs } = await import("viem");
           const { arcTestnet } = await import("viem/chains");
           const client = createPublicClient({
             chain: arcTestnet,
             transport: http("https://rpc.testnet.arc.network"),
           });
 
-          // Wait for receipt
           for (let i = 0; i < 30; i++) {
             try {
               const receipt = await client.getTransactionReceipt({
                 hash: hash as `0x${string}`,
               });
               if (receipt) {
-                // Parse DropCreated log
-                const dropCreatedEvent = parseAbiItem(
-                  "event DropCreated(uint256 indexed dropId, address indexed creator, address asset, uint256 totalAmount, uint8 mode, uint256 maxClaimants, uint256 expiresAt)",
-                );
-                const { parseEventLogs } = await import("viem");
                 const logs = parseEventLogs({
-                  abi: [dropCreatedEvent],
+                  abi: ARCDROP_ABI,
+                  eventName: "DropCreated",
                   logs: receipt.logs,
                 });
                 if (logs.length > 0) {
@@ -443,9 +393,7 @@ export default function ArcDropPage() {
       });
       setMyDrops((prev) => {
         const next = prev.map((d) =>
-          d.dropId === drop.dropId
-            ? { ...d, active: false, remainingAmount: "0" }
-            : d,
+          d.dropId === drop.dropId ? { ...d, active: false } : d,
         );
         writeSaved(next);
         return next;
