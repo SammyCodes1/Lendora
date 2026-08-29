@@ -25,6 +25,7 @@ import {
   formatDropAmount,
   type ApiDrop,
 } from "@/lib/arcDrop";
+import { DropClaimants } from "@/components/features/DropClaimants";
 import deployments from "@/constants/deployments.json";
 import arcDropJson from "@/constants/abis/ArcDrop.json";
 
@@ -112,7 +113,14 @@ export default function DropClaimPage() {
         setLoad({ status: "error", message: body.error ?? "Drop not found." });
         return;
       }
-      setLoad({ status: "loaded", data: { dropId: body.dropId, drop: body.drop } });
+      setLoad({
+        status: "loaded",
+        data: {
+          dropId: body.dropId,
+          drop: body.drop,
+          claims: body.claims ?? [],
+        },
+      });
     } catch {
       setLoad({ status: "error", message: "Could not load drop. Check your connection." });
     }
@@ -436,6 +444,16 @@ export default function DropClaimPage() {
                       )}
                     </div>
                   )}
+
+                  <div className="mt-6 border-t border-white/[0.07] pt-5">
+                    <p className="mb-3 text-[11px] uppercase tracking-wide text-white/40">
+                      Claimed by {load.data.claims?.length ?? 0}
+                    </p>
+                    <DropClaimants
+                      claims={load.data.claims ?? []}
+                      symbol={symbol}
+                    />
+                  </div>
                 </div>
               </GlassCard>
             );

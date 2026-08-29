@@ -9,6 +9,7 @@ import {
 import { arcTestnet } from "viem/chains";
 import { enforceRateLimit } from "@/lib/server/rateLimit";
 import { resolveDropSlug } from "@/lib/server/arcDrop";
+import { fetchDropClaims } from "@/lib/server/dropClaims";
 import deployments from "@/constants/deployments.json";
 import arcDropJson from "@/constants/abis/ArcDrop.json";
 
@@ -126,7 +127,14 @@ export async function GET(
       expiresAt: dropRaw.expiresAt.toString(),
     };
 
-    return NextResponse.json({ dropId, drop });
+    let claims: Awaited<ReturnType<typeof fetchDropClaims>> = [];
+    try {
+      claims = await fetchDropClaims(dropId);
+    } catch (error) {
+      console.error("[lendrop] failed to load claimants", error);
+    }
+
+    return NextResponse.json({ dropId, drop, claims });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Could not read drop from chain.";
