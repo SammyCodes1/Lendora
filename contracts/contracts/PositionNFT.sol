@@ -8,8 +8,8 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
-/// @title ArcLend Position NFT
-/// @notice On-chain receipt linked to a live ArcLend aToken or debt-token balance.
+/// @title Lendora Position NFT
+/// @notice On-chain receipt linked to a live Lendora aToken or debt-token balance.
 contract PositionNFT is ERC721, Ownable {
     using Strings for uint256;
 
@@ -38,7 +38,7 @@ contract PositionNFT is ERC721, Ownable {
     event MinterTransferStarted(address indexed currentMinter, address indexed pendingMinter);
     event MinterTransferCancelled(address indexed pendingMinter);
 
-    constructor() ERC721("ArcLend Position Receipt", "ARCPOS") Ownable(msg.sender) {}
+    constructor() ERC721("Lendora Position Receipt", "LNDPOS") Ownable(msg.sender) {}
 
     /// @notice Permanently configures the only account allowed to mint and burn receipts.
     function setMinter(address _minter) external onlyOwner {
@@ -137,7 +137,7 @@ contract PositionNFT is ERC721, Ownable {
             '<rect x="42" y="42" width="636" height="636" rx="42" fill="url(#glass)" stroke="#FFFFFF" stroke-opacity=".72" stroke-width="2" filter="url(#glow)"/>',
             '<path d="M88 218 C220 78 455 72 632 182" fill="none" stroke="#FFFFFF" stroke-opacity=".18" stroke-width="12" stroke-linecap="round"/>',
             '<path d="M120 230 C245 122 438 116 600 196" fill="none" stroke="#FFFFFF" stroke-opacity=".08" stroke-width="5" stroke-linecap="round"/>',
-            '<text x="88" y="120" fill="#FFFFFF" fill-opacity=".55" font-family="Arial,sans-serif" font-size="22">ARCLEND POSITION</text>',
+            '<text x="88" y="120" fill="#FFFFFF" fill-opacity=".55" font-family="Arial,sans-serif" font-size="22">LENDORA POSITION</text>',
             '<text x="88" y="330" fill="#FFFFFF" font-family="Arial,sans-serif" font-size="92" font-weight="700">',
             typeLabel,
             "</text>",
@@ -145,7 +145,7 @@ contract PositionNFT is ERC721, Ownable {
             balanceLabel,
             "</text>",
             '<line x1="88" y1="462" x2="632" y2="462" stroke="#FFFFFF" stroke-opacity=".16"/>',
-            '<text x="88" y="520" fill="#FFFFFF" fill-opacity=".7" font-family="Arial,sans-serif" font-size="24">ArcLend Position #',
+            '<text x="88" y="520" fill="#FFFFFF" fill-opacity=".7" font-family="Arial,sans-serif" font-size="24">Lendora Position #',
             tokenId.toString(),
             "</text>",
             '<text x="88" y="562" fill="#FFFFFF" fill-opacity=".42" font-family="Arial,sans-serif" font-size="20">Opened ',
@@ -160,13 +160,13 @@ contract PositionNFT is ERC721, Ownable {
             Base64.encode(bytes(svg))
         );
         string memory json = string.concat(
-            '{"name":"ArcLend ',
+            '{"name":"Lendora ',
             typeLabel,
             " ",
             assetSymbol,
             " Position #",
             tokenId.toString(),
-            '","description":"On-chain receipt for a live ArcLend position on Arc Testnet.",',
+            '","description":"On-chain receipt for a live Lendora position on Arc Testnet.",',
             '"image":"',
             image,
             '","attributes":[',

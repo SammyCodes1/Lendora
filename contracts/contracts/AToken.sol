@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-/// @title ArcLend Interest-Bearing Token
+/// @title Lendora Interest-Bearing Token
 /// @notice Represents a lender's indexed claim on a 6-decimal reserve asset.
 contract AToken is ERC20, Ownable {
     uint256 public constant RAY = 1e27;
@@ -27,7 +27,7 @@ contract AToken is ERC20, Ownable {
     /// @notice Creates an indexed supply token for a reserve.
     /// @param underlyingAsset_ Underlying 6-decimal ERC-20 reserve asset.
     /// @param pool_ LendingPool authorized to mint, burn, and update the index.
-    constructor(address underlyingAsset_, address pool_) ERC20("ArcLend Interest Bearing Token", "aARC") Ownable(msg.sender) {
+    constructor(address underlyingAsset_, address pool_) ERC20("Lendora Interest Bearing Token", "aLNDR") Ownable(msg.sender) {
         require(underlyingAsset_ != address(0), "AToken: zero underlying");
         require(pool_ != address(0), "AToken: zero pool");
 

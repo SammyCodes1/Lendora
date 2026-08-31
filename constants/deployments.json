@@ -3,20 +3,20 @@
   "deploymentBlock": 52118513,
   "deployer": "0x48d38B9311294DdC4Aa4c3CB21E84B865FFB9438",
   "addressesProvider": "0xC48674acd3CafDd5746A94B5144eA57672592bF3",
-  "lendingPool": "0x1D1d19F958cDB6FA2e6C7E5DC16F0a39fe066c9f",
-  "priceOracle": "0x5D401B38686245B57Efb682828877a3124d36653",
-  "fallbackPriceOracle": "0x39f74EB42C061E7eCA04232063DeE66E7CD1358B",
+  "lendingPool": "0x9dCA5E8185c21fF958c9e7e1f4BbD8e0AfFEf61E",
+  "priceOracle": "0x0e865044A1664152451309067170274cd3F596E4",
+  "fallbackPriceOracle": "0x5D401B38686245B57Efb682828877a3124d36653",
   "interestRateModel": "0x635C19a64bbcd09E5D70eFFE06484eb1E4D70190",
   "markets": {
     "USDC": {
       "asset": "0x3600000000000000000000000000000000000000",
-      "aToken": "0x6BAD029528233595D856f03D31f19F9dC10B68D1",
-      "debtToken": "0xfd9Bb99809eA2d6d8F06381EA90a5B195EC93cF9"
+      "aToken": "0x848B0c56bAd3177FA1b9613c5DD2550e7F500da9",
+      "debtToken": "0x4AFda16D11EF44658356f6912b613A2423a6a868"
     },
     "EURC": {
       "asset": "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
-      "aToken": "0xA97374A23f9D18422446c9cBF53D06c986091b61",
-      "debtToken": "0xa45792794d8CfB8dCF8EE78713596513155bA51f"
+      "aToken": "0xFd60F777558053601e315D578Ab0efcBd0D4C5b9",
+      "debtToken": "0xB0b81b427BE53d396ca323eDBfcaaF225f2af3af"
     }
   },
   "riskConfiguration": {
@@ -37,17 +37,17 @@
     "primaryMaxPriceAge": "86400",
     "fallbackMaxPriceAge": "604800"
   },
-  "PositionNFT": "0xf0d0713609171173616c4167732a05Bf3982F8a9",
-  "PositionManager": "0xa5CA2C82D5DC01E067E0F0337c8f73454C74a93F",
+  "PositionNFT": "0x11Dd45863614C7D69B50083ac4E16A7a41F531E3",
+  "PositionManager": "0xdAFb318b9669FE225fb2AE3934b76ae45Dc8C9e1",
   "WalletDomain": "0x7B5f6C25b0f77E807ffe60fB00bEB0702560Af1E",
   "walletDomainDeploymentBlock": 58005110,
   "DomainMarketplace": "0x633DE668C618E68878567Aa6D11a8289b4F398e5",
   "domainMarketplaceDeploymentBlock": 58005146,
   "earnVaults": {
-    "USDC": "0x91f08D65C7a45Cbda5d5517A343e6509650380EC",
-    "EURC": "0x9a8B99E55c2b29f48b8CcE96cAb6274AB32F93C5"
+    "USDC": "0x0d36D23f06db999a58F17484307504a1a5703f39",
+    "EURC": "0xcA770509bBe31A4f55Ac6C7A8BDa97E8727B8D73"
   },
-  "earnVaultDeploymentBlock": 59457315,
+  "earnVaultDeploymentBlock": 59754294,
   "artifactRuntimeHashes": {
     "LendingPool": "0x0fce1f3c8c4cdc8f715b1074dd8dbbad61654861ae80d641d4c087e5abcaaf91",
     "MockPriceOracle": "0xdca44601e1ed75abdeab0310917b821b86f29c5f4d33292b84c7003ac002d446",
@@ -59,8 +59,12 @@
   "swapPoolDeploymentBlock": 59457396,
   "MultiSend": "0x45E30b72f121c4Fc6803620950ef933969bCB005",
   "MultiSendDeploymentBlock": 56544435,
-  "SpokenPay": "0xA2bDE71c883051A47C7A1D757Cb4F3AFdF5A85d2",
-  "spokenPayDeploymentBlock": 58164159,
+  "SpokenPay": "0x4901Ab966c3711F4d04f9d6AbA8b37848905ECfD",
+  "spokenPayDeploymentBlock": 59754302,
   "ArcDrop": "0x341f43A8B5E65A6B02360fc5f8e867145F9bfeea",
-  "ArcDropDeploymentBlock": 59458519
+  "ArcDropDeploymentBlock": 59458519,
+  "legacyLendingPool": "0x1D1d19F958cDB6FA2e6C7E5DC16F0a39fe066c9f",
+  "legacyPositionNFT": "0xf0d0713609171173616c4167732a05Bf3982F8a9",
+  "legacyPositionManager": "0xa5CA2C82D5DC01E067E0F0337c8f73454C74a93F",
+  "marketTokenDeploymentBlock": 59754309
 }
