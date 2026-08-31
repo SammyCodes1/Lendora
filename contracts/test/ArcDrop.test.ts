@@ -328,4 +328,92 @@ describe("Lendrop", function () {
       ).to.be.revertedWith("ArcDrop: drop is not active");
     });
   });
+
+  // ─── Allowlist ────────────────────────────────────────────────────────────
+
+  describe("Allowlist", function () {
+    it("rejects an empty allowlist", async function () {
+      await expect(
+        arcDrop
+          .connect(creator)
+          .createDropAllowlisted(
+            await usdc.getAddress(),
+            toUnits(6n),
+            0,
+            3,
+            0,
+            [],
+          ),
+      ).to.be.revertedWith("ArcDrop: empty allowlist");
+    });
+
+    it("rejects a zero address in the allowlist", async function () {
+      await expect(
+        arcDrop
+          .connect(creator)
+          .createDropAllowlisted(
+            await usdc.getAddress(),
+            toUnits(6n),
+            0,
+            3,
+            0,
+            [c1Addr, "0x0000000000000000000000000000000000000000"],
+          ),
+      ).to.be.revertedWith("ArcDrop: zero address");
+    });
+
+    it("rejects duplicate allowlist addresses", async function () {
+      await expect(
+        arcDrop
+          .connect(creator)
+          .createDropAllowlisted(
+            await usdc.getAddress(),
+            toUnits(6n),
+            0,
+            3,
+            0,
+            [c1Addr, c1Addr],
+          ),
+      ).to.be.revertedWith("ArcDrop: duplicate allowlist address");
+    });
+
+    it("lets an allowlisted wallet claim and blocks everyone else", async function () {
+      await arcDrop
+        .connect(creator)
+        .createDropAllowlisted(
+          await usdc.getAddress(),
+          toUnits(6n),
+          0,
+          3,
+          0,
+          [c1Addr, c2Addr],
+        );
+
+      expect(await arcDrop.allowlistEnabled(1)).to.equal(true);
+      expect(await arcDrop.isAllowlisted(1, c1Addr)).to.equal(true);
+      expect(await arcDrop.isAllowlisted(1, c3Addr)).to.equal(false);
+
+      await arcDrop.connect(claimant1).claim(1);
+      expect(await usdc.balanceOf(c1Addr)).to.equal(toUnits(2n));
+
+      await expect(
+        arcDrop.connect(claimant3).claim(1),
+      ).to.be.revertedWith("ArcDrop: not on this drop's allowlist");
+
+      await arcDrop.connect(claimant2).claim(1);
+      expect(await usdc.balanceOf(c2Addr)).to.equal(toUnits(2n));
+    });
+
+    it("keeps createDrop open to any wallet", async function () {
+      await arcDrop
+        .connect(creator)
+        .createDrop(await usdc.getAddress(), toUnits(6n), 0, 3, 0);
+
+      expect(await arcDrop.allowlistEnabled(1)).to.equal(false);
+      expect(await arcDrop.isAllowlisted(1, c3Addr)).to.equal(true);
+
+      await arcDrop.connect(claimant3).claim(1);
+      expect(await usdc.balanceOf(c3Addr)).to.equal(toUnits(2n));
+    });
+  });
 });

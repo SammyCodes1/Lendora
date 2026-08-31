@@ -102,6 +102,7 @@ export default function DropClaimPage() {
   const [claimError, setClaimError] = useState("");
   const [alreadyClaimed, setAlreadyClaimed] = useState(false);
   const [checkingClaimed, setCheckingClaimed] = useState(false);
+  const [notAllowlisted, setNotAllowlisted] = useState(false);
 
   // ── Fetch drop from slug ─────────────────────────────────────────────────
   const fetchDrop = useCallback(async () => {
@@ -117,6 +118,8 @@ export default function DropClaimPage() {
         status: "loaded",
         data: {
           dropId: body.dropId,
+          contract: body.contract,
+          allowlistEnabled: body.allowlistEnabled,
           drop: body.drop,
           claims: body.claims ?? [],
         },
@@ -133,7 +136,12 @@ export default function DropClaimPage() {
   // ── Check if this wallet already claimed ─────────────────────────────────
   useEffect(() => {
     async function checkClaimed() {
-      if (!address || !ARCDROP_ADDRESS || load.status !== "loaded") return;
+      const contract =
+        load.status === "loaded"
+          ? ((load.data.contract as `0x${string}` | undefined) ??
+            ARCDROP_ADDRESS)
+          : ARCDROP_ADDRESS;
+      if (!address || !contract || load.status !== "loaded") return;
       setCheckingClaimed(true);
       try {
         const { createPublicClient, http } = await import("viem");
@@ -143,12 +151,27 @@ export default function DropClaimPage() {
           transport: http("https://rpc.testnet.arc.network"),
         });
         const claimed = await client.readContract({
-          address: ARCDROP_ADDRESS,
+          address: contract,
           abi: ARCDROP_ABI,
           functionName: "hasClaimed",
           args: [BigInt(load.data.dropId), address],
         });
         setAlreadyClaimed(Boolean(claimed));
+        if (load.data.allowlistEnabled) {
+          try {
+            const allowed = await client.readContract({
+              address: contract,
+              abi: ARCDROP_ABI,
+              functionName: "isAllowlisted",
+              args: [BigInt(load.data.dropId), address],
+            });
+            setNotAllowlisted(!allowed);
+          } catch {
+            setNotAllowlisted(false);
+          }
+        } else {
+          setNotAllowlisted(false);
+        }
       } catch {
         // Non-fatal; default stays false
       } finally {
@@ -160,13 +183,17 @@ export default function DropClaimPage() {
 
   // ── Claim ────────────────────────────────────────────────────────────────
   async function handleClaim() {
-    if (load.status !== "loaded" || !ARCDROP_ADDRESS) return;
+    const contract =
+      load.status === "loaded"
+        ? ((load.data.contract as `0x${string}` | undefined) ?? ARCDROP_ADDRESS)
+        : ARCDROP_ADDRESS;
+    if (load.status !== "loaded" || !contract) return;
     setClaimState("claiming");
     setClaimError("");
     try {
       const result = await writeContractAsync({
         chainId: 5042002,
-        address: ARCDROP_ADDRESS,
+        address: contract,
         abi: ARCDROP_ABI,
         functionName: "claim",
         args: [BigInt(load.data.dropId)],
@@ -333,9 +360,11 @@ export default function DropClaimPage() {
                           {formatDropAmount(claimableAmount)} {symbol}
                         </p>
                         <p className="mt-3 text-sm text-white/50">
-                          {drop.mode === DROP_MODE_CLAIM_ALL
-                            ? "First wallet to claim gets everything."
-                            : `You'd receive an equal share of ${formatDropAmount(drop.totalAmount)} ${symbol}.`}
+                          {load.data.allowlistEnabled
+                            ? "This drop is limited to wallets the creator allowlisted."
+                            : drop.mode === DROP_MODE_CLAIM_ALL
+                              ? "First wallet to claim gets everything."
+                              : `You'd receive an equal share of ${formatDropAmount(drop.totalAmount)} ${symbol}.`}
                         </p>
                       </div>
                       <p className="text-sm text-white/55">
@@ -350,6 +379,21 @@ export default function DropClaimPage() {
                     <div className="flex items-center justify-center gap-3 py-6">
                       <Loader2 className="h-5 w-5 animate-spin text-white/40" />
                       <p className="text-sm text-white/50">Checking eligibility…</p>
+                    </div>
+                  )}
+
+                  {/* Active: connected, not on allowlist */}
+                  {isActive &&
+                    isConnected &&
+                    !checkingClaimed &&
+                    !alreadyClaimed &&
+                    notAllowlisted && (
+                    <div className="flex flex-col items-center gap-4 py-4 text-center">
+                      <XCircle className="h-8 w-8 text-amber-200/80" />
+                      <p className="text-sm text-white/70">
+                        This drop is allowlisted. Your connected wallet is not
+                        on the list, so it cannot claim.
+                      </p>
                     </div>
                   )}
 
@@ -374,7 +418,7 @@ export default function DropClaimPage() {
                   )}
 
                   {/* Active: connected, eligible */}
-                  {isActive && isConnected && !checkingClaimed && !alreadyClaimed && claimState !== "success" && (
+                  {isActive && isConnected && !checkingClaimed && !alreadyClaimed && !notAllowlisted && claimState !== "success" && (
                     <div className="flex flex-col gap-4">
                       <div className="rounded-2xl border border-emerald-200/15 bg-emerald-200/[0.05] px-4 py-4 text-center">
                         <p className="text-[11px] uppercase tracking-wide text-emerald-100/60">

@@ -64,10 +64,12 @@
   "MultiSendDeploymentBlock": 56544435,
   "SpokenPay": "0x4901Ab966c3711F4d04f9d6AbA8b37848905ECfD",
   "spokenPayDeploymentBlock": 59754302,
-  "ArcDrop": "0x341f43A8B5E65A6B02360fc5f8e867145F9bfeea",
-  "ArcDropDeploymentBlock": 59458519,
+  "ArcDrop": "0xf70B1549B5fe5e39235fD5876815557c21a6102F",
+  "ArcDropDeploymentBlock": 59780234,
   "legacyLendingPool": "0x1D1d19F958cDB6FA2e6C7E5DC16F0a39fe066c9f",
   "legacyPositionNFT": "0xf0d0713609171173616c4167732a05Bf3982F8a9",
   "legacyPositionManager": "0xa5CA2C82D5DC01E067E0F0337c8f73454C74a93F",
-  "marketTokenDeploymentBlock": 59754309
+  "marketTokenDeploymentBlock": 59754309,
+  "legacyArcDrop": "0x341f43A8B5E65A6B02360fc5f8e867145F9bfeea",
+  "legacyArcDropDeploymentBlock": 59458519
 }

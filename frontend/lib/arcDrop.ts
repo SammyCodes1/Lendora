@@ -18,6 +18,8 @@ export type DropClaim = {
 /** Shape returned by GET /api/drop/[slug] */
 export type ApiDrop = {
   dropId: number;
+  contract?: string;
+  allowlistEnabled?: boolean;
   drop: {
     creator: string;
     asset: string; // hex address
@@ -163,6 +165,7 @@ export const LENDROP_MY_DROPS_CAP = 50;
 export const DEFAULT_LENDROP_EXPIRY_SECONDS = 7 * 24 * 60 * 60;
 export const MAX_LENDROP_EXPIRY_SECONDS = 90 * 24 * 60 * 60;
 export const MAX_LENDROP_CLAIMANTS = 10_000;
+export const MAX_LENDROP_ALLOWLIST = 200;
 
 export type SavedLendrop = {
   dropId: number;
@@ -177,6 +180,8 @@ export type SavedLendrop = {
   remainingAmount?: string;
   claimantsCount?: number;
   active?: boolean;
+  contract?: string;
+  allowlistCount?: number;
 };
 
 export function readSavedLendrops(): SavedLendrop[] {
