@@ -8,9 +8,12 @@ import {
   ExternalLink,
   Gift,
   Loader2,
+  Plus,
   RefreshCw,
   RotateCcw,
+  Shield,
   Sparkles,
+  Trash2,
   Users,
   X,
   Zap,
@@ -26,7 +29,7 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { AssetMark, SectionLabel } from "@/components/ui/MarketVisuals";
 import { showToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
-import { ARCSCAN_TX_BASE, DROP_EXPIRY_OPTIONS, DROP_MODE_CLAIM_ALL, DROP_MODE_EQUAL_SPLIT, allDropShareUrls, clientDropUrl, formatDropAmount, parseDropAmount, readSavedLendrops, writeSavedLendrops, type DropAsset, type DropClaim, type DropMode, type SavedLendrop } from "@/lib/arcDrop";
+import { ARCSCAN_TX_BASE, DROP_EXPIRY_OPTIONS, DROP_MODE_CLAIM_ALL, DROP_MODE_EQUAL_SPLIT, MAX_LENDROP_ALLOWLIST, allDropShareUrls, clientDropUrl, formatDropAmount, parseDropAmount, readSavedLendrops, writeSavedLendrops, type DropAsset, type DropClaim, type DropMode, type SavedLendrop } from "@/lib/arcDrop";
 import { DropClaimants } from "@/components/features/DropClaimants";
 import { ARC_TESTNET_CONTRACTS } from "@/constants/contracts";
 import deployments from "@/constants/deployments.json";
@@ -43,6 +46,21 @@ const ARCDROP_ABI: Abi = arcDropJson as Abi;
 const ARCDROP_ADDRESS = (deployments as Record<string, unknown>).ArcDrop as
   | `0x${string}`
   | undefined;
+const LEGACY_ARCDROP_ADDRESS = (deployments as Record<string, unknown>)
+  .legacyArcDrop as `0x${string}` | undefined;
+
+let allowlistRowCounter = 0;
+function nextAllowlistRowId() {
+  allowlistRowCounter += 1;
+  return `allow-${allowlistRowCounter}`;
+}
+
+function contractForSavedDrop(drop: SavedDrop): `0x${string}` | undefined {
+  if (drop.contract && isAddress(drop.contract)) {
+    return drop.contract as `0x${string}`;
+  }
+  return LEGACY_ARCDROP_ADDRESS ?? ARCDROP_ADDRESS;
+}
 
 const ASSET_ADDRESSES: Record<DropAsset, `0x${string}`> = {
   USDC: ARC_TESTNET_CONTRACTS.USDC as `0x${string}`,
@@ -150,6 +168,10 @@ export default function ArcDropPage() {
   const [mode, setMode] = useState<DropMode>(DROP_MODE_EQUAL_SPLIT);
   const [claimants, setClaimants] = useState("5");
   const [expirySeconds, setExpirySeconds] = useState(DROP_EXPIRY_OPTIONS[1].seconds);
+  const [restrictClaims, setRestrictClaims] = useState(false);
+  const [allowlistRows, setAllowlistRows] = useState<
+    Array<{ id: string; value: string }>
+  >([{ id: nextAllowlistRowId(), value: "" }]);
 
   // ── Execution state ─────────────────────────────────────────────────────
   type ExecStep = "idle" | "approving" | "creating" | "linking" | "done" | "error";
@@ -188,13 +210,19 @@ export default function ArcDropPage() {
     return parsedAmount % BigInt(parsedClaimants) !== 0n;
   }, [isEqualSplit, parsedAmount, parsedClaimants]);
 
+  const filledAllowlist = allowlistRows
+    .map((row) => row.value.trim())
+    .filter((value) => value.length > 0);
   const canCreate =
     isConnected &&
     Boolean(parsedAmount) &&
     !unevenSplit &&
     (!isEqualSplit || (parsedClaimants >= 1 && parsedClaimants <= 10_000)) &&
     Boolean(ARCDROP_ADDRESS) &&
-    step === "idle";
+    step === "idle" &&
+    (!restrictClaims ||
+      (filledAllowlist.length > 0 &&
+        filledAllowlist.length <= MAX_LENDROP_ALLOWLIST));
 
   // ── Create drop flow ─────────────────────────────────────────────────────
   async function handleCreate() {
@@ -206,6 +234,54 @@ export default function ArcDropPage() {
     try {
       const assetAddress = ASSET_ADDRESSES[asset];
       const effectiveClaimants = isEqualSplit ? Math.max(1, parsedClaimants) : 1;
+
+      let allowed: `0x${string}`[] = [];
+      if (restrictClaims) {
+        const seen = new Set<string>();
+        for (const raw of filledAllowlist) {
+          let address: `0x${string}`;
+          let label: string | undefined;
+          if (isAddress(raw)) {
+            address = getAddress(raw);
+          } else {
+            const name = raw.toLowerCase().replace(/\.lendora$/, "");
+            const resp = await fetch(
+              `/api/pay-resolve?name=${encodeURIComponent(name)}`,
+            );
+            const body = (await resp.json()) as {
+              address?: string;
+              error?: string;
+            };
+            if (!resp.ok || !body.address || !isAddress(body.address)) {
+              throw new Error(
+                body.error ??
+                  `"${raw}" is not a registered .lendora name or 0x address.`,
+              );
+            }
+            address = getAddress(body.address);
+            label = `${name}.lendora`;
+          }
+          const key = address.toLowerCase();
+          if (seen.has(key)) {
+            throw new Error(
+              `Duplicate allowlist wallet${label ? ` (${label})` : ""}: ${address}`,
+            );
+          }
+          if (address === "0x0000000000000000000000000000000000000000") {
+            throw new Error("Cannot allowlist the zero address.");
+          }
+          seen.add(key);
+          allowed.push(address);
+        }
+        if (allowed.length === 0) {
+          throw new Error("Add at least one wallet or .lendora name.");
+        }
+        if (allowed.length > MAX_LENDROP_ALLOWLIST) {
+          throw new Error(
+            `Allowlist supports at most ${MAX_LENDROP_ALLOWLIST} wallets.`,
+          );
+        }
+      }
 
       // Step 1: ERC-20 approve for exactly totalAmount
       await writeContractAsync({
@@ -223,14 +299,25 @@ export default function ArcDropPage() {
         chainId: 5042002,
         address: ARCDROP_ADDRESS,
         abi: ARCDROP_ABI,
-        functionName: "createDrop",
-        args: [
-          assetAddress,
-          parsedAmount,
-          mode,
-          BigInt(effectiveClaimants),
-          BigInt(expirySeconds),
-        ],
+        functionName: allowed.length
+          ? "createDropAllowlisted"
+          : "createDrop",
+        args: allowed.length
+          ? [
+              assetAddress,
+              parsedAmount,
+              mode,
+              BigInt(effectiveClaimants),
+              BigInt(expirySeconds),
+              allowed,
+            ]
+          : [
+              assetAddress,
+              parsedAmount,
+              mode,
+              BigInt(effectiveClaimants),
+              BigInt(expirySeconds),
+            ],
       });
 
       const hash = resultHash(result);
@@ -296,7 +383,11 @@ export default function ArcDropPage() {
       const linkResp = await fetch("/api/drop/create-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dropId, creatorWallet: address }),
+        body: JSON.stringify({
+          dropId,
+          creatorWallet: address,
+          contract: ARCDROP_ADDRESS,
+        }),
       });
       const linkBody = (await linkResp.json()) as {
         slug?: string;
@@ -323,6 +414,8 @@ export default function ArcDropPage() {
         active: true,
         claimantsCount: 0,
         remainingAmount: parsedAmount.toString(),
+        contract: ARCDROP_ADDRESS,
+        allowlistCount: allowed.length || undefined,
       };
 
       setMyDrops((prev) => {
@@ -353,7 +446,15 @@ export default function ArcDropPage() {
     if (Array.isArray(existing)) return;
     setClaimsByDrop((prev) => ({ ...prev, [dropId]: "loading" }));
     try {
-      const resp = await fetch(`/api/drop/claims?dropId=${dropId}`);
+      const saved = myDrops.find((row) => row.dropId === dropId);
+      const contract = saved
+        ? contractForSavedDrop(saved)
+        : ARCDROP_ADDRESS;
+      const resp = await fetch(
+        `/api/drop/claims?dropId=${dropId}${
+          contract ? `&contract=${encodeURIComponent(contract)}` : ""
+        }`,
+      );
       const body = (await resp.json()) as {
         claims?: DropClaim[];
         error?: string;
@@ -375,12 +476,13 @@ export default function ArcDropPage() {
 
   // ── Cancel drop ───────────────────────────────────────────────────────────
   async function handleCancel(drop: SavedDrop) {
-    if (!ARCDROP_ADDRESS) return;
+    const contract = contractForSavedDrop(drop);
+    if (!contract) return;
     setCancellingId(drop.dropId);
     try {
       await writeContractAsync({
         chainId: 5042002,
-        address: ARCDROP_ADDRESS,
+        address: contract,
         abi: ARCDROP_ABI,
         functionName: "cancelDrop",
         args: [BigInt(drop.dropId)],
@@ -402,12 +504,13 @@ export default function ArcDropPage() {
 
   // ── Reclaim expired ───────────────────────────────────────────────────────
   async function handleReclaim(drop: SavedDrop) {
-    if (!ARCDROP_ADDRESS) return;
+    const contract = contractForSavedDrop(drop);
+    if (!contract) return;
     setReclaimingId(drop.dropId);
     try {
       await writeContractAsync({
         chainId: 5042002,
-        address: ARCDROP_ADDRESS,
+        address: contract,
         abi: ARCDROP_ABI,
         functionName: "reclaimExpired",
         args: [BigInt(drop.dropId)],
@@ -437,6 +540,8 @@ export default function ArcDropPage() {
     setCreated(null);
     setAmount("");
     setClaimants("5");
+    setRestrictClaims(false);
+    setAllowlistRows([{ id: nextAllowlistRowId(), value: "" }]);
   }
 
   const myAddressDrops = useMemo(
@@ -452,7 +557,7 @@ export default function ArcDropPage() {
         <PageHeader
           icon={<Gift />}
           title="Lendrop"
-          description="Create a claim link — deposit USDC or EURC and anyone with the link can claim their share directly to their own wallet."
+          description="Create a claim link for USDC or EURC. Optionally restrict who can claim by wallet address or .lendora name."
         />
 
         <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
@@ -571,6 +676,126 @@ export default function ArcDropPage() {
                   </p>
                 </div>
               )}
+
+              {/* Allowlist */}
+              <div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-white/40">
+                    <Shield className="h-3 w-3" />
+                    Who can claim
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setRestrictClaims((current) => !current)}
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-[11px] transition",
+                      restrictClaims
+                        ? "border-emerald-200/40 bg-emerald-200/10 text-emerald-100"
+                        : "border-white/10 text-white/45 hover:text-white",
+                    )}
+                  >
+                    {restrictClaims ? "Allowlist on" : "Anyone with the link"}
+                  </button>
+                </div>
+                {restrictClaims ? (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-xs leading-5 text-white/40">
+                      Only these wallets can claim. Paste a 0x address or a
+                      .lendora name. Names are resolved to the current owner
+                      when you create the drop.
+                    </p>
+                    {allowlistRows.map((row, index) => (
+                      <div key={row.id} className="flex items-center gap-2">
+                        <input
+                          value={row.value}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setAllowlistRows((current) =>
+                              current.map((item) =>
+                                item.id === row.id ? { ...item, value } : item,
+                              ),
+                            );
+                          }}
+                          onPaste={(event) => {
+                            const text = event.clipboardData.getData("text");
+                            const parts = text
+                              .split(/[\s,;]+/)
+                              .map((part) => part.trim())
+                              .filter(Boolean);
+                            if (parts.length < 2) return;
+                            event.preventDefault();
+                            setAllowlistRows((current) => {
+                              const next = current.map((item) =>
+                                item.id === row.id
+                                  ? { ...item, value: parts[0] ?? "" }
+                                  : item,
+                              );
+                              const extras = parts.slice(1).map((value) => ({
+                                id: nextAllowlistRowId(),
+                                value,
+                              }));
+                              return [...next, ...extras].slice(
+                                0,
+                                MAX_LENDROP_ALLOWLIST,
+                              );
+                            });
+                          }}
+                          placeholder={
+                            index === 0
+                              ? "0x… or ada.lendora"
+                              : "Another wallet or .lendora name"
+                          }
+                          className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 font-mono text-sm text-white outline-none placeholder:text-white/25 focus:border-emerald-200/40"
+                        />
+                        {allowlistRows.length > 1 ? (
+                          <button
+                            type="button"
+                            aria-label="Remove wallet"
+                            onClick={() =>
+                              setAllowlistRows((current) =>
+                                current.filter((item) => item.id !== row.id),
+                              )
+                            }
+                            className="rounded-lg p-2 text-white/35 hover:text-white"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        ) : null}
+                      </div>
+                    ))}
+                    {allowlistRows.length < MAX_LENDROP_ALLOWLIST ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAllowlistRows((current) => [
+                            ...current,
+                            { id: nextAllowlistRowId(), value: "" },
+                          ])
+                        }
+                        className="inline-flex items-center gap-1.5 text-xs text-emerald-100/80 hover:text-white"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Add wallet
+                      </button>
+                    ) : null}
+                    {isEqualSplit &&
+                    filledAllowlist.length > 0 &&
+                    parsedClaimants > filledAllowlist.length ? (
+                      <p className="text-xs text-amber-200/70">
+                        {parsedClaimants} claimant slots but only{" "}
+                        {filledAllowlist.length} allowlisted wallet
+                        {filledAllowlist.length === 1 ? "" : "s"} — at most{" "}
+                        {filledAllowlist.length} can claim.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-white/35">
+                    Turn on an allowlist to restrict this drop to specific
+                    wallets or .lendora names.
+                  </p>
+                )}
+              </div>
 
               {/* Expiry */}
               <div>
@@ -716,7 +941,8 @@ export default function ArcDropPage() {
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-white/15 text-[10px] text-white/50">
                     2
                   </span>
-                  Share the link — anyone with it can claim their share.
+                  Share the link. Anyone with it can claim, unless you
+                  allowlist wallets or .lendora names.
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-white/15 text-[10px] text-white/50">
@@ -770,6 +996,9 @@ export default function ArcDropPage() {
                           {drop.mode === DROP_MODE_EQUAL_SPLIT
                             ? `Equal Split · ${drop.claimantsCount ?? 0}/${drop.maxClaimants} claimed`
                             : "Claim All"}
+                          {drop.allowlistCount
+                            ? ` · ${drop.allowlistCount} allowlisted`
+                            : ""}
                         </p>
                         <div className="mt-2 flex flex-wrap gap-3">
                           {drop.active !== false && (

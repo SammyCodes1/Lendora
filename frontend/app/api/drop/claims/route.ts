@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { isAddress, type Address } from "viem";
 import { enforceRateLimit } from "@/lib/server/rateLimit";
 import {
+  dropContractsToTry,
   fetchDropClaims,
   getArcDropAddress,
 } from "@/lib/server/dropClaims";
@@ -28,7 +30,8 @@ export async function GET(request: Request) {
     );
   }
 
-  const dropIdRaw = new URL(request.url).searchParams.get("dropId");
+  const url = new URL(request.url);
+  const dropIdRaw = url.searchParams.get("dropId");
   const dropId = dropIdRaw ? parseInt(dropIdRaw, 10) : NaN;
   if (!Number.isInteger(dropId) || dropId < 1) {
     return NextResponse.json(
@@ -37,8 +40,16 @@ export async function GET(request: Request) {
     );
   }
 
+  const requested = url.searchParams.get("contract");
+  const known = dropContractsToTry(requested);
+  const contract = (
+    requested && isAddress(requested)
+      ? known.find((item) => item.toLowerCase() === requested.toLowerCase())
+      : getArcDropAddress()
+  ) as Address | undefined;
+
   try {
-    const claims = await fetchDropClaims(dropId);
+    const claims = await fetchDropClaims(dropId, contract);
     return NextResponse.json({ dropId, claims });
   } catch (error) {
     const message =

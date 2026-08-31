@@ -45,6 +45,9 @@ const arcDropAddress = (deployments as Record<string, unknown>).ArcDrop as
   | Address
   | undefined;
 
+const legacyArcDropAddress = (deployments as Record<string, unknown>)
+  .legacyArcDrop as Address | undefined;
+
 const fromBlock = BigInt(
   typeof (deployments as Record<string, unknown>).ArcDropDeploymentBlock ===
     "number"
@@ -52,18 +55,57 @@ const fromBlock = BigInt(
     : 0,
 );
 
+const legacyFromBlock = BigInt(
+  typeof (deployments as Record<string, unknown>)
+    .legacyArcDropDeploymentBlock === "number"
+    ? ((deployments as Record<string, unknown>)
+        .legacyArcDropDeploymentBlock as number)
+    : 0,
+);
+
 export function getArcDropAddress() {
   return arcDropAddress;
 }
 
-export async function fetchDropClaims(dropId: number): Promise<DropClaim[]> {
-  if (!arcDropAddress || !Number.isInteger(dropId) || dropId < 1) return [];
+export function getLegacyArcDropAddress() {
+  return legacyArcDropAddress;
+}
+
+export function fromBlockForDropContract(contract: Address) {
+  if (
+    legacyArcDropAddress &&
+    contract.toLowerCase() === legacyArcDropAddress.toLowerCase()
+  ) {
+    return legacyFromBlock;
+  }
+  return fromBlock;
+}
+
+export function dropContractsToTry(preferred?: string | null): Address[] {
+  const out: Address[] = [];
+  const add = (value?: string | null) => {
+    if (!value) return;
+    const lower = value.toLowerCase();
+    if (out.some((item) => item.toLowerCase() === lower)) return;
+    out.push(value as Address);
+  };
+  add(preferred);
+  add(arcDropAddress);
+  add(legacyArcDropAddress);
+  return out;
+}
+
+export async function fetchDropClaims(
+  dropId: number,
+  contract: Address = arcDropAddress as Address,
+): Promise<DropClaim[]> {
+  if (!contract || !Number.isInteger(dropId) || dropId < 1) return [];
 
   const logs = await arcClient.getLogs({
-    address: arcDropAddress,
+    address: contract,
     event: dropClaimedEvent,
     args: { dropId: BigInt(dropId) },
-    fromBlock,
+    fromBlock: fromBlockForDropContract(contract),
     toBlock: "latest",
   });
 

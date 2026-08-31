@@ -8,7 +8,8 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 /// @notice Escrow-based claim-link drops for USDC and EURC.
 ///         A creator deposits tokens, configures a distribution mode, and
 ///         receives a shareable link. Anyone with the link calls claim() to
-///         pull their share directly to their own connected wallet.
+///         pull their share directly to their own connected wallet, unless the
+///         creator set an allowlist of wallets at creation time.
 ///
 ///         Two modes:
 ///         • EQUAL_SPLIT  — every claimant receives (totalAmount / maxClaimants).
@@ -51,7 +52,16 @@ contract Lendrop is ReentrancyGuard {
 
     mapping(uint256 => Drop) public drops;
     mapping(uint256 => mapping(address => bool)) public hasClaimed;
+    /// @notice Per-drop allowlist. Empty (`allowlistLength == 0`) means the
+    ///         drop is open to any wallet that has the link.
+    mapping(uint256 => mapping(address => bool)) public allowlisted;
+    mapping(uint256 => uint256) public allowlistLength;
     uint256 public nextDropId = 1;
+
+    /// @notice Hard cap on allowlisted wallets per drop so creation stays
+    ///         inside Arc's block gas limit. Larger audiences should use an
+    ///         open drop.
+    uint256 public constant MAX_ALLOWLIST = 200;
 
     // ─── Events ───────────────────────────────────────────────────────────
 
@@ -64,6 +74,8 @@ contract Lendrop is ReentrancyGuard {
         uint256 maxClaimants,
         uint256 expiresAt
     );
+
+    event DropAllowlistSet(uint256 indexed dropId, uint256 count);
 
     event DropClaimed(
         uint256 indexed dropId,
@@ -98,6 +110,59 @@ contract Lendrop is ReentrancyGuard {
         uint256 maxClaimants,
         uint256 expiresInSeconds
     ) external nonReentrant returns (uint256 dropId) {
+        dropId = _createDrop(
+            asset,
+            totalAmount,
+            mode,
+            maxClaimants,
+            expiresInSeconds
+        );
+    }
+
+    /// @notice Create a drop that only the listed wallets can claim.
+    ///         `.lendora` names must be resolved to addresses by the caller
+    ///         before submitting. An empty list is rejected so a restricted
+    ///         drop cannot accidentally become public.
+    function createDropAllowlisted(
+        address asset,
+        uint256 totalAmount,
+        DropMode mode,
+        uint256 maxClaimants,
+        uint256 expiresInSeconds,
+        address[] calldata allowed
+    ) external nonReentrant returns (uint256 dropId) {
+        require(allowed.length > 0, "ArcDrop: empty allowlist");
+        require(
+            allowed.length <= MAX_ALLOWLIST,
+            "ArcDrop: too many allowlisted wallets"
+        );
+        dropId = _createDrop(
+            asset,
+            totalAmount,
+            mode,
+            maxClaimants,
+            expiresInSeconds
+        );
+        for (uint256 i = 0; i < allowed.length; i++) {
+            address account = allowed[i];
+            require(account != address(0), "ArcDrop: zero address");
+            require(
+                !allowlisted[dropId][account],
+                "ArcDrop: duplicate allowlist address"
+            );
+            allowlisted[dropId][account] = true;
+        }
+        allowlistLength[dropId] = allowed.length;
+        emit DropAllowlistSet(dropId, allowed.length);
+    }
+
+    function _createDrop(
+        address asset,
+        uint256 totalAmount,
+        DropMode mode,
+        uint256 maxClaimants,
+        uint256 expiresInSeconds
+    ) internal returns (uint256 dropId) {
         require(totalAmount > 0, "ArcDrop: amount must be positive");
 
         // CLAIM_ALL is always effectively one claimant regardless of what
@@ -162,6 +227,12 @@ contract Lendrop is ReentrancyGuard {
             "ArcDrop: drop has expired"
         );
         require(drop.creator != msg.sender, "ArcDrop: creator cannot claim their own drop");
+        if (allowlistLength[dropId] > 0) {
+            require(
+                allowlisted[dropId][msg.sender],
+                "ArcDrop: not on this drop's allowlist"
+            );
+        }
 
         uint256 amount;
         if (drop.mode == DropMode.CLAIM_ALL) {
@@ -233,5 +304,20 @@ contract Lendrop is ReentrancyGuard {
     ///         zeroed struct for IDs that have never been created.
     function getDropStatus(uint256 dropId) external view returns (Drop memory) {
         return drops[dropId];
+    }
+
+    /// @notice Whether this drop restricts claims to an allowlist.
+    function allowlistEnabled(uint256 dropId) external view returns (bool) {
+        return allowlistLength[dropId] > 0;
+    }
+
+    /// @notice True if `account` may claim. Open drops return true for every
+    ///         non-checked address; restricted drops return the mapping.
+    function isAllowlisted(
+        uint256 dropId,
+        address account
+    ) external view returns (bool) {
+        if (allowlistLength[dropId] == 0) return true;
+        return allowlisted[dropId][account];
     }
 }

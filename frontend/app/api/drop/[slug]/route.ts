@@ -9,7 +9,10 @@ import {
 import { arcTestnet } from "viem/chains";
 import { enforceRateLimit } from "@/lib/server/rateLimit";
 import { resolveDropSlug } from "@/lib/server/arcDrop";
-import { fetchDropClaims } from "@/lib/server/dropClaims";
+import {
+  dropContractsToTry,
+  fetchDropClaims,
+} from "@/lib/server/dropClaims";
 import deployments from "@/constants/deployments.json";
 import arcDropJson from "@/constants/abis/ArcDrop.json";
 
@@ -75,13 +78,14 @@ export async function GET(
 
   const { slug } = await params;
 
-  const dropId = await resolveDropSlug(slug);
-  if (dropId === null) {
+  const resolved = await resolveDropSlug(slug);
+  if (resolved === null) {
     return NextResponse.json(
       { error: "Drop link not found." },
       { status: 404 },
     );
   }
+  const { dropId } = resolved;
 
   if (!arcDropAddress) {
     return NextResponse.json(
@@ -105,12 +109,37 @@ export async function GET(
       expiresAt: bigint;
     };
 
-    const dropRaw = (await arcClient.readContract({
-      address: arcDropAddress,
-      abi: arcDropAbi,
-      functionName: "getDropStatus",
-      args: [BigInt(dropId)],
-    })) as DropTuple;
+    const ZERO = "0x0000000000000000000000000000000000000000";
+    let dropRaw: DropTuple | null = null;
+    let contract = arcDropAddress;
+
+    for (const candidate of dropContractsToTry(resolved.contract)) {
+      try {
+        const candidateDrop = (await arcClient.readContract({
+          address: candidate,
+          abi: arcDropAbi,
+          functionName: "getDropStatus",
+          args: [BigInt(dropId)],
+        })) as DropTuple;
+        if (
+          candidateDrop.creator &&
+          candidateDrop.creator.toLowerCase() !== ZERO
+        ) {
+          dropRaw = candidateDrop;
+          contract = candidate;
+          break;
+        }
+      } catch {
+        // Try the next known Lendrop deployment.
+      }
+    }
+
+    if (!dropRaw) {
+      return NextResponse.json(
+        { error: "Drop not found on-chain." },
+        { status: 404 },
+      );
+    }
 
     // Serialise bigints to strings for JSON transport.
     const drop = {
@@ -127,14 +156,34 @@ export async function GET(
       expiresAt: dropRaw.expiresAt.toString(),
     };
 
+    let allowlistEnabled = false;
+    try {
+      allowlistEnabled = Boolean(
+        await arcClient.readContract({
+          address: contract,
+          abi: arcDropAbi,
+          functionName: "allowlistEnabled",
+          args: [BigInt(dropId)],
+        }),
+      );
+    } catch {
+      allowlistEnabled = false;
+    }
+
     let claims: Awaited<ReturnType<typeof fetchDropClaims>> = [];
     try {
-      claims = await fetchDropClaims(dropId);
+      claims = await fetchDropClaims(dropId, contract);
     } catch (error) {
       console.error("[lendrop] failed to load claimants", error);
     }
 
-    return NextResponse.json({ dropId, drop, claims });
+    return NextResponse.json({
+      dropId,
+      contract,
+      allowlistEnabled,
+      drop,
+      claims,
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Could not read drop from chain.";

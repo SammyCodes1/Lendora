@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
-import { isAddress } from "viem";
+import { getAddress, isAddress } from "viem";
 import { enforceRateLimit } from "@/lib/server/rateLimit";
 import { storeDropSlug } from "@/lib/server/arcDrop";
+import {
+  dropContractsToTry,
+  getArcDropAddress,
+} from "@/lib/server/dropClaims";
 import {
   allDropShareUrls,
   dropOriginFromRequest,
@@ -35,6 +39,7 @@ export async function POST(request: Request) {
     const body = (await request.json()) as {
       dropId?: unknown;
       creatorWallet?: unknown;
+      contract?: unknown;
     };
 
     const dropId =
@@ -61,9 +66,21 @@ export async function POST(request: Request) {
       );
     }
 
+    const known = dropContractsToTry();
+    const requested =
+      typeof body.contract === "string" && isAddress(body.contract)
+        ? getAddress(body.contract)
+        : getArcDropAddress();
+    const contract =
+      requested &&
+      known.some((item) => item.toLowerCase() === requested.toLowerCase())
+        ? requested
+        : getArcDropAddress();
+
     const result = await storeDropSlug({
       dropId,
       creatorWallet: body.creatorWallet,
+      ...(contract ? { contract } : {}),
     });
 
     if ("error" in result) {

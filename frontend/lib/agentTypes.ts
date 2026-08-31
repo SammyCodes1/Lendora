@@ -29,6 +29,11 @@ export type { MultiSendParams, MultiSendRecipient };
 
 export type LendropMode = "EQUAL_SPLIT" | "CLAIM_ALL";
 
+export type LendropAllowlistEntry = {
+  address: string;
+  name?: string;
+};
+
 export type CreateLendropParams = {
   asset: LendingAsset;
   amount: string;
@@ -36,6 +41,7 @@ export type CreateLendropParams = {
   maxClaimants: string;
   expirySeconds: string;
   perClaimAmount?: string;
+  allowlist?: LendropAllowlistEntry[];
 };
 
 export type SchedulePaymentParams = {

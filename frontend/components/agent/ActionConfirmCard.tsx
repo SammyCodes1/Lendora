@@ -580,6 +580,10 @@ export function ActionConfirmCard({
         const expiry = formatLendropExpiry(
           Number(params.expirySeconds ?? "0"),
         );
+        const allowlist = Array.isArray(params.allowlist)
+          ? (params.allowlist as Array<{ address?: string; name?: string }>)
+          : [];
+        const allowCount = allowlist.length;
         setReview({
           eyebrow: "Lendrop review",
           title: `Share ${amount} ${asset}`,
@@ -592,12 +596,18 @@ export function ActionConfirmCard({
           route: [
             `${asset} wallet`,
             "Approve Lendrop",
-            "createDrop",
+            allowCount ? "Allowlisted createDrop" : "createDrop",
             "Shareable link",
           ],
-          detail: isClaimAll
-            ? `You'll lock ${amount} ${asset} in Lendrop. The first wallet to open the link claims the full amount. Expires: ${expiry}.`
-            : `You'll lock ${amount} ${asset} in Lendrop, split equally across ${claimants} claimants (${perClaim ?? "even"} ${asset} each). Expires: ${expiry}.`,
+          detail: [
+            isClaimAll
+              ? `You'll lock ${amount} ${asset} in Lendrop. The first wallet to open the link claims the full amount.`
+              : `You'll lock ${amount} ${asset} in Lendrop, split equally across ${claimants} claimants (${perClaim ?? "even"} ${asset} each).`,
+            allowCount
+              ? ` Only ${allowCount} allowlisted wallet${allowCount === 1 ? "" : "s"} can claim.`
+              : "",
+            ` Expires: ${expiry}.`,
+          ].join(""),
         });
         return;
       }
@@ -1044,20 +1054,30 @@ export function ActionConfirmCard({
             : DROP_MODE_EQUAL_SPLIT;
         const maxClaimants = BigInt(String(params.maxClaimants ?? "1"));
         const expirySeconds = BigInt(String(params.expirySeconds ?? "0"));
+        const allowlist = Array.isArray(params.allowlist)
+          ? (params.allowlist as Array<{ address?: string }>)
+              .map((row) => row.address)
+              .filter((value): value is string => Boolean(value))
+          : [];
         const submittedAt = performance.now();
         await ensureAllowance(token.address, amount, ARCDROP_ADDRESS);
         const hash = await submitContract({
           chainId: 5042002,
           address: ARCDROP_ADDRESS,
           abi: ARCDROP_ABI,
-          functionName: "createDrop",
-          args: [
-            token.address,
-            amount,
-            mode,
-            maxClaimants,
-            expirySeconds,
-          ],
+          functionName: allowlist.length
+            ? "createDropAllowlisted"
+            : "createDrop",
+          args: allowlist.length
+            ? [
+                token.address,
+                amount,
+                mode,
+                maxClaimants,
+                expirySeconds,
+                allowlist as Address[],
+              ]
+            : [token.address, amount, mode, maxClaimants, expirySeconds],
         });
         if (!hash) {
           throw new Error("Lendrop was submitted without a transaction hash");
@@ -1082,7 +1102,11 @@ export function ActionConfirmCard({
             const linkResp = await fetch("/api/drop/create-link", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ dropId, creatorWallet: address }),
+              body: JSON.stringify({
+                dropId,
+                creatorWallet: address,
+                contract: ARCDROP_ADDRESS,
+              }),
             });
             const linkBody = (await linkResp.json()) as {
               slug?: string;
@@ -1105,6 +1129,8 @@ export function ActionConfirmCard({
                 active: true,
                 claimantsCount: 0,
                 remainingAmount: amount.toString(),
+                contract: ARCDROP_ADDRESS,
+                allowlistCount: allowlist.length || undefined,
               });
             }
           } catch {
@@ -1729,6 +1755,38 @@ export function ActionConfirmCard({
           </div>
         ))}
       </dl>
+
+      {action.tool === "createLendrop" &&
+      Array.isArray(params.allowlist) &&
+      (params.allowlist as Array<{ address?: string; name?: string }>).length >
+        0 ? (
+        <div className="mt-3 max-h-40 overflow-y-auto rounded-lg border border-white/[0.08] bg-black/15 px-3 py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-white/35">
+            Allowlist
+          </p>
+          <ul className="mt-1.5 space-y-1.5">
+            {(
+              params.allowlist as Array<{ address?: string; name?: string }>
+            )
+              .slice(0, 8)
+              .map((row, index) => (
+                <li
+                  key={row.address ?? `${index}`}
+                  className="truncate font-mono text-[11px] text-white/75"
+                >
+                  {row.name
+                    ? `${row.name} · ${shortAddress(row.address ?? "")}`
+                    : shortAddress(row.address ?? "")}
+                </li>
+              ))}
+          </ul>
+          {(params.allowlist as unknown[]).length > 8 ? (
+            <p className="mt-1.5 text-[10px] text-white/35">
+              +{(params.allowlist as unknown[]).length - 8} more
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       {action.tool === "multiSend" && multiSendPreview.length > 0 ? (
         <div className="mt-3 max-h-40 overflow-y-auto rounded-lg border border-white/[0.08] bg-black/15 px-3 py-2">

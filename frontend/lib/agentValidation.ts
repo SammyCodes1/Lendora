@@ -16,7 +16,7 @@
  * 14. Block domain burns unless the connected wallet owns the unlisted domain.
  * 15. Block yield claims unless live reserve indexes show positive pending supply interest.
  * 16. Block spoken recurring payments unless the recipient resolves, the interval is at least 15 minutes, health floor is >= 1.10, live HF is currently above that floor, and yield-only plans have an active supply position.
- * 17. Block Lendrop creates unless the asset is live USDC/EURC, the wallet holds the full amount, equal-split amounts divide evenly across 1–10000 claimants, and expiry is 0 or at most 90 days.
+ * 17. Block Lendrop creates unless the asset is live USDC/EURC, the wallet holds the full amount, equal-split amounts divide evenly across 1–10000 claimants, expiry is 0 or at most 90 days, and any allowlist has 1–200 unique resolved wallets.
  * 18. Block MultiSend unless 1–1000 recipients resolve, each has a positive USDC and/or EURC amount, no zero addresses, and the wallet holds the combined totals.
  *
  * This module is the single server-side safety boundary between natural-language
@@ -63,6 +63,7 @@ import {
 } from "@/lib/multiSend";
 import {
   DEFAULT_LENDROP_EXPIRY_SECONDS,
+  MAX_LENDROP_ALLOWLIST,
   MAX_LENDROP_CLAIMANTS,
   MAX_LENDROP_EXPIRY_SECONDS,
 } from "@/lib/arcDrop";
@@ -1324,12 +1325,85 @@ export async function validateAgentAction(
         );
       }
 
+      const rawAllowlist = (params as { allowlist?: unknown }).allowlist;
+      let allowlist: CreateLendropParams["allowlist"];
+      if (rawAllowlist !== undefined && rawAllowlist !== null) {
+        if (!Array.isArray(rawAllowlist) || rawAllowlist.length === 0) {
+          return hardBlock(
+            walletKey,
+            "Add at least one allowlisted wallet or .lendora name, or omit the allowlist.",
+          );
+        }
+        if (rawAllowlist.length > MAX_LENDROP_ALLOWLIST) {
+          return hardBlock(
+            walletKey,
+            `Lendrop allowlists support at most ${MAX_LENDROP_ALLOWLIST} wallets.`,
+          );
+        }
+        const seen = new Set<string>();
+        allowlist = [];
+        for (let index = 0; index < rawAllowlist.length; index += 1) {
+          const row = rawAllowlist[index];
+          const entry =
+            typeof row === "string"
+              ? row
+              : row && typeof row === "object"
+                ? String(
+                    (row as { recipient?: unknown; address?: unknown })
+                      .recipient ??
+                      (row as { address?: unknown }).address ??
+                      "",
+                  )
+                : "";
+          if (!entry) {
+            return hardBlock(
+              walletKey,
+              `Allowlist entry ${index + 1} needs a wallet or .lendora name.`,
+            );
+          }
+          let resolved: Awaited<ReturnType<typeof resolveRecipient>>;
+          try {
+            resolved = await resolveRecipient(entry);
+          } catch (error) {
+            return hardBlock(
+              walletKey,
+              error instanceof Error && error.message === "unresolved-domain"
+                ? `The .lendora domain "${entry}" is not registered.`
+                : `Allowlist entry ${index + 1} must be a valid 0x address or registered .lendora domain.`,
+            );
+          }
+          if (resolved.address === ZERO_ADDRESS) {
+            return hardBlock(walletKey, "Cannot allowlist the zero address.");
+          }
+          const key = resolved.address.toLowerCase();
+          if (seen.has(key)) {
+            return hardBlock(
+              walletKey,
+              `Duplicate allowlist wallet ${resolved.address}.`,
+            );
+          }
+          seen.add(key);
+          allowlist.push({
+            address: resolved.address,
+            ...(resolved.domain
+              ? { name: displayDomainName(resolved.domain) }
+              : typeof row === "object" &&
+                  row &&
+                  typeof (row as { recipientName?: unknown }).recipientName ===
+                    "string"
+                ? { name: (row as { recipientName: string }).recipientName }
+                : {}),
+          });
+        }
+      }
+
       const dropParams: CreateLendropParams = {
         asset,
         amount: String(params.amount),
         mode,
         maxClaimants: String(maxClaimants),
         expirySeconds: String(rawExpiry),
+        ...(allowlist ? { allowlist } : {}),
       };
       if (mode === "EQUAL_SPLIT") {
         dropParams.perClaimAmount = formatUnits(amount / BigInt(maxClaimants), 6);

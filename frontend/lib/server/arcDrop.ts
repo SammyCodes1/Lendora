@@ -47,10 +47,49 @@ function tryGetRedis(): Redis | { error: string } {
   }
 }
 
+export type ResolvedDropSlug = {
+  dropId: number;
+  contract: string | null;
+};
+
+function parseSlugValue(raw: unknown): ResolvedDropSlug | null {
+  if (typeof raw === "number" && Number.isInteger(raw) && raw > 0) {
+    return { dropId: raw, contract: null };
+  }
+  if (typeof raw === "string") {
+    const asNumber = parseInt(raw, 10);
+    if (String(asNumber) === raw && asNumber > 0) {
+      return { dropId: asNumber, contract: null };
+    }
+    try {
+      return parseSlugValue(JSON.parse(raw) as unknown);
+    } catch {
+      return null;
+    }
+  }
+  if (raw && typeof raw === "object") {
+    const value = raw as { dropId?: unknown; contract?: unknown };
+    const dropId =
+      typeof value.dropId === "number"
+        ? value.dropId
+        : typeof value.dropId === "string"
+          ? parseInt(value.dropId, 10)
+          : NaN;
+    if (!Number.isInteger(dropId) || dropId < 1) return null;
+    const contract =
+      typeof value.contract === "string" && isAddress(value.contract)
+        ? value.contract
+        : null;
+    return { dropId, contract };
+  }
+  return null;
+}
+
 /** Store slug → dropId and index the drop under the creator's wallet. */
 export async function storeDropSlug(input: {
   dropId: number;
   creatorWallet: string;
+  contract?: string;
 }): Promise<{ slug: string } | { error: string }> {
   if (!isAddress(input.creatorWallet)) {
     return { error: "Invalid creator wallet address." };
@@ -73,7 +112,10 @@ export async function storeDropSlug(input: {
       const slugKey = dropSlugKey(slug);
 
       // Only set if key doesn't already exist (NX = "not exists").
-      const set = await redis.set(slugKey, input.dropId, {
+      const payload = input.contract
+        ? { dropId: input.dropId, contract: input.contract }
+        : input.dropId;
+      const set = await redis.set(slugKey, payload, {
         ex: SLUG_TTL_SECONDS,
         nx: true,
       });
@@ -102,16 +144,17 @@ export async function storeDropSlug(input: {
   return { error: "Could not generate a unique slug. Please try again." };
 }
 
-/** Resolve a slug to its dropId. Returns null if not found. */
-export async function resolveDropSlug(slug: string): Promise<number | null> {
+/** Resolve a slug to its dropId (and contract, when stored). */
+export async function resolveDropSlug(
+  slug: string,
+): Promise<ResolvedDropSlug | null> {
   if (!isValidSlug(slug)) return null;
   const redisOrError = tryGetRedis();
   if ("error" in redisOrError) return null;
   const redis = redisOrError;
-  const raw = await redis.get<number | string>(dropSlugKey(slug));
+  const raw = await redis.get<unknown>(dropSlugKey(slug));
   if (raw === null || raw === undefined) return null;
-  const id = typeof raw === "number" ? raw : parseInt(String(raw), 10);
-  return Number.isInteger(id) && id > 0 ? id : null;
+  return parseSlugValue(raw);
 }
 
 /** Get all dropIds created by a wallet (most recent first). */

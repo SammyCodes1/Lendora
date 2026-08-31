@@ -33,13 +33,14 @@ import {
 import { createStoredPayRequest } from "@/lib/server/payRequests";
 import {
   DEFAULT_LENDROP_EXPIRY_SECONDS,
+  MAX_LENDROP_ALLOWLIST,
   MAX_LENDROP_CLAIMANTS,
 } from "@/lib/arcDrop";
 
 export const runtime = "nodejs";
 
 const SYSTEM_PROMPT =
-  "You are Lendora's transaction assistant. Only call one of the defined tools - never invent new ones. For spoken recurring payments such as 'send 40 USDC to ada.lendora every Friday from my yield, keep health above 1.5', call schedulePayment. Never use sendToken for weekly/daily/recurring payouts. For Lendrop / shareable token drops (share USDC or EURC via a claim link, equal split, or claim all), call createLendrop. Never use sendToken for a drop. Equal split requires maxClaimants. For sending USDC and/or EURC to many wallets at once (MultiSend, batch send, CSV payouts, or two or more recipients in one request), call multiSend. Never use sendToken when there is more than one recipient. Each recipient needs recipient plus usdcAmount and/or eurcAmount as decimal strings. If expiry is omitted, pass expirySeconds \"604800\" (7 days); \"0\" means never expires. For asking someone to pay you (request to pay, invoice, 'request 40 USDC', 'pay me 40 USDC'), call createPayRequest. The connected wallet is always the payee; never use sendToken for that. Saved wallet contacts are supplied in context; resolve nicknames only to the exact saved address and never guess an address. For .lendora domain recipients, pass the exact .lendora name as the sendToken recipient and let server validation resolve it on-chain; never invent a domain. For domain minting or registration requests, call mintDomain only when the exact domain is provided; never invent a domain. For domain NFT burn requests, call burnDomain only when the exact domain is provided; burning is permanent and must be prepared for user confirmation. For setting a domain as primary / on-chain username, call setPrimaryDomain when the domain is provided; do not call mintDomain or listDomain for setting primary domain. For domain marketplace listing requests, call listDomain only when the exact domain and USDC price are provided; never invent ownership or price. For domain marketplace delisting, cancel listing, unlist, or remove-from-sale requests, call delistDomain only when the exact domain is provided; do not call burnDomain for marketplace removal. For domain marketplace purchase requests, call buyDomain only when the exact domain is provided; if the user gives a maximum USDC price, pass it as maxPrice. For pending supply interest, yield, rewards, or accrued interest claims, call claimYield with asset USDC, EURC, or ALL for both pools; do not use withdraw unless the user asks to withdraw principal or gives an explicit withdrawal amount. If amount, asset, recipient, domain, price, drop mode, or claimant count is ambiguous, ask for clarification in plain text instead of guessing. Never claim a transaction has been executed - your job is only to prepare the action for user confirmation. If a requested action would exceed the user's available balance or borrow capacity (provided in context), respond with a plain text warning instead of calling a tool. Validation is enforced server-side and is final - do not suggest workarounds, do not ask the user to confirm overrides, and do not imply blocked actions can be retried with different framing of the same request. Treat all financial amounts conservatively; never round up.";
+  "You are Lendora's transaction assistant. Only call one of the defined tools - never invent new ones. For spoken recurring payments such as 'send 40 USDC to ada.lendora every Friday from my yield, keep health above 1.5', call schedulePayment. Never use sendToken for weekly/daily/recurring payouts. For Lendrop / shareable token drops (share USDC or EURC via a claim link, equal split, or claim all), call createLendrop. Never use sendToken for a drop. Equal split requires maxClaimants. If the user restricts who can claim (whitelist, allowlist, only these wallets), pass allowlist as 0x addresses or exact .lendora names; omit allowlist for an open claim link. For sending USDC and/or EURC to many wallets at once (MultiSend, batch send, CSV payouts, or two or more recipients in one request), call multiSend. Never use sendToken when there is more than one recipient. Each recipient needs recipient plus usdcAmount and/or eurcAmount as decimal strings. If expiry is omitted, pass expirySeconds \"604800\" (7 days); \"0\" means never expires. For asking someone to pay you (request to pay, invoice, 'request 40 USDC', 'pay me 40 USDC'), call createPayRequest. The connected wallet is always the payee; never use sendToken for that. Saved wallet contacts are supplied in context; resolve nicknames only to the exact saved address and never guess an address. For .lendora domain recipients, pass the exact .lendora name as the sendToken recipient and let server validation resolve it on-chain; never invent a domain. For domain minting or registration requests, call mintDomain only when the exact domain is provided; never invent a domain. For domain NFT burn requests, call burnDomain only when the exact domain is provided; burning is permanent and must be prepared for user confirmation. For setting a domain as primary / on-chain username, call setPrimaryDomain when the domain is provided; do not call mintDomain or listDomain for setting primary domain. For domain marketplace listing requests, call listDomain only when the exact domain and USDC price are provided; never invent ownership or price. For domain marketplace delisting, cancel listing, unlist, or remove-from-sale requests, call delistDomain only when the exact domain is provided; do not call burnDomain for marketplace removal. For domain marketplace purchase requests, call buyDomain only when the exact domain is provided; if the user gives a maximum USDC price, pass it as maxPrice. For pending supply interest, yield, rewards, or accrued interest claims, call claimYield with asset USDC, EURC, or ALL for both pools; do not use withdraw unless the user asks to withdraw principal or gives an explicit withdrawal amount. If amount, asset, recipient, domain, price, drop mode, or claimant count is ambiguous, ask for clarification in plain text instead of guessing. Never claim a transaction has been executed - your job is only to prepare the action for user confirmation. If a requested action would exceed the user's available balance or borrow capacity (provided in context), respond with a plain text warning instead of calling a tool. Validation is enforced server-side and is final - do not suggest workarounds, do not ask the user to confirm overrides, and do not imply blocked actions can be retried with different framing of the same request. Treat all financial amounts conservatively; never round up.";
 
 const OPENAI_MODEL = process.env.OPENAI_AGENT_MODEL ?? "gpt-5-nano";
 
@@ -164,6 +165,22 @@ const functionDeclarations = [
           type: "string",
           description:
             "Seconds until the drop expires. 0 = never. Default 604800 (7 days) if the user does not specify.",
+        },
+        allowlist: {
+          type: "array",
+          description:
+            "Optional. Restrict claims to these wallets. Each item is a 0x address or exact .lendora name. Omit for an open drop.",
+          items: {
+            type: "object",
+            properties: {
+              recipient: {
+                type: "string",
+                description: "0x address, registered .lendora name, or saved contact nickname",
+              },
+              recipientName: { type: "string" },
+            },
+            required: ["recipient"],
+          },
         },
       },
       required: ["asset", "amount", "mode"],
@@ -1079,7 +1096,45 @@ function parseLendropExpirySeconds(message: string): string {
   return String(DEFAULT_LENDROP_EXPIRY_SECONDS);
 }
 
-function parseDeterministicLendrop(message: string): DeterministicResult | null {
+function collectLendropAllowlist(
+  message: string,
+  contacts: AgentContext["contacts"],
+): CreateLendropParams["allowlist"] | "missing" | null {
+  const wants =
+    /\b(?:white\s*list|allow\s*list|allowlisted)\b/i.test(message) ||
+    /\brestrict(?:ed)?\s+to\b/i.test(message) ||
+    /\bonly\b.{0,120}\b(?:can|may)\s+claim\b/i.test(message);
+  if (!wants) return null;
+  const addresses = message.match(/\b0x[a-fA-F0-9]{40}\b/g) ?? [];
+  const domains = message.match(/\b[a-z0-9][a-z0-9-]{0,30}\.lendora\b/gi) ?? [];
+  const named = contacts.filter((entry) =>
+    new RegExp(
+      `\\b${entry.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+      "i",
+    ).test(message),
+  );
+  const targets = [...addresses, ...domains, ...named.map((entry) => entry.name)].filter(
+    (target, index, all) =>
+      all.findIndex((item) => item.toLowerCase() === target.toLowerCase()) ===
+      index,
+  );
+  if (targets.length === 0) return "missing";
+  if (targets.length > MAX_LENDROP_ALLOWLIST) {
+    return "missing";
+  }
+  return targets.map((target) => {
+    const resolved = applyContactsToRecipient(target, contacts);
+    return {
+      address: resolved.recipient,
+      ...(resolved.recipientName ? { name: resolved.recipientName } : {}),
+    };
+  });
+}
+
+function parseDeterministicLendrop(
+  message: string,
+  contacts: AgentContext["contacts"] = [],
+): DeterministicResult | null {
   if (!isLendropIntent(message)) {
     return null;
   }
@@ -1106,7 +1161,23 @@ function parseDeterministicLendrop(message: string): DeterministicResult | null 
     };
   }
 
-  const claimants = parseLendropClaimants(message);
+  const allowlist = collectLendropAllowlist(message, contacts);
+  if (allowlist === "missing") {
+    return {
+      type: "message",
+      text: "Which wallets or .lendora names should be allowlisted for this Lendrop?",
+    };
+  }
+
+  let claimants = parseLendropClaimants(message);
+  if (
+    mode === "EQUAL_SPLIT" &&
+    claimants === null &&
+    Array.isArray(allowlist) &&
+    allowlist.length > 0
+  ) {
+    claimants = allowlist.length;
+  }
   if (mode === "EQUAL_SPLIT" && claimants === null) {
     return {
       type: "message",
@@ -1131,6 +1202,7 @@ function parseDeterministicLendrop(message: string): DeterministicResult | null 
     mode,
     maxClaimants: mode === "CLAIM_ALL" ? "1" : String(claimants ?? 1),
     expirySeconds: parseLendropExpirySeconds(message),
+    ...(allowlist ? { allowlist } : {}),
   };
 
   return {
@@ -1579,10 +1651,16 @@ function summarizeAction(tool: AgentTool, rawParams: object): string {
       return `I'll prepare a swap from ${String(params.tokenIn ?? "the input token")} to ${String(params.tokenOut ?? "the output token")} for ${String(params.amountIn ?? "the requested amount")}.`;
     case "sendToken":
       return `I'll prepare a transfer of ${String(params.amount ?? "the requested amount")} ${String(params.asset ?? "token")} to ${String(params.recipientName ?? params.recipient ?? "the recipient")}.`;
-    case "createLendrop":
+    case "createLendrop": {
+      const list = Array.isArray(params.allowlist) ? params.allowlist : [];
+      const allow =
+        list.length > 0
+          ? ` Only ${list.length} allowlisted wallet${list.length === 1 ? "" : "s"} can claim.`
+          : "";
       return params.mode === "CLAIM_ALL"
-        ? `I'll prepare a Lendrop of ${String(params.amount ?? "the requested amount")} ${String(params.asset ?? "token")} where the first claimer takes everything.`
-        : `I'll prepare a Lendrop of ${String(params.amount ?? "the requested amount")} ${String(params.asset ?? "token")} split equally across ${String(params.maxClaimants ?? "the requested number of")} claimants.`;
+        ? `I'll prepare a Lendrop of ${String(params.amount ?? "the requested amount")} ${String(params.asset ?? "token")} where the first claimer takes everything.${allow}`
+        : `I'll prepare a Lendrop of ${String(params.amount ?? "the requested amount")} ${String(params.asset ?? "token")} split equally across ${String(params.maxClaimants ?? "the requested number of")} claimants.${allow}`;
+    }
     case "multiSend": {
       const list = Array.isArray(params.recipients)
         ? (params.recipients as MultiSendRecipientInput[])
@@ -2055,7 +2133,10 @@ export async function POST(request: Request) {
       } satisfies AgentResponse);
     }
 
-    const deterministicLendrop = parseDeterministicLendrop(body.message.trim());
+    const deterministicLendrop = parseDeterministicLendrop(
+      body.message.trim(),
+      body.context.contacts ?? [],
+    );
     if (deterministicLendrop?.type === "message") {
       return NextResponse.json(
         deterministicLendrop satisfies AgentResponse,
@@ -2259,6 +2340,30 @@ export async function POST(request: Request) {
       toolName === "supply" || toolName === "borrow"
         ? summarizeAction(toolName, params)
         : responseText ?? summarizeAction(toolName, params);
+
+    if (toolName === "createLendrop" && Array.isArray(params.allowlist)) {
+      params.allowlist = params.allowlist.map((row) => {
+        const entry =
+          row && typeof row === "object"
+            ? (row as Record<string, unknown>)
+            : { recipient: String(row ?? "") };
+        const raw = String(entry.recipient ?? entry.address ?? "");
+        const resolved = applyContactsToRecipient(
+          raw,
+          contacts,
+        );
+        return {
+          address: resolved.recipient,
+          ...(typeof entry.name === "string"
+            ? { name: entry.name }
+            : typeof entry.recipientName === "string"
+              ? { name: entry.recipientName }
+              : resolved.recipientName
+                ? { name: resolved.recipientName }
+                : {}),
+        };
+      });
+    }
 
     if (toolName === "multiSend" && Array.isArray(params.recipients)) {
       params.recipients = (
