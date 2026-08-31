@@ -37,6 +37,7 @@ import { useUserBalance } from "@/hooks/useLendingPool";
 import { resultHash, useArcLendContractWrite } from "@/hooks/useArcLendContractWrite";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
 import { showToast } from "@/lib/toast";
+import { arcscanTokenUrl } from "@/lib/markets";
 import {
   ARCSCAN_TX,
   errorMessage,
@@ -240,8 +241,19 @@ function VaultCard({
           <div>
             <h2 className="text-lg font-semibold text-white">{vault.symbol} Earn Vault</h2>
             <p className="mt-1 text-xs text-white/35">
-              {vault.deployed ? "Lendora managed vault" : "Deployment pending"}
+              {vault.deployed ? "Lendora Earn Vault" : "Deployment pending"}
             </p>
+            {vault.deployed ? (
+              <a
+                href={arcscanTokenUrl(vault.vault)}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1 inline-flex items-center gap-1 font-mono text-[10px] text-white/45 transition hover:text-white"
+              >
+                ev{vault.symbol} on ArcScan
+                <ExternalLink className="h-2.5 w-2.5" />
+              </a>
+            ) : null}
           </div>
         </div>
         <StatBadge label="Lending APY" value={supplyApy} tone="positive" />

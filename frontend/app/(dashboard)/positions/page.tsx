@@ -32,6 +32,10 @@ import {
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
 import deployments from "@/constants/deployments.json";
 import { showToast } from "@/lib/toast";
+import {
+  LENDORA_POSITION_NFT_NAME,
+  LENDORA_POSITION_NFT_SYMBOL,
+} from "@/lib/markets";
 
 function nftExplorerUrl(tokenId: bigint) {
   return `https://testnet.arcscan.app/token/${deployments.PositionNFT}?a=${tokenId}`;
@@ -178,7 +182,7 @@ export default function PositionsPage() {
         <PageHeader
           icon={<Award />}
           title="Positions"
-          description="Claim and inspect on-chain receipts that represent Lendora supply and borrow positions across the protocol."
+          description={`${LENDORA_POSITION_NFT_NAME} (${LENDORA_POSITION_NFT_SYMBOL}) NFTs for live Lendora supply and borrow positions.`}
           stats={[
             {
               label: "Receipts",
@@ -342,7 +346,8 @@ export default function PositionsPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="font-semibold text-white">
-                        {position.symbol} Position
+                        {position.metadata?.name ??
+                          `${position.symbol} Position`}
                       </p>
                       <p className="mt-1 text-xs text-white/40">
                         Opened{" "}

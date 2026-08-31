@@ -35,7 +35,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { HealthFactorValue } from "@/components/ui/HealthFactorValue";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { AssetMark, SectionLabel, UtilizationBar } from "@/components/ui/MarketVisuals";
+import { AssetMark, ReceiptTokenLinks, SectionLabel, UtilizationBar } from "@/components/ui/MarketVisuals";
 import { useCircleEmailWallet } from "@/components/wallet/CircleEmailWalletProvider";
 import {
   clearPendingSupply,
@@ -297,6 +297,11 @@ function MarketsTable({ markets, onOpen }: { markets: MarketAsset[]; onOpen: (mo
                   <div>
                     <p className="font-medium text-white">{market.name}</p>
                     <p className="text-xs text-white/45">{market.symbol}</p>
+                    <ReceiptTokenLinks
+                      aToken={market.aToken}
+                      debtToken={market.debtToken}
+                      symbol={market.symbol}
+                    />
                   </div>
                 </div>
                 <span className="font-mono text-xs text-white/40">Arc reserve</span>
@@ -366,6 +371,11 @@ function MarketsTable({ markets, onOpen }: { markets: MarketAsset[]; onOpen: (mo
                       <div>
                         <p className="font-medium text-white">{market.name}</p>
                         <p className="text-xs text-white/45">{market.symbol}</p>
+                        <ReceiptTokenLinks
+                          aToken={market.aToken}
+                          debtToken={market.debtToken}
+                          symbol={market.symbol}
+                        />
                       </div>
                     </div>
                   </td>

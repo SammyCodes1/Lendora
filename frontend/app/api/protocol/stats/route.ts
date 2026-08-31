@@ -589,18 +589,25 @@ async function buildStats() {
     decimals: ARC_DEX_TOKENS.USDT.decimals,
   });
 
+  const marketFromBlock =
+    (
+      deployments as typeof deployments & {
+        marketTokenDeploymentBlock?: number;
+      }
+    ).marketTokenDeploymentBlock ?? deployments.deploymentBlock;
+
   const logRequests = [
-    queryLogs(deployments.lendingPool as Address, lendingPoolAbi, "Supply", deployments.deploymentBlock),
-    queryLogs(deployments.lendingPool as Address, lendingPoolAbi, "Withdraw", deployments.deploymentBlock),
-    queryLogs(deployments.lendingPool as Address, lendingPoolAbi, "Borrow", deployments.deploymentBlock),
-    queryLogs(deployments.lendingPool as Address, lendingPoolAbi, "Repay", deployments.deploymentBlock),
-    queryLogs(deployments.lendingPool as Address, lendingPoolAbi, "LiquidationCall", deployments.deploymentBlock),
+    queryLogs(deployments.lendingPool as Address, lendingPoolAbi, "Supply", marketFromBlock),
+    queryLogs(deployments.lendingPool as Address, lendingPoolAbi, "Withdraw", marketFromBlock),
+    queryLogs(deployments.lendingPool as Address, lendingPoolAbi, "Borrow", marketFromBlock),
+    queryLogs(deployments.lendingPool as Address, lendingPoolAbi, "Repay", marketFromBlock),
+    queryLogs(deployments.lendingPool as Address, lendingPoolAbi, "LiquidationCall", marketFromBlock),
     ...Object.values(deployments.earnVaults).flatMap((vault) => [
       queryLogs(vault as Address, earnVaultAbi, "Deposit", deployments.earnVaultDeploymentBlock),
       queryLogs(vault as Address, earnVaultAbi, "Withdraw", deployments.earnVaultDeploymentBlock),
     ]),
     queryLogs(deployments.DomainMarketplace as Address, marketplaceAbi, "DomainPurchased", deployments.domainMarketplaceDeploymentBlock),
-    queryLogs(deployments.PositionNFT as Address, positionNftAbi, "Transfer", deployments.deploymentBlock),
+    queryLogs(deployments.PositionNFT as Address, positionNftAbi, "Transfer", marketFromBlock),
   ];
 
   const settledLogs = await Promise.allSettled(logRequests);
