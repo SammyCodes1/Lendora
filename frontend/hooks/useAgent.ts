@@ -17,6 +17,7 @@ import type {
   AgentTransactionReceipt,
   ValidatedAgentAction,
 } from "@/lib/agentTypes";
+import type { MultiSendRecipientInput } from "@/lib/multiSend";
 import { ARC_DEX_TOKENS } from "@/lib/arcDex";
 import { marketDefinitions } from "@/lib/markets";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
@@ -439,8 +440,16 @@ export function useAgent() {
   ]);
 
   const sendMessage = useCallback(
-    async (message: string) => {
-      const content = message.trim();
+    async (
+      message: string,
+      extras?: { multiSendRecipients?: MultiSendRecipientInput[] },
+    ) => {
+      const attached = extras?.multiSendRecipients;
+      const content =
+        message.trim() ||
+        (attached?.length
+          ? `MultiSend the attached recipient list (${attached.length} wallets).`
+          : "");
       if (!content || isPending) {
         return null;
       }
@@ -533,7 +542,14 @@ export function useAgent() {
         const response = await fetch("/api/agent", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: content, history, context }),
+          body: JSON.stringify({
+            message: content,
+            history,
+            context,
+            ...(attached?.length
+              ? { multiSendRecipients: attached }
+              : {}),
+          }),
         });
         const result = (await response.json()) as AgentResponse;
 

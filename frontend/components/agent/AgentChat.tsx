@@ -9,7 +9,9 @@ import {
 import {
   Activity,
   BookUser,
+  FileUp,
   Loader2,
+  Paperclip,
   Pencil,
   RotateCcw,
   Send,
@@ -27,10 +29,15 @@ import {
   useAgentName,
 } from "@/hooks/useAgentName";
 import { cn } from "@/lib/utils";
+import {
+  parseMultiSendCsvText,
+  type MultiSendRecipientInput,
+} from "@/lib/multiSend";
 
 const suggestions = [
   "Supply 100 USDC",
   "Request 40 USDC",
+  "MultiSend",
   "Send 40 USDC to ada.lendora every Friday from my yield, keep health above 1.5",
 ];
 
@@ -87,9 +94,15 @@ export function AgentChat() {
   const [nameDraft, setNameDraft] = useState(DEFAULT_AGENT_NAME);
   const [nameError, setNameError] = useState<string | null>(null);
   const [hasOpened, setHasOpened] = useState(false);
+  const [csvName, setCsvName] = useState<string | null>(null);
+  const [csvRecipients, setCsvRecipients] = useState<
+    MultiSendRecipientInput[] | null
+  >(null);
+  const [csvError, setCsvError] = useState<string | null>(null);
   const assistantRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
   const {
     agentName,
     avatarLetter,
@@ -197,14 +210,50 @@ export function AgentChat() {
     setRenaming(false);
   };
 
+  const attachCsv = async (file: File) => {
+    try {
+      const parsed = parseMultiSendCsvText(await file.text());
+      if (parsed.error || !parsed.rows) {
+        setCsvError(parsed.error ?? "Could not read that CSV.");
+        setCsvRecipients(null);
+        setCsvName(null);
+        return;
+      }
+      setCsvError(null);
+      setCsvRecipients(parsed.rows);
+      setCsvName(file.name);
+    } catch {
+      setCsvError("Could not read that CSV file.");
+      setCsvRecipients(null);
+      setCsvName(null);
+    }
+  };
+
+  const clearCsv = () => {
+    setCsvRecipients(null);
+    setCsvName(null);
+    setCsvError(null);
+    if (csvInputRef.current) {
+      csvInputRef.current.value = "";
+    }
+  };
+
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const message = input.trim();
-    if (!message || isPending) {
+    const typed = input.trim();
+    if ((!typed && !csvRecipients?.length) || isPending) {
       return;
     }
+    const message =
+      typed ||
+      `MultiSend the attached recipient list (${csvRecipients!.length} wallets).`;
+    const recipients = csvRecipients;
     setInput("");
-    await sendMessage(message);
+    clearCsv();
+    await sendMessage(
+      message,
+      recipients?.length ? { multiSendRecipients: recipients } : undefined,
+    );
   };
 
   return (
@@ -559,21 +608,73 @@ export function AgentChat() {
                 onSubmit={submit}
                 className="relative z-10 border-t border-white/[0.08] bg-black/15 p-3"
               >
+                <input
+                  ref={csvInputRef}
+                  type="file"
+                  accept=".csv,text/csv,text/plain"
+                  className="hidden"
+                  aria-label="Attach MultiSend CSV"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = "";
+                    if (file) {
+                      void attachCsv(file);
+                    }
+                  }}
+                />
+                {csvName && csvRecipients?.length ? (
+                  <div className="mb-2 flex items-center gap-2 rounded-lg border border-emerald-200/20 bg-emerald-200/[0.06] px-2.5 py-1.5">
+                    <FileUp className="h-3.5 w-3.5 shrink-0 text-emerald-200" />
+                    <p className="min-w-0 flex-1 truncate text-[11px] text-emerald-50/85">
+                      {csvName} · {csvRecipients.length} wallet
+                      {csvRecipients.length === 1 ? "" : "s"}
+                    </p>
+                    <button
+                      type="button"
+                      aria-label="Remove CSV"
+                      onClick={clearCsv}
+                      className="rounded p-0.5 text-white/40 hover:text-white"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : null}
+                {csvError ? (
+                  <p role="alert" className="mb-2 text-[11px] leading-4 text-red-300">
+                    {csvError}
+                  </p>
+                ) : null}
                 <motion.div
                   className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] p-2 transition-[border-color,box-shadow,transform] duration-200 focus-within:scale-[1.006] focus-within:border-emerald-200/35 focus-within:shadow-[0_0_24px_rgba(110,231,183,0.1)] motion-reduce:focus-within:scale-100"
                 >
+                  <button
+                    type="button"
+                    aria-label="Attach MultiSend CSV"
+                    title="Attach MultiSend CSV"
+                    onClick={() => csvInputRef.current?.click()}
+                    className={cn(
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition hover:bg-white/[0.06] hover:text-white",
+                      csvRecipients?.length
+                        ? "text-emerald-200"
+                        : "text-white/45",
+                    )}
+                  >
+                    <Paperclip className="h-4 w-4" />
+                  </button>
                   <input
                     value={input}
                     onChange={(event) => setInput(event.target.value)}
                     maxLength={2_000}
-                    placeholder="Supply 100 USDC…"
+                    placeholder="Supply 100 USDC or attach a MultiSend CSV…"
                     aria-label="Transaction command"
                     className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm text-white outline-none placeholder:text-white/25"
                   />
                   <button
                     type="submit"
                     aria-label="Send command"
-                    disabled={!input.trim() || isPending}
+                    disabled={
+                      isPending || (!input.trim() && !csvRecipients?.length)
+                    }
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-200 text-[#07100c] transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {isPending ? (

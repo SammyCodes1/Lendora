@@ -1,3 +1,5 @@
+import type { MultiSendParams, MultiSendRecipient } from "@/lib/multiSend";
+
 export type LendingAsset = "USDC" | "EURC";
 export type AgentAsset = LendingAsset | "USDT" | "cirBTC";
 
@@ -20,7 +22,10 @@ export type AgentTool =
   | "checkBalance"
   | "getMarketRates"
   | "schedulePayment"
-  | "createLendrop";
+  | "createLendrop"
+  | "multiSend";
+
+export type { MultiSendParams, MultiSendRecipient };
 
 export type LendropMode = "EQUAL_SPLIT" | "CLAIM_ALL";
 
@@ -78,6 +83,7 @@ export type AgentActionParams =
     }
   | SchedulePaymentParams
   | CreateLendropParams
+  | MultiSendParams
   | Record<string, never>
   | { asset: AgentAsset };
 

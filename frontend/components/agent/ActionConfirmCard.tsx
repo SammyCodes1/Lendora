@@ -15,6 +15,7 @@ import {
   Sparkles,
   Star,
   CalendarClock,
+  Users,
 } from "lucide-react";
 import {
   erc20Abi,
@@ -61,8 +62,14 @@ import type {
   AgentTransactionReview,
   AgentValidationResult,
   LendingAsset,
+  MultiSendRecipient,
   ValidatedAgentAction,
 } from "@/lib/agentTypes";
+import {
+  MULTISEND_MAX_PER_TX,
+  chunkRecipients,
+  parseTokenAmount6,
+} from "@/lib/multiSend";
 import { healthFactorToWad } from "@/lib/spokenPay";
 import { marketDefinitions } from "@/lib/markets";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
@@ -74,6 +81,7 @@ import {
 import { announcePrimaryDomainChanged } from "@/lib/domainEvents";
 import deployments from "@/constants/deployments.json";
 import arcDropJson from "@/constants/abis/ArcDrop.json";
+import multiSendJson from "@/constants/abis/MultiSend.json";
 import {
   DROP_MODE_CLAIM_ALL,
   DROP_MODE_EQUAL_SPLIT,
@@ -137,6 +145,11 @@ const ARCDROP_ADDRESS = (
   deployments as typeof deployments & { ArcDrop?: Address }
 ).ArcDrop;
 const ARCDROP_ABI = arcDropJson as Abi;
+const MULTISEND_ADDRESS = (
+  deployments as typeof deployments & { MultiSend?: Address }
+).MultiSend;
+const MULTISEND_ABI = multiSendJson as Abi;
+const MARKET_EURC_ADDRESS = deployments.markets.EURC.asset as Address;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const walletDomainAbi = parseAbi([
   "function approve(address to,uint256 tokenId) external",
@@ -183,6 +196,7 @@ function actionIcon(tool: AgentAction["tool"]) {
   if (tool === "bridge") return ArrowLeftRight;
   if (tool === "sendToken") return SendHorizontal;
   if (tool === "createLendrop") return Gift;
+  if (tool === "multiSend") return Users;
   if (tool === "schedulePayment") return CalendarClock;
   if (tool === "mintDomain") return Sparkles;
   if (tool === "burnDomain") return RefreshCw;
@@ -223,6 +237,47 @@ function claimListFromParams(params: Record<string, unknown>) {
       (claim): claim is { asset: LendingAsset; amount: string } =>
         claim !== null,
     );
+}
+
+function shortAddress(value: string) {
+  if (value.startsWith("0x") && value.length === 42) {
+    return `${value.slice(0, 6)}…${value.slice(-4)}`;
+  }
+  return value;
+}
+
+function multiSendRows(params: Record<string, unknown>): MultiSendRecipient[] {
+  if (!Array.isArray(params.recipients)) return [];
+  return params.recipients.filter((row): row is MultiSendRecipient => {
+    if (!row || typeof row !== "object") return false;
+    const item = row as Record<string, unknown>;
+    return (
+      typeof item.recipient === "string" &&
+      typeof item.usdcAmount === "string" &&
+      typeof item.eurcAmount === "string"
+    );
+  });
+}
+
+function formatMultiSendRowAmount(row: MultiSendRecipient) {
+  const parts: string[] = [];
+  if ((parseTokenAmount6(row.usdcAmount) ?? 0n) > 0n) {
+    parts.push(`${row.usdcAmount} USDC`);
+  }
+  if ((parseTokenAmount6(row.eurcAmount) ?? 0n) > 0n) {
+    parts.push(`${row.eurcAmount} EURC`);
+  }
+  return parts.join(" + ") || "—";
+}
+
+function formatMultiSendTotals(params: Record<string, unknown>) {
+  const usdc = String(params.totalUsdc ?? "0");
+  const eurc = String(params.totalEurc ?? "0");
+  const parts = [
+    usdc !== "0" ? `${usdc} USDC` : null,
+    eurc !== "0" ? `${eurc} EURC` : null,
+  ].filter(Boolean);
+  return parts.join(" + ") || "0";
 }
 
 export function ActionConfirmCard({
@@ -284,6 +339,8 @@ export function ActionConfirmCard({
       ),
     [params],
   );
+  const multiSendPreview =
+    action.tool === "multiSend" ? multiSendRows(params) : [];
 
   const ensureAllowance = async (
     asset: Address,
@@ -541,6 +598,35 @@ export function ActionConfirmCard({
           detail: isClaimAll
             ? `You'll lock ${amount} ${asset} in Lendrop. The first wallet to open the link claims the full amount. Expires: ${expiry}.`
             : `You'll lock ${amount} ${asset} in Lendrop, split equally across ${claimants} claimants (${perClaim ?? "even"} ${asset} each). Expires: ${expiry}.`,
+        });
+        return;
+      }
+
+      if (action.tool === "multiSend") {
+        if (!MULTISEND_ADDRESS) {
+          throw new Error("MultiSend is not deployed");
+        }
+        const rows = multiSendRows(params);
+        const count = rows.length || Number(params.recipientCount ?? 0);
+        const batches = Math.max(1, Math.ceil(count / MULTISEND_MAX_PER_TX));
+        const totals = formatMultiSendTotals(params);
+        setReview({
+          eyebrow: "MultiSend review",
+          title: `Send to ${count} wallet${count === 1 ? "" : "s"}`,
+          amountLabel: "Total",
+          amount: totals,
+          receiveLabel: "Recipients",
+          receiveAmount: `${count} wallet${count === 1 ? "" : "s"}`,
+          route: [
+            "Wallet",
+            "Approve MultiSend",
+            batches > 1 ? `${batches} MultiSend batches` : "MultiSend",
+            `${count} recipients`,
+          ],
+          detail:
+            batches > 1
+              ? `You'll approve MultiSend, then sign ${batches} transactions of up to ${MULTISEND_MAX_PER_TX} wallets each. Funds move directly from your wallet to each recipient.`
+              : `You'll approve MultiSend, then send ${totals} to ${count} wallet${count === 1 ? "" : "s"} in one transaction. Funds move directly from your wallet to each recipient.`,
         });
         return;
       }
@@ -1038,6 +1124,101 @@ export function ActionConfirmCard({
             Math.round(performance.now() - submittedAt),
           ),
           shareUrl,
+        });
+        return;
+      }
+
+      if (action.tool === "multiSend") {
+        if (!publicClient) {
+          throw new Error("Arc client unavailable");
+        }
+        if (!MULTISEND_ADDRESS) {
+          throw new Error("MultiSend is not deployed");
+        }
+        const rows = multiSendRows(params);
+        if (rows.length === 0) {
+          throw new Error("Add at least one MultiSend recipient");
+        }
+        const totalUsdc = parseTokenAmount6(String(params.totalUsdc ?? "0")) ?? 0n;
+        const totalEurc = parseTokenAmount6(String(params.totalEurc ?? "0")) ?? 0n;
+        const submittedAt = performance.now();
+        if (totalUsdc > 0n) {
+          await ensureAllowance(
+            MARKET_USDC_ADDRESS,
+            totalUsdc,
+            MULTISEND_ADDRESS,
+          );
+        }
+        if (totalEurc > 0n) {
+          await ensureAllowance(
+            MARKET_EURC_ADDRESS,
+            totalEurc,
+            MULTISEND_ADDRESS,
+          );
+        }
+        const chunks = chunkRecipients(rows, MULTISEND_MAX_PER_TX);
+        const hashes: Hash[] = [];
+        for (const chunk of chunks) {
+          const recipients = chunk.map((row) => row.recipient as Address);
+          const usdcAmounts = chunk.map(
+            (row) => parseTokenAmount6(row.usdcAmount) ?? 0n,
+          );
+          const eurcAmounts = chunk.map(
+            (row) => parseTokenAmount6(row.eurcAmount) ?? 0n,
+          );
+          const hasUsdc = usdcAmounts.some((amount) => amount > 0n);
+          const hasEurc = eurcAmounts.some((amount) => amount > 0n);
+          let hash: Hash | undefined;
+          if (hasUsdc && hasEurc) {
+            hash = await submitContract({
+              chainId: 5042002,
+              address: MULTISEND_ADDRESS,
+              abi: MULTISEND_ABI,
+              functionName: "multiSendDual",
+              args: [
+                recipients,
+                usdcAmounts,
+                eurcAmounts,
+                MARKET_USDC_ADDRESS,
+                MARKET_EURC_ADDRESS,
+              ],
+            });
+          } else {
+            hash = await submitContract({
+              chainId: 5042002,
+              address: MULTISEND_ADDRESS,
+              abi: MULTISEND_ABI,
+              functionName: "multiSend",
+              args: [
+                hasUsdc ? MARKET_USDC_ADDRESS : MARKET_EURC_ADDRESS,
+                recipients,
+                hasUsdc ? usdcAmounts : eurcAmounts,
+              ],
+            });
+          }
+          if (!hash) {
+            throw new Error("MultiSend was submitted without a transaction hash");
+          }
+          await waitForSubmitted(hash);
+          hashes.push(hash);
+        }
+        const lastHash = hashes[hashes.length - 1];
+        setReceipt({
+          ...review,
+          title: `${formatMultiSendTotals(params)} sent to ${rows.length} wallet${rows.length === 1 ? "" : "s"}`,
+          receiveLabel: hashes.length > 1 ? "Batches" : "Recipients",
+          receiveAmount:
+            hashes.length > 1
+              ? `${hashes.length} transactions`
+              : `${rows.length} wallet${rows.length === 1 ? "" : "s"}`,
+          transactionHash: lastHash,
+          explorerUrl: lastHash
+            ? `https://testnet.arcscan.app/tx/${lastHash}`
+            : undefined,
+          finalityMs: Math.max(
+            0,
+            Math.round(performance.now() - submittedAt),
+          ),
         });
         return;
       }
@@ -1548,6 +1729,36 @@ export function ActionConfirmCard({
           </div>
         ))}
       </dl>
+
+      {action.tool === "multiSend" && multiSendPreview.length > 0 ? (
+        <div className="mt-3 max-h-40 overflow-y-auto rounded-lg border border-white/[0.08] bg-black/15 px-3 py-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-white/35">
+            Recipients
+          </p>
+          <ul className="mt-1.5 space-y-1.5">
+            {multiSendPreview.slice(0, 8).map((row) => (
+              <li
+                key={row.recipient}
+                className="flex items-start justify-between gap-3 text-[11px]"
+              >
+                <span className="min-w-0 truncate font-mono text-white/75">
+                  {row.recipientName
+                    ? `${row.recipientName} · ${shortAddress(row.recipient)}`
+                    : shortAddress(row.recipient)}
+                </span>
+                <span className="shrink-0 font-mono text-white/55">
+                  {formatMultiSendRowAmount(row)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {multiSendPreview.length > 8 ? (
+            <p className="mt-1.5 text-[10px] text-white/35">
+              +{multiSendPreview.length - 8} more
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       {error ? (
         <p role="alert" className="mt-3 text-xs leading-5 text-red-300">

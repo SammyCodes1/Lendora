@@ -10,8 +10,15 @@ import type {
   AgentTool,
   CreateLendropParams,
   LendropMode,
+  MultiSendParams,
   SchedulePaymentParams,
 } from "@/lib/agentTypes";
+import {
+  MULTISEND_MAX_RECIPIENTS,
+  formatTokenAmount6,
+  parseTokenAmount6,
+  type MultiSendRecipientInput,
+} from "@/lib/multiSend";
 import {
   MIN_PAYMENT_INTERVAL_SECONDS,
   parseHealthFloor,
@@ -32,7 +39,7 @@ import {
 export const runtime = "nodejs";
 
 const SYSTEM_PROMPT =
-  "You are Lendora's transaction assistant. Only call one of the defined tools - never invent new ones. For spoken recurring payments such as 'send 40 USDC to ada.lendora every Friday from my yield, keep health above 1.5', call schedulePayment. Never use sendToken for weekly/daily/recurring payouts. For Lendrop / shareable token drops (share USDC or EURC via a claim link, equal split, or claim all), call createLendrop. Never use sendToken for a drop. Equal split requires maxClaimants. If expiry is omitted, pass expirySeconds \"604800\" (7 days); \"0\" means never expires. For asking someone to pay you (request to pay, invoice, 'request 40 USDC', 'pay me 40 USDC'), call createPayRequest. The connected wallet is always the payee; never use sendToken for that. Saved wallet contacts are supplied in context; resolve nicknames only to the exact saved address and never guess an address. For .lendora domain recipients, pass the exact .lendora name as the sendToken recipient and let server validation resolve it on-chain; never invent a domain. For domain minting or registration requests, call mintDomain only when the exact domain is provided; never invent a domain. For domain NFT burn requests, call burnDomain only when the exact domain is provided; burning is permanent and must be prepared for user confirmation. For setting a domain as primary / on-chain username, call setPrimaryDomain when the domain is provided; do not call mintDomain or listDomain for setting primary domain. For domain marketplace listing requests, call listDomain only when the exact domain and USDC price are provided; never invent ownership or price. For domain marketplace delisting, cancel listing, unlist, or remove-from-sale requests, call delistDomain only when the exact domain is provided; do not call burnDomain for marketplace removal. For domain marketplace purchase requests, call buyDomain only when the exact domain is provided; if the user gives a maximum USDC price, pass it as maxPrice. For pending supply interest, yield, rewards, or accrued interest claims, call claimYield with asset USDC, EURC, or ALL for both pools; do not use withdraw unless the user asks to withdraw principal or gives an explicit withdrawal amount. If amount, asset, recipient, domain, price, drop mode, or claimant count is ambiguous, ask for clarification in plain text instead of guessing. Never claim a transaction has been executed - your job is only to prepare the action for user confirmation. If a requested action would exceed the user's available balance or borrow capacity (provided in context), respond with a plain text warning instead of calling a tool. Validation is enforced server-side and is final - do not suggest workarounds, do not ask the user to confirm overrides, and do not imply blocked actions can be retried with different framing of the same request. Treat all financial amounts conservatively; never round up.";
+  "You are Lendora's transaction assistant. Only call one of the defined tools - never invent new ones. For spoken recurring payments such as 'send 40 USDC to ada.lendora every Friday from my yield, keep health above 1.5', call schedulePayment. Never use sendToken for weekly/daily/recurring payouts. For Lendrop / shareable token drops (share USDC or EURC via a claim link, equal split, or claim all), call createLendrop. Never use sendToken for a drop. Equal split requires maxClaimants. For sending USDC and/or EURC to many wallets at once (MultiSend, batch send, CSV payouts, or two or more recipients in one request), call multiSend. Never use sendToken when there is more than one recipient. Each recipient needs recipient plus usdcAmount and/or eurcAmount as decimal strings. If expiry is omitted, pass expirySeconds \"604800\" (7 days); \"0\" means never expires. For asking someone to pay you (request to pay, invoice, 'request 40 USDC', 'pay me 40 USDC'), call createPayRequest. The connected wallet is always the payee; never use sendToken for that. Saved wallet contacts are supplied in context; resolve nicknames only to the exact saved address and never guess an address. For .lendora domain recipients, pass the exact .lendora name as the sendToken recipient and let server validation resolve it on-chain; never invent a domain. For domain minting or registration requests, call mintDomain only when the exact domain is provided; never invent a domain. For domain NFT burn requests, call burnDomain only when the exact domain is provided; burning is permanent and must be prepared for user confirmation. For setting a domain as primary / on-chain username, call setPrimaryDomain when the domain is provided; do not call mintDomain or listDomain for setting primary domain. For domain marketplace listing requests, call listDomain only when the exact domain and USDC price are provided; never invent ownership or price. For domain marketplace delisting, cancel listing, unlist, or remove-from-sale requests, call delistDomain only when the exact domain is provided; do not call burnDomain for marketplace removal. For domain marketplace purchase requests, call buyDomain only when the exact domain is provided; if the user gives a maximum USDC price, pass it as maxPrice. For pending supply interest, yield, rewards, or accrued interest claims, call claimYield with asset USDC, EURC, or ALL for both pools; do not use withdraw unless the user asks to withdraw principal or gives an explicit withdrawal amount. If amount, asset, recipient, domain, price, drop mode, or claimant count is ambiguous, ask for clarification in plain text instead of guessing. Never claim a transaction has been executed - your job is only to prepare the action for user confirmation. If a requested action would exceed the user's available balance or borrow capacity (provided in context), respond with a plain text warning instead of calling a tool. Validation is enforced server-side and is final - do not suggest workarounds, do not ask the user to confirm overrides, and do not imply blocked actions can be retried with different framing of the same request. Treat all financial amounts conservatively; never round up.";
 
 const OPENAI_MODEL = process.env.OPENAI_AGENT_MODEL ?? "gpt-5-nano";
 
@@ -160,6 +167,41 @@ const functionDeclarations = [
         },
       },
       required: ["asset", "amount", "mode"],
+    },
+  },
+  {
+    name: "multiSend",
+    description:
+      "Send USDC and/or EURC to many wallets in one MultiSend transaction. Use for batch payouts, MultiSend, CSV recipient lists, or two or more recipients. Never use sendToken for this.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        recipients: {
+          type: "array",
+          description:
+            "Recipient rows. Each row is a 0x address or exact .lendora domain with usdcAmount and/or eurcAmount as decimal strings.",
+          items: {
+            type: "object",
+            properties: {
+              recipient: {
+                type: "string",
+                description: "0x address, registered .lendora name, or saved contact nickname",
+              },
+              usdcAmount: {
+                type: "string",
+                description: "USDC amount as a decimal string. Use 0 if this row is EURC-only.",
+              },
+              eurcAmount: {
+                type: "string",
+                description: "EURC amount as a decimal string. Use 0 if this row is USDC-only.",
+              },
+              recipientName: { type: "string" },
+            },
+            required: ["recipient"],
+          },
+        },
+      },
+      required: ["recipients"],
     },
   },
   {
@@ -1102,6 +1144,146 @@ function parseDeterministicLendrop(message: string): DeterministicResult | null 
   };
 }
 
+function isMultiSendIntent(
+  message: string,
+  contacts: AgentContext["contacts"] = [],
+) {
+  if (/\bmulti[\s-]?send\b/i.test(message)) return true;
+  if (/\bbatch\s+send\b/i.test(message)) return true;
+  if (/\bsend\s+to\s+(?:these|many|multiple)\b/i.test(message)) return true;
+  const addresses = message.match(/\b0x[a-fA-F0-9]{40}\b/g) ?? [];
+  const domains = message.match(/\b[a-z0-9][a-z0-9-]{0,30}\.lendora\b/gi) ?? [];
+  const named = contacts.filter((entry) =>
+    new RegExp(
+      `\\b${entry.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+      "i",
+    ).test(message),
+  );
+  return (
+    /\b(?:send|transfer|pay)\b/i.test(message) &&
+    addresses.length + domains.length + named.length >= 2 &&
+    !parseSpokenCadence(message)
+  );
+}
+
+function applyContactsToRecipient(
+  value: string,
+  contacts: AgentContext["contacts"],
+) {
+  const trimmed = value.trim();
+  const contact = contacts.find(
+    (entry) => entry.name.toLowerCase() === trimmed.toLowerCase(),
+  );
+  if (!contact) {
+    return { recipient: trimmed };
+  }
+  return { recipient: contact.address, recipientName: contact.name };
+}
+
+function parseDeterministicMultiSend(
+  message: string,
+  contacts: AgentContext["contacts"],
+): DeterministicResult | null {
+  if (!isMultiSendIntent(message, contacts)) {
+    return null;
+  }
+  if (parseSpokenCadence(message)) {
+    return null;
+  }
+  if (isPayRequestIntent(message)) {
+    return null;
+  }
+  if (isLendropIntent(message)) {
+    return null;
+  }
+
+  const pairMatches = Array.from(
+    message.matchAll(
+      /\b(\d+(?:\.\d+)?)\s*(USDC|EURC)\b(?:\s+each)?\s+to\s+([^\s,;]+)/gi,
+    ),
+  );
+  const recipients: MultiSendRecipientInput[] = [];
+
+  if (pairMatches.length >= 2) {
+    for (const match of pairMatches) {
+      const amount = match[1]!;
+      const asset = match[2]!.toUpperCase();
+      const target = applyContactsToRecipient(
+        match[3]!.replace(/[.,!?]+$/, ""),
+        contacts,
+      );
+      recipients.push({
+        recipient: target.recipient,
+        recipientName: target.recipientName,
+        usdcAmount: asset === "USDC" ? amount : "0",
+        eurcAmount: asset === "EURC" ? amount : "0",
+      });
+    }
+  } else {
+    const amountMatch = message.match(/\b(\d+(?:\.\d+)?)\s*(USDC|EURC)\b/i);
+    const addresses = message.match(/\b0x[a-fA-F0-9]{40}\b/g) ?? [];
+    const domains = message.match(/\b[a-z0-9][a-z0-9-]{0,30}\.lendora\b/gi) ?? [];
+    const named = contacts.filter((entry) =>
+      new RegExp(`\\b${entry.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(
+        message,
+      ),
+    );
+    const targets = [
+      ...addresses,
+      ...domains,
+      ...named.map((entry) => entry.name),
+    ].filter((target, index, all) => {
+      const key = target.toLowerCase();
+      return all.findIndex((item) => item.toLowerCase() === key) === index;
+    });
+    const explicit =
+      /\bmulti[\s-]?send\b/i.test(message) || /\bbatch\s+send\b/i.test(message);
+    if (!amountMatch) {
+      return {
+        type: "message",
+        text: "How much USDC or EURC should each MultiSend recipient receive? You can also upload a CSV.",
+      };
+    }
+    if (targets.length < (explicit ? 1 : 2)) {
+      return {
+        type: "message",
+        text: explicit
+          ? "MultiSend needs at least one wallet. Paste 0x addresses, .lendora names, or upload a CSV with address, usdc_amount, eurc_amount."
+          : "MultiSend needs at least two wallets. Paste 0x addresses, .lendora names, or upload a CSV with address, usdc_amount, eurc_amount.",
+      };
+    }
+    const amount = amountMatch[1]!;
+    const asset = amountMatch[2]!.toUpperCase();
+    for (const target of targets) {
+      const resolved = applyContactsToRecipient(target, contacts);
+      recipients.push({
+        recipient: resolved.recipient,
+        recipientName: resolved.recipientName,
+        usdcAmount: asset === "USDC" ? amount : "0",
+        eurcAmount: asset === "EURC" ? amount : "0",
+      });
+    }
+  }
+
+  if (recipients.length > MULTISEND_MAX_RECIPIENTS) {
+    return {
+      type: "message",
+      text: `MultiSend supports at most ${MULTISEND_MAX_RECIPIENTS} recipients.`,
+    };
+  }
+
+  const params = { recipients } as AgentAction["params"];
+  return {
+    type: "action",
+    action: {
+      type: "action",
+      tool: "multiSend",
+      params,
+      explanation: summarizeAction("multiSend", params),
+    },
+  };
+}
+
 function parseDeterministicSend(
   message: string,
   contacts: AgentContext["contacts"],
@@ -1113,6 +1295,9 @@ function parseDeterministicSend(
     return null;
   }
   if (isLendropIntent(message)) {
+    return null;
+  }
+  if (isMultiSendIntent(message, contacts)) {
     return null;
   }
   if (!/\b(?:send|transfer|pay)\b/i.test(message)) {
@@ -1365,7 +1550,8 @@ function isAgentTool(value: string): value is AgentTool {
     value === "checkBalance" ||
     value === "getMarketRates" ||
     value === "schedulePayment" ||
-    value === "createLendrop"
+    value === "createLendrop" ||
+    value === "multiSend"
   );
 }
 
@@ -1397,6 +1583,32 @@ function summarizeAction(tool: AgentTool, rawParams: object): string {
       return params.mode === "CLAIM_ALL"
         ? `I'll prepare a Lendrop of ${String(params.amount ?? "the requested amount")} ${String(params.asset ?? "token")} where the first claimer takes everything.`
         : `I'll prepare a Lendrop of ${String(params.amount ?? "the requested amount")} ${String(params.asset ?? "token")} split equally across ${String(params.maxClaimants ?? "the requested number of")} claimants.`;
+    case "multiSend": {
+      const list = Array.isArray(params.recipients)
+        ? (params.recipients as MultiSendRecipientInput[])
+        : [];
+      const count = list.length || Number(params.recipientCount ?? 0);
+      let usdc = String(params.totalUsdc ?? "0");
+      let eurc = String(params.totalEurc ?? "0");
+      if (
+        (!params.totalUsdc && !params.totalEurc && list.length > 0) ||
+        (usdc === "0" && eurc === "0" && list.length > 0)
+      ) {
+        let totalUsdc = 0n;
+        let totalEurc = 0n;
+        for (const row of list) {
+          totalUsdc += parseTokenAmount6(row.usdcAmount) ?? 0n;
+          totalEurc += parseTokenAmount6(row.eurcAmount) ?? 0n;
+        }
+        usdc = formatTokenAmount6(totalUsdc);
+        eurc = formatTokenAmount6(totalEurc);
+      }
+      const parts = [
+        usdc !== "0" ? `${usdc} USDC` : null,
+        eurc !== "0" ? `${eurc} EURC` : null,
+      ].filter(Boolean);
+      return `I'll prepare a MultiSend of ${parts.join(" + ") || "tokens"} to ${count} wallet${count === 1 ? "" : "s"}.`;
+    }
     case "schedulePayment":
       return `I'll prepare a spoken payment of ${String(params.amount ?? "the requested amount")} ${String(params.asset ?? "USDC")} to ${String(params.recipientName ?? params.recipient ?? "the recipient")} ${String(params.cadence ?? "on a schedule")}, ${params.fromYield ? "from claimed yield" : "from your wallet"}, and skip any run if health factor would fall below ${String(params.minHealthFactor ?? "1.10")}.`;
     case "bridge":
@@ -1550,6 +1762,7 @@ export async function POST(request: Request) {
       message?: unknown;
       history?: unknown;
       context?: unknown;
+      multiSendRecipients?: unknown;
     };
     if (
       typeof body.message !== "string" ||
@@ -1562,6 +1775,51 @@ export async function POST(request: Request) {
         { type: "message", text: "Invalid agent request." },
         { status: 400 },
       );
+    }
+
+    const contacts = body.context.contacts ?? [];
+    if (Array.isArray(body.multiSendRecipients)) {
+      const draftAction: AgentAction = {
+        type: "action",
+        tool: "multiSend",
+        params: {
+          recipients: (body.multiSendRecipients as MultiSendRecipientInput[]).map(
+            (row) => {
+              const resolved = applyContactsToRecipient(
+                String(row.recipient ?? ""),
+                contacts,
+              );
+              return {
+                recipient: resolved.recipient,
+                recipientName: row.recipientName ?? resolved.recipientName,
+                usdcAmount: row.usdcAmount ?? "0",
+                eurcAmount: row.eurcAmount ?? "0",
+              };
+            },
+          ),
+        } as AgentAction["params"],
+        explanation: "I'll prepare a MultiSend from the wallets you provided.",
+      };
+      const validation = await validateAgentAction(draftAction, {
+        walletAddress: body.context.walletAddress,
+        timezoneOffsetMinutes: body.context.timezoneOffsetMinutes,
+      });
+      if (!validation.valid) {
+        return NextResponse.json({
+          type: "message",
+          text: validation.reason,
+        } satisfies AgentResponse);
+      }
+      return NextResponse.json({
+        type: "action",
+        validated: {
+          ...validation,
+          action: {
+            ...validation.action,
+            explanation: summarizeAction("multiSend", validation.action.params),
+          },
+        },
+      } satisfies AgentResponse);
     }
 
     // Read-only: answer health factor from live wallet context (no LLM / no tx).
@@ -1751,6 +2009,35 @@ export async function POST(request: Request) {
     if (deterministicYieldClaim?.type === "action") {
       const validation = await validateAgentAction(
         deterministicYieldClaim.action,
+        {
+          walletAddress: body.context.walletAddress,
+          timezoneOffsetMinutes: body.context.timezoneOffsetMinutes,
+        },
+      );
+      if (!validation.valid) {
+        return NextResponse.json({
+          type: "message",
+          text: validation.reason,
+        } satisfies AgentResponse);
+      }
+      return NextResponse.json({
+        type: "action",
+        validated: validation,
+      } satisfies AgentResponse);
+    }
+
+    const deterministicMultiSend = parseDeterministicMultiSend(
+      body.message.trim(),
+      body.context.contacts ?? [],
+    );
+    if (deterministicMultiSend?.type === "message") {
+      return NextResponse.json(
+        deterministicMultiSend satisfies AgentResponse,
+      );
+    }
+    if (deterministicMultiSend?.type === "action") {
+      const validation = await validateAgentAction(
+        deterministicMultiSend.action,
         {
           walletAddress: body.context.walletAddress,
           timezoneOffsetMinutes: body.context.timezoneOffsetMinutes,
@@ -1972,6 +2259,23 @@ export async function POST(request: Request) {
       toolName === "supply" || toolName === "borrow"
         ? summarizeAction(toolName, params)
         : responseText ?? summarizeAction(toolName, params);
+
+    if (toolName === "multiSend" && Array.isArray(params.recipients)) {
+      params.recipients = (
+        params.recipients as MultiSendRecipientInput[]
+      ).map((row) => {
+        const resolved = applyContactsToRecipient(
+          String(row.recipient ?? ""),
+          contacts,
+        );
+        return {
+          recipient: resolved.recipient,
+          recipientName: row.recipientName ?? resolved.recipientName,
+          usdcAmount: row.usdcAmount ?? "0",
+          eurcAmount: row.eurcAmount ?? "0",
+        };
+      });
+    }
 
     const action: AgentAction = {
       type: "action",

@@ -17,6 +17,7 @@
  * 15. Block yield claims unless live reserve indexes show positive pending supply interest.
  * 16. Block spoken recurring payments unless the recipient resolves, the interval is at least 15 minutes, health floor is >= 1.10, live HF is currently above that floor, and yield-only plans have an active supply position.
  * 17. Block Lendrop creates unless the asset is live USDC/EURC, the wallet holds the full amount, equal-split amounts divide evenly across 1–10000 claimants, and expiry is 0 or at most 90 days.
+ * 18. Block MultiSend unless 1–1000 recipients resolve, each has a positive USDC and/or EURC amount, no zero addresses, and the wallet holds the combined totals.
  *
  * This module is the single server-side safety boundary between natural-language
  * interpretation and a confirmable wallet transaction. A false result is final.
@@ -52,8 +53,14 @@ import type {
   CreateLendropParams,
   LendingAsset,
   LendropMode,
+  MultiSendParams,
   SchedulePaymentParams,
 } from "@/lib/agentTypes";
+import {
+  MULTISEND_MAX_RECIPIENTS,
+  formatTokenAmount6,
+  parseTokenAmount6,
+} from "@/lib/multiSend";
 import {
   DEFAULT_LENDROP_EXPIRY_SECONDS,
   MAX_LENDROP_CLAIMANTS,
@@ -162,6 +169,9 @@ const spokenPayAddress = (
 const arcDropAddress = (
   deployments as typeof deployments & { ArcDrop?: Address }
 ).ArcDrop;
+const multiSendAddress = (
+  deployments as typeof deployments & { MultiSend?: Address }
+).MultiSend;
 const domainMarketplaceAddress = (
   deployments as typeof deployments & { DomainMarketplace?: Address }
 ).DomainMarketplace;
@@ -1064,6 +1074,163 @@ export async function validateAgentAction(
                 }
               : {}),
           } as AgentAction["params"],
+        },
+        walletAddress: wallet,
+        validatedAt: Date.now(),
+      };
+    }
+
+    if (action.tool === "multiSend") {
+      if (!multiSendAddress || multiSendAddress === ZERO_ADDRESS) {
+        return hardBlock(walletKey, "MultiSend is not live on this deployment yet.");
+      }
+      const rawRecipients = (params as { recipients?: unknown }).recipients;
+      if (!Array.isArray(rawRecipients) || rawRecipients.length === 0) {
+        return hardBlock(
+          walletKey,
+          "Add at least one recipient wallet, or upload a CSV.",
+        );
+      }
+      if (rawRecipients.length > MULTISEND_MAX_RECIPIENTS) {
+        return hardBlock(
+          walletKey,
+          `MultiSend supports at most ${MULTISEND_MAX_RECIPIENTS} recipients.`,
+        );
+      }
+
+      const seen = new Set<string>();
+      const normalized: MultiSendParams["recipients"] = [];
+      let totalUsdc = 0n;
+      let totalEurc = 0n;
+
+      for (let index = 0; index < rawRecipients.length; index += 1) {
+        const row = rawRecipients[index];
+        if (!row || typeof row !== "object") {
+          return hardBlock(
+            walletKey,
+            `Recipient ${index + 1} is not valid.`,
+          );
+        }
+        const entry = row as Record<string, unknown>;
+        const recipientInput =
+          typeof entry.recipient === "string"
+            ? entry.recipient
+            : typeof entry.address === "string"
+              ? entry.address
+              : null;
+        if (!recipientInput) {
+          return hardBlock(
+            walletKey,
+            `Recipient ${index + 1} needs a wallet address or .lendora name.`,
+          );
+        }
+        let resolved: Awaited<ReturnType<typeof resolveRecipient>>;
+        try {
+          resolved = await resolveRecipient(recipientInput);
+        } catch (error) {
+          return hardBlock(
+            walletKey,
+            error instanceof Error && error.message === "unresolved-domain"
+              ? `The .lendora domain "${recipientInput}" is not registered.`
+              : `Recipient ${index + 1} must be a valid 0x address or registered .lendora domain.`,
+          );
+        }
+        if (resolved.address === ZERO_ADDRESS) {
+          return hardBlock(walletKey, "Cannot MultiSend to the zero address.");
+        }
+        const usdcAmount = parseTokenAmount6(
+          typeof entry.usdcAmount === "string" ? entry.usdcAmount : "0",
+        );
+        const eurcAmount = parseTokenAmount6(
+          typeof entry.eurcAmount === "string" ? entry.eurcAmount : "0",
+        );
+        if (usdcAmount === null || eurcAmount === null) {
+          return hardBlock(
+            walletKey,
+            `Recipient ${index + 1} has an invalid amount.`,
+          );
+        }
+        if (usdcAmount === 0n && eurcAmount === 0n) {
+          return hardBlock(
+            walletKey,
+            `Recipient ${index + 1} needs a positive USDC or EURC amount.`,
+          );
+        }
+        const key = resolved.address.toLowerCase();
+        if (seen.has(key)) {
+          return hardBlock(
+            walletKey,
+            `Duplicate recipient ${resolved.address}. Combine the amounts into one row.`,
+          );
+        }
+        seen.add(key);
+        totalUsdc += usdcAmount;
+        totalEurc += eurcAmount;
+        normalized.push({
+          recipient: resolved.address,
+          usdcAmount: formatTokenAmount6(usdcAmount),
+          eurcAmount: formatTokenAmount6(eurcAmount),
+          ...(resolved.domain
+            ? {
+                recipientName:
+                  typeof entry.recipientName === "string"
+                    ? entry.recipientName
+                    : displayDomainName(resolved.domain),
+              }
+            : typeof entry.recipientName === "string"
+              ? { recipientName: entry.recipientName }
+              : {}),
+        });
+      }
+
+      if (totalUsdc === 0n && totalEurc === 0n) {
+        return hardBlock(walletKey, "Enter at least one positive USDC or EURC amount.");
+      }
+
+      try {
+        if (totalUsdc > 0n) {
+          const walletBalance = await arcClient.readContract({
+            address: configuredReserves.USDC.asset,
+            abi: erc20Abi,
+            functionName: "balanceOf",
+            args: [wallet],
+          });
+          if (totalUsdc > walletBalance) {
+            return hardBlock(
+              walletKey,
+              `You only have ${formatUnits(walletBalance, 6)} USDC available to MultiSend.`,
+            );
+          }
+        }
+        if (totalEurc > 0n) {
+          const walletBalance = await arcClient.readContract({
+            address: configuredReserves.EURC.asset,
+            abi: erc20Abi,
+            functionName: "balanceOf",
+            args: [wallet],
+          });
+          if (totalEurc > walletBalance) {
+            return hardBlock(
+              walletKey,
+              `You only have ${formatUnits(walletBalance, 6)} EURC available to MultiSend.`,
+            );
+          }
+        }
+      } catch {
+        return invalidContext(walletKey);
+      }
+
+      const sendParams: MultiSendParams = {
+        recipients: normalized,
+        recipientCount: String(normalized.length),
+        totalUsdc: formatTokenAmount6(totalUsdc),
+        totalEurc: formatTokenAmount6(totalEurc),
+      };
+      return {
+        valid: true,
+        action: {
+          ...action,
+          params: sendParams,
         },
         walletAddress: wallet,
         validatedAt: Date.now(),
