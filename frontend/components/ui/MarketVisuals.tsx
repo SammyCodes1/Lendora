@@ -1,8 +1,17 @@
 "use client";
 
+import { ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
+import type { Address } from "viem";
 import { cn } from "@/lib/utils";
 import { TokenMark } from "@/components/ui/TokenMark";
+import {
+  LENDORA_A_TOKEN_SYMBOL,
+  LENDORA_DEBT_TOKEN_SYMBOL,
+  aTokenShareLabel,
+  arcscanTokenUrl,
+  debtTokenShareLabel,
+} from "@/lib/markets";
 
 export function AssetMark({ symbol, size = "md" }: { symbol: string; size?: "sm" | "md" | "lg" }) {
   const sizes = {
@@ -35,6 +44,42 @@ export function SectionLabel({ children, className }: { children: React.ReactNod
   return (
     <p className={cn("text-[10px] font-semibold uppercase text-white/35", className)}>
       {children}
+    </p>
+  );
+}
+
+export function ReceiptTokenLinks({
+  aToken,
+  debtToken,
+  symbol,
+  className,
+}: {
+  aToken: Address;
+  debtToken: Address;
+  symbol: "USDC" | "EURC";
+  className?: string;
+}) {
+  return (
+    <p className={cn("mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-white/35", className)}>
+      <a
+        href={arcscanTokenUrl(aToken)}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex items-center gap-1 font-mono text-white/50 transition hover:text-white"
+      >
+        {aTokenShareLabel(symbol)} · {LENDORA_A_TOKEN_SYMBOL}
+        <ExternalLink className="h-2.5 w-2.5" />
+      </a>
+      <span className="text-white/20">·</span>
+      <a
+        href={arcscanTokenUrl(debtToken)}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex items-center gap-1 font-mono text-white/50 transition hover:text-white"
+      >
+        {debtTokenShareLabel(symbol)} · {LENDORA_DEBT_TOKEN_SYMBOL}
+        <ExternalLink className="h-2.5 w-2.5" />
+      </a>
     </p>
   );
 }

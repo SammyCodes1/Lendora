@@ -35,7 +35,7 @@ import { useWithdrawAction } from "@/hooks/useLendingPool";
 import { useLiveMarkets } from "@/hooks/useLiveMarkets";
 import { formatRemainingCap, formatReserveCap } from "@/lib/markets";
 import { showToast } from "@/lib/toast";
-import { AssetMark, SectionLabel } from "@/components/ui/MarketVisuals";
+import { AssetMark, ReceiptTokenLinks, SectionLabel } from "@/components/ui/MarketVisuals";
 import {
   clearPendingSupply,
   readPendingSupply,
@@ -271,6 +271,11 @@ function MarketSupplyCard({
           <div>
             <h3 className="font-semibold text-white">{market.name}</h3>
             <p className="text-sm text-white/45">{market.symbol}</p>
+            <ReceiptTokenLinks
+              aToken={market.aToken}
+              debtToken={market.debtToken}
+              symbol={market.symbol}
+            />
           </div>
         </div>
         <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 font-mono text-[10px] text-white/50 sm:px-3 sm:text-xs">

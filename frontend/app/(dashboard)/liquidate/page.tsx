@@ -55,7 +55,13 @@ function useAtRiskPositions(markets: MarketAsset[]) {
 
     async function loadPositions() {
       const latest = await client.getBlockNumber();
-      const deploymentBlock = BigInt(deployments.deploymentBlock);
+      const fromDeployments = deployments as typeof deployments & {
+        marketTokenDeploymentBlock?: number;
+      };
+      const deploymentBlock = BigInt(
+        fromDeployments.marketTokenDeploymentBlock ??
+          deployments.deploymentBlock,
+      );
       const borrowerSet = new Set<Address>();
 
       for (

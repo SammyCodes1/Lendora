@@ -1,6 +1,32 @@
 import { formatUnits, type Address } from "viem";
 import deployments from "@/constants/deployments.json";
 
+export const LENDORA_A_TOKEN_NAME = "Lendora Interest Bearing Token";
+export const LENDORA_A_TOKEN_SYMBOL = "aLNDR";
+export const LENDORA_DEBT_TOKEN_NAME = "Lendora Variable Debt Token";
+export const LENDORA_DEBT_TOKEN_SYMBOL = "debtLNDR";
+export const LENDORA_POSITION_NFT_NAME = "Lendora Position Receipt";
+export const LENDORA_POSITION_NFT_SYMBOL = "LNDPOS";
+
+export function marketTokenFromBlock() {
+  const recorded = (
+    deployments as typeof deployments & { marketTokenDeploymentBlock?: number }
+  ).marketTokenDeploymentBlock;
+  return recorded ?? deployments.deploymentBlock;
+}
+
+export function arcscanTokenUrl(address: string) {
+  return `https://testnet.arcscan.app/token/${address}`;
+}
+
+export function aTokenShareLabel(symbol: "USDC" | "EURC") {
+  return `a${symbol}`;
+}
+
+export function debtTokenShareLabel(symbol: "USDC" | "EURC") {
+  return `d${symbol}`;
+}
+
 export type MarketDefinition = {
   name: string;
   symbol: "USDC" | "EURC";

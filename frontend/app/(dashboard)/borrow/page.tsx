@@ -48,7 +48,7 @@ import { useLiveMarkets } from "@/hooks/useLiveMarkets";
 import { formatRemainingCap, formatReserveCap } from "@/lib/markets";
 import { showToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
-import { AssetMark, SectionLabel } from "@/components/ui/MarketVisuals";
+import { AssetMark, ReceiptTokenLinks, SectionLabel } from "@/components/ui/MarketVisuals";
 
 type ModalState = {
   type: "borrow" | "repay";
@@ -241,6 +241,11 @@ function BorrowMarket({
           <div>
             <h3 className="font-semibold text-white">{market.name}</h3>
             <p className="text-sm text-white/45">Collateralized stablecoin borrowing</p>
+            <ReceiptTokenLinks
+              aToken={market.aToken}
+              debtToken={market.debtToken}
+              symbol={market.symbol}
+            />
           </div>
         </div>
         <ArrowDownCircle className="h-5 w-5 text-white/60" />

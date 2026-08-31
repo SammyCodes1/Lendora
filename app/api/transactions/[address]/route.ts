@@ -81,6 +81,8 @@ const KNOWN_TOKENS: Record<string, { symbol: string; decimals: number }> = {
   "0x4afda16d11ef44658356f6912b613a2423a6a868": { symbol: "dUSDC", decimals: 6 },
   "0xfd60f777558053601e315d578ab0efcbd0d4c5b9": { symbol: "aEURC", decimals: 6 },
   "0xb0b81b427be53d396ca323edbfcaaf225f2af3af": { symbol: "dEURC", decimals: 6 },
+  "0x0d36d23f06db999a58f17484307504a1a5703f39": { symbol: "evUSDC", decimals: 6 },
+  "0xca770509bbe31a4f55ac6c7a8bda97e8727b8d73": { symbol: "evEURC", decimals: 6 },
   "0xaa127deb9c3f72f8d5364b49458f6b14f0540d5b": { symbol: "USDC", decimals: 6 },
   "0x57fa5403192657ed5b950c1cd4f06f361f38b14a": { symbol: "EURC", decimals: 6 },
 };
