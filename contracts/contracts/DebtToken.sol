@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-/// @title ArcLend Variable Debt Token
+/// @title Lendora Variable Debt Token
 /// @notice Non-transferable indexed token representing borrower obligations for a 6-decimal reserve asset.
 contract DebtToken is ERC20, Ownable {
     uint256 public constant RAY = 1e27;
@@ -28,7 +28,7 @@ contract DebtToken is ERC20, Ownable {
     /// @notice Creates a variable debt token for a reserve.
     /// @param underlyingAsset_ Underlying 6-decimal ERC-20 reserve asset.
     /// @param pool_ LendingPool authorized to manage debt balances and the index.
-    constructor(address underlyingAsset_, address pool_) ERC20("ArcLend Variable Debt Token", "debtARC") Ownable(msg.sender) {
+    constructor(address underlyingAsset_, address pool_) ERC20("Lendora Variable Debt Token", "debtLNDR") Ownable(msg.sender) {
         require(underlyingAsset_ != address(0), "DebtToken: zero underlying");
         require(pool_ != address(0), "DebtToken: zero pool");
 

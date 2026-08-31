@@ -77,6 +77,10 @@ const KNOWN_TOKENS: Record<string, { symbol: string; decimals: number }> = {
   "0xfd9bb99809ea2d6d8f06381ea90a5b195ec93cf9": { symbol: "dUSDC", decimals: 6 },
   "0xa97374a23f9d18422446c9cbf53d06c986091b61": { symbol: "aEURC", decimals: 6 },
   "0xa45792794d8cfb8dcf8ee78713596513155ba51f": { symbol: "dEURC", decimals: 6 },
+  "0x848b0c56bad3177fa1b9613c5dd2550e7f500da9": { symbol: "aUSDC", decimals: 6 },
+  "0x4afda16d11ef44658356f6912b613a2423a6a868": { symbol: "dUSDC", decimals: 6 },
+  "0xfd60f777558053601e315d578ab0efcbd0d4c5b9": { symbol: "aEURC", decimals: 6 },
+  "0xb0b81b427be53d396ca323edbfcaaf225f2af3af": { symbol: "dEURC", decimals: 6 },
   "0xaa127deb9c3f72f8d5364b49458f6b14f0540d5b": { symbol: "USDC", decimals: 6 },
   "0x57fa5403192657ed5b950c1cd4f06f361f38b14a": { symbol: "EURC", decimals: 6 },
 };
