@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { formatUnits, parseUnits, type Hash } from "viem";
+import { useChainId } from "wagmi";
 import {
   ArrowDownUp,
-  Check,
   CheckCircle2,
   ChevronDown,
   CircleDashed,
@@ -15,19 +16,13 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import {
-  formatUnits,
-  parseUnits,
-  type Hash,
-} from "viem";
-import { useChainId } from "wagmi";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
 import { useTokenBalance } from "@/hooks/useTokenBalance";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { TokenMark } from "@/components/ui/TokenMark";
 import { useDismissibleDropdown } from "@/hooks/useDismissibleDropdown";
-import { useSwap, type SwapRouteQuote } from "@/hooks/useSwap";
+import { useSwap, type RouteKey, type SwapRouteQuote } from "@/hooks/useSwap";
 import { ARC_DEX_TOKENS } from "@/lib/arcDex";
 import { showToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
@@ -43,9 +38,18 @@ type SwapProgressStep = {
   errorMessage?: string;
 };
 
-const towerRouteMeta = {
-  label: "Tower Exchange",
-  detail: "Official Tower router. Quotes and calldata come from Tower; Lendora does not hop Curve, Xylo, or Synthra on its own.",
+const ROUTE_METAS: Record<RouteKey, { label: string; detail: string }> = {
+  tower: {
+    label: "Tower Exchange",
+    detail: "Official Tower router. Quotes and routes via TowerSwapExecutor.",
+  },
+  arclend: {
+    label: "Lendora SwapPool",
+    detail: "Native USDC/EURC constant-product pool on Arc.",
+  },
+  curve: { label: "Curve", detail: "Stable pool for pegged assets on Arc." },
+  xylo: { label: "Xylo", detail: "V2 AMM router on Arc." },
+  v3: { label: "Synthra V3", detail: "Concentrated liquidity pools on Arc." },
 };
 
 const tokenSymbols = Object.keys(ARC_DEX_TOKENS) as TokenSymbol[];
@@ -62,6 +66,12 @@ function arcScanTransaction(hash: Hash) {
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Swap failed";
+}
+
+function formatBalance(value: bigint, decimals: number) {
+  return Number(formatUnits(value, decimals)).toLocaleString(undefined, {
+    maximumFractionDigits: 4,
+  });
 }
 
 function TokenSelector({
@@ -124,32 +134,19 @@ function TokenSelector({
                   setOpen(false);
                 }}
                 className={cn(
-                  "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-sm transition",
+                  "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-medium transition",
                   selected
-                    ? "bg-white/[0.15] text-white"
-                    : "text-white/85 hover:bg-white/[0.09] hover:text-white",
+                    ? "bg-white/15 text-white"
+                    : "text-white/70 hover:bg-white/10 hover:text-white",
                 )}
               >
                 <span className="flex items-center gap-2.5">
-                  <TokenMark
-                    symbol={symbol}
-                    className="h-6 w-6"
-                    iconClassName="h-4 w-4"
-                  />
-                  <span>
-                    <span className="block font-semibold">{symbol}</span>
-                    <span className="block text-[10px] font-normal text-white/55">
-                      {symbol === "USDC"
-                        ? "USD Coin"
-                        : symbol === "EURC"
-                          ? "Euro Coin"
-                          : symbol === "USDT"
-                            ? "Arc Testnet USDT"
-                            : "Circle Wrapped Bitcoin"}
-                    </span>
-                  </span>
+                  <TokenMark symbol={symbol} className="h-6 w-6" iconClassName="h-3.5 w-3.5" />
+                  <span>{symbol}</span>
                 </span>
-                {selected ? <Check className="h-4 w-4 text-white/75" /> : null}
+                {selected ? (
+                  <span className="text-xs text-white/60">Selected</span>
+                ) : null}
               </button>
             );
           })}
@@ -159,22 +156,16 @@ function TokenSelector({
   );
 }
 
-function formatBalance(value: bigint, decimals: number) {
-  return Number(formatUnits(value, decimals)).toLocaleString(undefined, {
-    maximumFractionDigits: 4,
-  });
-}
-
 export function SwapWidget() {
   const { address, isConnected, source } = useArcLendAccount();
   const connectorReady = isConnected && source === "wallet";
   const chainId = useChainId();
-  const { quoteSwap, swap } = useSwap();
+  const { quoteRoutes, swap } = useSwap();
   const [fromSymbol, setFromSymbol] = useState<TokenSymbol>("USDC");
   const [toSymbol, setToSymbol] = useState<TokenSymbol>("EURC");
   const [amount, setAmount] = useState("");
   const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [selectedRoute, setSelectedRoute] = useState<"tower" | null>(null);
+  const [selectedRoute, setSelectedRoute] = useState<RouteKey | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [swapLoading, setSwapLoading] = useState(false);
   const [slippageBps, setSlippageBps] = useState(50);
@@ -221,16 +212,25 @@ export function SwapWidget() {
       return 0n;
     }
   }, [amount, fromToken.decimals]);
-  const bestRoute = quotes.reduce<Quote | null>(
-    (best, quote) => (!best || quote.output > best.output ? quote : best),
-    null,
-  );
-  const activeRoute =
-    quotes.find((quote) => quote.key === selectedRoute) ?? bestRoute;
+
+  const bestRoute = useMemo(() => {
+    if (quotes.length === 0) return null;
+    return quotes.reduce((best, quote) => (!best || quote.output > best.output ? quote : best), quotes[0]);
+  }, [quotes]);
+
+  const activeRoute = useMemo(() => {
+    if (selectedRoute) {
+      const found = quotes.find((quote) => quote.key === selectedRoute);
+      if (found) return found;
+    }
+    return bestRoute;
+  }, [selectedRoute, quotes, bestRoute]);
+
   const exceedsBalance =
     parsedAmount > 0n && fromBalance.data
       ? parsedAmount > fromBalance.data.value
       : false;
+
   const updateProgress = (
     key: SwapProgressStep["key"],
     update: Partial<SwapProgressStep>,
@@ -239,6 +239,7 @@ export function SwapWidget() {
       steps.map((step) => (step.key === key ? { ...step, ...update } : step)),
     );
   };
+
   const resetPairState = () => {
     setAmount("");
     setQuotes([]);
@@ -249,6 +250,7 @@ export function SwapWidget() {
     setFinalityMs(null);
     setProgress(initialSwapProgress);
   };
+
   const selectFromToken = (symbol: TokenSymbol) => {
     if (symbol === fromSymbol) {
       return;
@@ -259,6 +261,7 @@ export function SwapWidget() {
     setFromSymbol(symbol);
     resetPairState();
   };
+
   const selectToToken = (symbol: TokenSymbol) => {
     if (symbol === toSymbol) {
       return;
@@ -280,14 +283,13 @@ export function SwapWidget() {
     setQuoteLoading(true);
     setError(null);
     try {
-      const quote = await quoteSwap(
+      const allQuotes = await quoteRoutes(
         fromSymbol,
         toSymbol,
         amount,
         slippageBps,
       );
-      setQuotes([quote]);
-      setSelectedRoute("tower");
+      setQuotes(allQuotes);
     } catch (caught) {
       setError(errorMessage(caught));
       setQuotes([]);
@@ -295,7 +297,7 @@ export function SwapWidget() {
     } finally {
       setQuoteLoading(false);
     }
-  }, [amount, fromSymbol, parsedAmount, quoteSwap, slippageBps, toSymbol]);
+  }, [amount, fromSymbol, parsedAmount, quoteRoutes, slippageBps, toSymbol]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -333,10 +335,10 @@ export function SwapWidget() {
         state: chainId === 5042002 ? "success" : "active",
         finalityMs: chainId === 5042002 ? 0 : undefined,
       },
-      { key: "approve", label: `Approve ${fromSymbol} for Tower`, state: "waiting" },
+      { key: "approve", label: `Approve ${fromSymbol} for ${activeRoute.label}`, state: "waiting" },
       {
         key: "swap",
-        label: `Swap ${fromSymbol} for ${toSymbol} via Tower`,
+        label: `Swap ${fromSymbol} for ${toSymbol} via ${activeRoute.label}`,
         state: "waiting",
       },
     ]);
@@ -362,7 +364,7 @@ export function SwapWidget() {
       setTxHash(result.hash);
       setReceivedAmount(formatUnits(result.quote.output, toToken.decimals));
       setFinalityMs(Math.max(0, Math.round(performance.now() - startedAt)));
-      showToast("success", `Swapped ${fromSymbol} to ${toSymbol} via Tower`);
+      showToast("success", `Swapped ${fromSymbol} to ${toSymbol} via ${activeRoute.label}`);
       await Promise.all([fromBalance.refetch(), toBalance.refetch()]);
       await fetchQuotes();
       setProgressOpen(false);
@@ -418,36 +420,47 @@ export function SwapWidget() {
                 setAmount(event.target.value);
                 setTxHash(null);
               }}
-              placeholder="0.00"
-              className="min-w-0 flex-1 bg-transparent font-mono text-2xl text-white outline-none placeholder:text-white/20"
+              placeholder="0.0"
+              className="w-full bg-transparent font-mono text-2xl font-semibold text-white placeholder:text-white/20 focus:outline-none"
             />
+            <TokenSelector
+              value={fromSymbol}
+              onChange={selectFromToken}
+              menuPosition="bottom"
+            />
+          </div>
+          <div className="mt-4 flex items-center justify-between text-xs text-white/40">
+            <span>Available: {available}</span>
             <button
               type="button"
-              onClick={() => setAmount(available)}
-              className="rounded-lg border border-white/10 bg-white/[0.06] px-2 py-1 text-[10px] font-semibold text-white/65 transition hover:bg-white/[0.1] hover:text-white"
+              disabled={!fromBalance.data || fromBalance.data.value <= 0n}
+              onClick={() => {
+                if (fromBalance.data) {
+                  setAmount(
+                    formatUnits(fromBalance.data.value, fromBalance.data.decimals),
+                  );
+                }
+              }}
+              className="font-medium text-white/60 transition hover:text-white disabled:opacity-40"
             >
               MAX
             </button>
-            <TokenSelector value={fromSymbol} onChange={selectFromToken} />
           </div>
         </div>
 
-        <div className="flex justify-center">
-          <motion.button
+        <div className="relative flex items-center justify-center">
+          <button
             type="button"
-            aria-label="Switch swap tokens"
-            whileHover={{ scale: 1.05, rotate: 180 }}
-            whileTap={{ scale: 0.92 }}
+            aria-label="Switch swap direction"
             onClick={() => {
-              const previousFrom = fromSymbol;
               setFromSymbol(toSymbol);
-              setToSymbol(previousFrom);
+              setToSymbol(fromSymbol);
               resetPairState();
             }}
-            className="rounded-full border border-white/15 bg-black p-3 text-white/65 shadow-[0_12px_30px_rgba(0,0,0,0.5)] transition hover:border-white/25 hover:text-white"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/80 text-white/70 shadow-[0_10px_25px_rgba(0,0,0,0.5)] transition hover:scale-105 hover:border-white/30 hover:text-white"
           >
             <ArrowDownUp className="h-4 w-4" />
-          </motion.button>
+          </button>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-[#0a0c0e]/90 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]">
@@ -458,14 +471,12 @@ export function SwapWidget() {
               {toSymbol}
             </span>
           </div>
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <span className="font-mono text-2xl text-white">
+          <div className="mt-3 flex items-center gap-3">
+            <span className="w-full truncate font-mono text-2xl font-semibold text-white">
               {quoteLoading
                 ? "…"
                 : activeRoute
-                  ? Number(
-                      formatUnits(activeRoute.output, toToken.decimals),
-                    ).toLocaleString(undefined, { maximumFractionDigits: 6 })
+                  ? formatUnits(activeRoute.output, toToken.decimals)
                   : "0.00"}
             </span>
             <TokenSelector
@@ -479,7 +490,7 @@ export function SwapWidget() {
         <div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/40">
-              Tower router
+              Router paths
             </p>
             <div className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.035] p-1">
               <span className="flex items-center gap-1.5 px-2 text-[10px] font-medium text-white/40">
@@ -507,45 +518,68 @@ export function SwapWidget() {
             </div>
           </div>
 
-          <div className="mt-3">
-            <div
-              className={cn(
-                "rounded-xl border p-4 text-left",
-                activeRoute
-                  ? "border-white/25 bg-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-                  : "border-white/[0.08] bg-white/[0.025]",
-              )}
-            >
-              <div className="flex items-center justify-between">
-                <Route className="h-4 w-4 text-white/55" />
-                <span className="text-[9px] font-semibold uppercase text-white/65">
-                  Exclusive route
-                </span>
-              </div>
-              <p className="mt-3 text-sm font-medium text-white">
-                {activeRoute?.routeLabel ?? towerRouteMeta.label}
-              </p>
-              <p className="mt-1 text-[10px] leading-4 text-white/35">
-                {towerRouteMeta.detail}
-              </p>
-              <p className="mt-3 truncate font-mono text-xs text-white/70">
-                {activeRoute
-                  ? `${formatUnits(activeRoute.output, toToken.decimals)} ${toSymbol}`
-                  : quoteLoading
-                    ? "Quoting Tower…"
-                    : "No Tower route"}
-              </p>
-              {activeRoute ? (
-                <p className="mt-2 font-mono text-[10px] text-white/40">
-                  min {formatUnits(activeRoute.minOut, toToken.decimals)} {toSymbol}
-                  {" · "}
-                  fee {activeRoute.feeBps / 100}%
-                  {activeRoute.priceImpact
-                    ? ` · impact ${activeRoute.priceImpact.toFixed(3)}%`
-                    : ""}
-                </p>
-              ) : null}
-            </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+            {(Object.keys(ROUTE_METAS) as RouteKey[]).map((key) => {
+              const quote = quotes.find((item) => item.key === key);
+              const selected = activeRoute?.key === key;
+              const isBest = bestRoute?.key === key && Boolean(quote);
+
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  disabled={!quote}
+                  onClick={() => setSelectedRoute(key)}
+                  className={cn(
+                    "rounded-xl border p-3.5 text-left transition flex flex-col justify-between",
+                    selected
+                      ? "border-white/30 bg-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ring-1 ring-white/20"
+                      : "border-white/[0.08] bg-white/[0.025] hover:border-white/15 hover:bg-white/[0.04]",
+                    !quote && "cursor-not-allowed opacity-40 hover:border-white/[0.08] hover:bg-white/[0.025]",
+                  )}
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-1">
+                      <Route className="h-4 w-4 text-white/55" />
+                      {isBest ? (
+                        <span className="rounded bg-emerald-400/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-emerald-300">
+                          Best
+                        </span>
+                      ) : key === "tower" ? (
+                        <span className="rounded bg-sky-400/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-sky-300">
+                          Tower
+                        </span>
+                      ) : selected ? (
+                        <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-white/70">
+                          Selected
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-2.5 text-sm font-medium text-white">
+                      {ROUTE_METAS[key].label}
+                    </p>
+                    <p className="mt-1 text-[10px] leading-4 text-white/35 line-clamp-2">
+                      {ROUTE_METAS[key].detail}
+                    </p>
+                  </div>
+                  <div className="mt-3 border-t border-white/[0.06] pt-2">
+                    <p className="truncate font-mono text-xs font-medium text-white/90">
+                      {quote
+                        ? `${formatUnits(quote.output, toToken.decimals)} ${toSymbol}`
+                        : quoteLoading
+                          ? "Quoting…"
+                          : "No route"}
+                    </p>
+                    {quote ? (
+                      <p className="mt-0.5 font-mono text-[9px] text-white/40 truncate">
+                        min {formatUnits(quote.minOut, toToken.decimals)}
+                        {quote.feeBps ? ` · ${quote.feeBps / 100}% fee` : ""}
+                      </p>
+                    ) : null}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -599,7 +633,7 @@ export function SwapWidget() {
               ? "Switch to Arc and swap"
               : swapLoading
                 ? "Confirming swap"
-                : `Swap via ${activeRoute?.routeLabel ?? "Tower Exchange"}`}
+                : `Swap via ${activeRoute?.label ?? "best route"}`}
         </GlassButton>
       </div>
     </GlassCard>
@@ -625,7 +659,7 @@ export function SwapWidget() {
                     Swap in progress
                   </h2>
                   <p className="mt-2 text-sm text-white/45">
-                    {fromSymbol} → {toSymbol} via {activeRoute?.routeLabel ?? "Tower Exchange"}
+                    {fromSymbol} → {toSymbol} via {activeRoute?.label ?? "Arc DEX"}
                   </p>
                 </div>
                 <button
@@ -639,11 +673,12 @@ export function SwapWidget() {
                 </button>
               </div>
 
-              <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.045] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
-                <div className="flex items-center justify-between gap-4 border-b border-white/[0.08] pb-5">
-                  <span className="text-sm text-white/45">Swap amount</span>
-                  <span className="font-mono text-xl text-white">
-                    {amount} {fromSymbol}
+              <div className="mt-10 rounded-2xl border border-white/10 bg-white/[0.035] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                <div className="flex items-center justify-between text-xs text-white/40">
+                  <span>Execution stages</span>
+                  <span>
+                    {progress.filter((step) => step.state === "success").length}{" "}
+                    of {progress.length} complete
                   </span>
                 </div>
 

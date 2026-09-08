@@ -6,7 +6,6 @@ import {
   ArrowLeftRight,
   ArrowUpCircle,
   Coins,
-  Gift,
   Loader2,
   RefreshCw,
   RotateCcw,
@@ -14,18 +13,14 @@ import {
   ShoppingCart,
   Sparkles,
   Star,
-  CalendarClock,
-  Users,
 } from "lucide-react";
 import {
   erc20Abi,
   formatUnits,
   parseAbi,
-  parseEventLogs,
   parseUnits,
   toFunctionSelector,
   toHex,
-  type Abi,
   type Address,
   type Hash,
 } from "viem";
@@ -62,15 +57,8 @@ import type {
   AgentTransactionReview,
   AgentValidationResult,
   LendingAsset,
-  MultiSendRecipient,
   ValidatedAgentAction,
 } from "@/lib/agentTypes";
-import {
-  MULTISEND_MAX_PER_TX,
-  chunkRecipients,
-  parseTokenAmount6,
-} from "@/lib/multiSend";
-import { healthFactorToWad } from "@/lib/spokenPay";
 import { marketDefinitions } from "@/lib/markets";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
 import {
@@ -80,15 +68,6 @@ import {
 } from "@/hooks/useArcLendContractWrite";
 import { announcePrimaryDomainChanged } from "@/lib/domainEvents";
 import deployments from "@/constants/deployments.json";
-import arcDropJson from "@/constants/abis/ArcDrop.json";
-import multiSendJson from "@/constants/abis/MultiSend.json";
-import {
-  DROP_MODE_CLAIM_ALL,
-  DROP_MODE_EQUAL_SPLIT,
-  clientDropUrl,
-  formatLendropExpiry,
-  prependSavedLendrop,
-} from "@/lib/arcDrop";
 
 type ActionConfirmCardProps = {
   validatedAction: ValidatedAgentAction;
@@ -128,24 +107,16 @@ const arcDestination: BridgeNetwork = {
 
 const swapRouteLabels: Record<SwapRouteQuote["key"], string> = {
   tower: "Tower Exchange router",
+  arclend: "Lendora SwapPool",
+  curve: "Curve",
+  xylo: "Xylo",
+  v3: "Synthra V3",
 };
 const WALLET_DOMAIN_ADDRESS = deployments.WalletDomain as Address;
 const MARKET_USDC_ADDRESS = deployments.markets.USDC.asset as Address;
 const DOMAIN_MARKETPLACE_ADDRESS = (
   deployments as typeof deployments & { DomainMarketplace?: Address }
 ).DomainMarketplace;
-const SPOKEN_PAY_ADDRESS = (
-  deployments as typeof deployments & { SpokenPay?: Address }
-).SpokenPay;
-const ARCDROP_ADDRESS = (
-  deployments as typeof deployments & { ArcDrop?: Address }
-).ArcDrop;
-const ARCDROP_ABI = arcDropJson as Abi;
-const MULTISEND_ADDRESS = (
-  deployments as typeof deployments & { MultiSend?: Address }
-).MultiSend;
-const MULTISEND_ABI = multiSendJson as Abi;
-const MARKET_EURC_ADDRESS = deployments.markets.EURC.asset as Address;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const walletDomainAbi = parseAbi([
   "function approve(address to,uint256 tokenId) external",
@@ -167,11 +138,6 @@ const domainMarketplaceAbi = parseAbi([
   "function buy(uint256 tokenId,uint256 maxPrice) external",
   "function listings(uint256 tokenId) view returns (address seller,uint256 price)",
 ]);
-const spokenPayAbi = parseAbi([
-  "function createPlan(address token,address recipient,string domainName,uint128 amount,uint64 interval,uint64 firstRunAt,uint64 minHealthFactorWad,bool fromYieldOnly) returns (uint256)",
-  "function executePlan(uint256 planId)",
-  "function cancelPlan(uint256 planId)",
-]);
 const borrowDelegationAbi = parseAbi([
   "function borrowDelegates(address user,address delegate) view returns (bool)",
   "function setBorrowDelegate(address delegate,bool approved) external",
@@ -191,9 +157,6 @@ function actionIcon(tool: AgentAction["tool"]) {
   if (tool === "repay") return RotateCcw;
   if (tool === "bridge") return ArrowLeftRight;
   if (tool === "sendToken") return SendHorizontal;
-  if (tool === "createLendrop") return Gift;
-  if (tool === "multiSend") return Users;
-  if (tool === "schedulePayment") return CalendarClock;
   if (tool === "mintDomain") return Sparkles;
   if (tool === "burnDomain") return RefreshCw;
   if (tool === "setPrimaryDomain") return Star;
@@ -233,47 +196,6 @@ function claimListFromParams(params: Record<string, unknown>) {
       (claim): claim is { asset: LendingAsset; amount: string } =>
         claim !== null,
     );
-}
-
-function shortAddress(value: string) {
-  if (value.startsWith("0x") && value.length === 42) {
-    return `${value.slice(0, 6)}…${value.slice(-4)}`;
-  }
-  return value;
-}
-
-function multiSendRows(params: Record<string, unknown>): MultiSendRecipient[] {
-  if (!Array.isArray(params.recipients)) return [];
-  return params.recipients.filter((row): row is MultiSendRecipient => {
-    if (!row || typeof row !== "object") return false;
-    const item = row as Record<string, unknown>;
-    return (
-      typeof item.recipient === "string" &&
-      typeof item.usdcAmount === "string" &&
-      typeof item.eurcAmount === "string"
-    );
-  });
-}
-
-function formatMultiSendRowAmount(row: MultiSendRecipient) {
-  const parts: string[] = [];
-  if ((parseTokenAmount6(row.usdcAmount) ?? 0n) > 0n) {
-    parts.push(`${row.usdcAmount} USDC`);
-  }
-  if ((parseTokenAmount6(row.eurcAmount) ?? 0n) > 0n) {
-    parts.push(`${row.eurcAmount} EURC`);
-  }
-  return parts.join(" + ") || "—";
-}
-
-function formatMultiSendTotals(params: Record<string, unknown>) {
-  const usdc = String(params.totalUsdc ?? "0");
-  const eurc = String(params.totalEurc ?? "0");
-  const parts = [
-    usdc !== "0" ? `${usdc} USDC` : null,
-    eurc !== "0" ? `${eurc} EURC` : null,
-  ].filter(Boolean);
-  return parts.join(" + ") || "0";
 }
 
 export function ActionConfirmCard({
@@ -335,8 +257,6 @@ export function ActionConfirmCard({
       ),
     [params],
   );
-  const multiSendPreview =
-    action.tool === "multiSend" ? multiSendRows(params) : [];
 
   const ensureAllowance = async (
     asset: Address,
@@ -561,104 +481,6 @@ export function ActionConfirmCard({
           ],
           detail:
             "The connected wallet will send this exact token amount directly to the displayed Arc Testnet address. Verify the full address before signing.",
-        });
-        return;
-      }
-
-      if (action.tool === "createLendrop") {
-        const asset = String(params.asset);
-        const amount = String(params.amount);
-        const isClaimAll = params.mode === "CLAIM_ALL";
-        const claimants = String(params.maxClaimants ?? "1");
-        const perClaim = params.perClaimAmount
-          ? String(params.perClaimAmount)
-          : null;
-        const expiry = formatLendropExpiry(
-          Number(params.expirySeconds ?? "0"),
-        );
-        const allowlist = Array.isArray(params.allowlist)
-          ? (params.allowlist as Array<{ address?: string; name?: string }>)
-          : [];
-        const allowCount = allowlist.length;
-        setReview({
-          eyebrow: "Lendrop review",
-          title: `Share ${amount} ${asset}`,
-          amountLabel: "Total locked",
-          amount: `${amount} ${asset}`,
-          receiveLabel: isClaimAll ? "First claimer" : "Each claim",
-          receiveAmount: isClaimAll
-            ? `All ${amount} ${asset}`
-            : `${perClaim ?? amount} ${asset} × ${claimants}`,
-          route: [
-            `${asset} wallet`,
-            "Approve Lendrop",
-            allowCount ? "Allowlisted createDrop" : "createDrop",
-            "Shareable link",
-          ],
-          detail: [
-            isClaimAll
-              ? `You'll lock ${amount} ${asset} in Lendrop. The first wallet to open the link claims the full amount.`
-              : `You'll lock ${amount} ${asset} in Lendrop, split equally across ${claimants} claimants (${perClaim ?? "even"} ${asset} each).`,
-            allowCount
-              ? ` Only ${allowCount} allowlisted wallet${allowCount === 1 ? "" : "s"} can claim.`
-              : "",
-            ` Expires: ${expiry}.`,
-          ].join(""),
-        });
-        return;
-      }
-
-      if (action.tool === "multiSend") {
-        if (!MULTISEND_ADDRESS) {
-          throw new Error("MultiSend is not deployed");
-        }
-        const rows = multiSendRows(params);
-        const count = rows.length || Number(params.recipientCount ?? 0);
-        const batches = Math.max(1, Math.ceil(count / MULTISEND_MAX_PER_TX));
-        const totals = formatMultiSendTotals(params);
-        setReview({
-          eyebrow: "MultiSend review",
-          title: `Send to ${count} wallet${count === 1 ? "" : "s"}`,
-          amountLabel: "Total",
-          amount: totals,
-          receiveLabel: "Recipients",
-          receiveAmount: `${count} wallet${count === 1 ? "" : "s"}`,
-          route: [
-            "Wallet",
-            "Approve MultiSend",
-            batches > 1 ? `${batches} MultiSend batches` : "MultiSend",
-            `${count} recipients`,
-          ],
-          detail:
-            batches > 1
-              ? `You'll approve MultiSend, then sign ${batches} transactions of up to ${MULTISEND_MAX_PER_TX} wallets each. Funds move directly from your wallet to each recipient.`
-              : `You'll approve MultiSend, then send ${totals} to ${count} wallet${count === 1 ? "" : "s"} in one transaction. Funds move directly from your wallet to each recipient.`,
-        });
-        return;
-      }
-
-      if (action.tool === "schedulePayment") {
-        const asset = String(params.asset);
-        const recipientLabel = String(
-          params.recipientName ?? params.recipientDomain ?? params.recipient,
-        );
-        const fromYield = Boolean(params.fromYield);
-        setReview({
-          eyebrow: "Spoken payment review",
-          title: `Pay ${params.amount} ${asset} ${String(params.cadence)}`,
-          amountLabel: "Each run",
-          amount: `${params.amount} ${asset}`,
-          receiveLabel: "Recipient",
-          receiveAmount: recipientLabel,
-          route: [
-            fromYield ? "Claimed yield in wallet" : `${asset} wallet`,
-            "SpokenPay",
-            recipientLabel,
-            `Skip if HF < ${String(params.minHealthFactor)}`,
-          ],
-          detail: fromYield
-            ? `You authorize Lendora to pull ${params.amount} ${asset} ${String(params.cadence)} to this pinned .lendora name from claimed yield in your wallet, never supplied principal. Missed runs skip to the next cadence if health is below ${String(params.minHealthFactor)} or yield has not been claimed. The plan halts if the name is transferred.`
-            : `You authorize Lendora to pull ${params.amount} ${asset} ${String(params.cadence)}. Missed runs skip to the next cadence if health is below ${String(params.minHealthFactor)}. The plan pins the recipient and halts if a .lendora name moves.`,
         });
         return;
       }
@@ -1024,268 +846,6 @@ export function ActionConfirmCard({
         setReceipt({
           ...review,
           title: `${params.amount} ${asset} sent`,
-          transactionHash: hash,
-          explorerUrl: hash ? `https://testnet.arcscan.app/tx/${hash}` : undefined,
-          finalityMs: Math.max(
-            0,
-            Math.round(performance.now() - submittedAt),
-          ),
-        });
-        return;
-      }
-
-      if (action.tool === "createLendrop") {
-        if (!publicClient) {
-          throw new Error("Arc client unavailable");
-        }
-        if (!ARCDROP_ADDRESS) {
-          throw new Error("Lendrop is not deployed");
-        }
-        const asset = String(params.asset) as "USDC" | "EURC";
-        const token = ARC_DEX_TOKENS[asset];
-        const amount = parseUnits(String(params.amount), 6);
-        const mode =
-          params.mode === "CLAIM_ALL"
-            ? DROP_MODE_CLAIM_ALL
-            : DROP_MODE_EQUAL_SPLIT;
-        const maxClaimants = BigInt(String(params.maxClaimants ?? "1"));
-        const expirySeconds = BigInt(String(params.expirySeconds ?? "0"));
-        const allowlist = Array.isArray(params.allowlist)
-          ? (params.allowlist as Array<{ address?: string }>)
-              .map((row) => row.address)
-              .filter((value): value is string => Boolean(value))
-          : [];
-        const submittedAt = performance.now();
-        await ensureAllowance(token.address, amount, ARCDROP_ADDRESS);
-        const hash = await submitContract({
-          chainId: 5042002,
-          address: ARCDROP_ADDRESS,
-          abi: ARCDROP_ABI,
-          functionName: allowlist.length
-            ? "createDropAllowlisted"
-            : "createDrop",
-          args: allowlist.length
-            ? [
-                token.address,
-                amount,
-                mode,
-                maxClaimants,
-                expirySeconds,
-                allowlist as Address[],
-              ]
-            : [token.address, amount, mode, maxClaimants, expirySeconds],
-        });
-        if (!hash) {
-          throw new Error("Lendrop was submitted without a transaction hash");
-        }
-        const txReceipt = await publicClient.waitForTransactionReceipt({
-          hash,
-        });
-        const createdLogs = parseEventLogs({
-          abi: ARCDROP_ABI,
-          eventName: "DropCreated",
-          logs: txReceipt.logs,
-        });
-        const dropId =
-          createdLogs.length > 0
-            ? Number(
-                (createdLogs[0] as { args: { dropId: bigint } }).args.dropId,
-              )
-            : null;
-        let shareUrl: string | undefined;
-        if (dropId) {
-          try {
-            const linkResp = await fetch("/api/drop/create-link", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                dropId,
-                creatorWallet: address,
-                contract: ARCDROP_ADDRESS,
-              }),
-            });
-            const linkBody = (await linkResp.json()) as {
-              slug?: string;
-              error?: string;
-            };
-            if (linkResp.ok && linkBody.slug) {
-              shareUrl = clientDropUrl(linkBody.slug);
-              const now = Math.floor(Date.now() / 1000);
-              const expiry = Number(params.expirySeconds ?? "0");
-              prependSavedLendrop({
-                dropId,
-                slug: linkBody.slug,
-                url: shareUrl,
-                asset,
-                totalAmount: amount.toString(),
-                mode,
-                maxClaimants: Number(maxClaimants),
-                expiresAt: expiry > 0 ? now + expiry : 0,
-                createdAt: now,
-                active: true,
-                claimantsCount: 0,
-                remainingAmount: amount.toString(),
-                contract: ARCDROP_ADDRESS,
-                allowlistCount: allowlist.length || undefined,
-              });
-            }
-          } catch {
-            // Drop is on-chain; the share link is best-effort.
-          }
-        }
-        setReceipt({
-          ...review,
-          title: `${params.amount} ${asset} Lendrop created`,
-          receiveLabel: shareUrl ? "Share link" : "Drop",
-          receiveAmount:
-            shareUrl ?? (dropId ? `Drop #${dropId}` : "On-chain drop created"),
-          transactionHash: hash,
-          explorerUrl: `https://testnet.arcscan.app/tx/${hash}`,
-          finalityMs: Math.max(
-            0,
-            Math.round(performance.now() - submittedAt),
-          ),
-          shareUrl,
-        });
-        return;
-      }
-
-      if (action.tool === "multiSend") {
-        if (!publicClient) {
-          throw new Error("Arc client unavailable");
-        }
-        if (!MULTISEND_ADDRESS) {
-          throw new Error("MultiSend is not deployed");
-        }
-        const rows = multiSendRows(params);
-        if (rows.length === 0) {
-          throw new Error("Add at least one MultiSend recipient");
-        }
-        const totalUsdc = parseTokenAmount6(String(params.totalUsdc ?? "0")) ?? 0n;
-        const totalEurc = parseTokenAmount6(String(params.totalEurc ?? "0")) ?? 0n;
-        const submittedAt = performance.now();
-        if (totalUsdc > 0n) {
-          await ensureAllowance(
-            MARKET_USDC_ADDRESS,
-            totalUsdc,
-            MULTISEND_ADDRESS,
-          );
-        }
-        if (totalEurc > 0n) {
-          await ensureAllowance(
-            MARKET_EURC_ADDRESS,
-            totalEurc,
-            MULTISEND_ADDRESS,
-          );
-        }
-        const chunks = chunkRecipients(rows, MULTISEND_MAX_PER_TX);
-        const hashes: Hash[] = [];
-        for (const chunk of chunks) {
-          const recipients = chunk.map((row) => row.recipient as Address);
-          const usdcAmounts = chunk.map(
-            (row) => parseTokenAmount6(row.usdcAmount) ?? 0n,
-          );
-          const eurcAmounts = chunk.map(
-            (row) => parseTokenAmount6(row.eurcAmount) ?? 0n,
-          );
-          const hasUsdc = usdcAmounts.some((amount) => amount > 0n);
-          const hasEurc = eurcAmounts.some((amount) => amount > 0n);
-          let hash: Hash | undefined;
-          if (hasUsdc && hasEurc) {
-            hash = await submitContract({
-              chainId: 5042002,
-              address: MULTISEND_ADDRESS,
-              abi: MULTISEND_ABI,
-              functionName: "multiSendDual",
-              args: [
-                recipients,
-                usdcAmounts,
-                eurcAmounts,
-                MARKET_USDC_ADDRESS,
-                MARKET_EURC_ADDRESS,
-              ],
-            });
-          } else {
-            hash = await submitContract({
-              chainId: 5042002,
-              address: MULTISEND_ADDRESS,
-              abi: MULTISEND_ABI,
-              functionName: "multiSend",
-              args: [
-                hasUsdc ? MARKET_USDC_ADDRESS : MARKET_EURC_ADDRESS,
-                recipients,
-                hasUsdc ? usdcAmounts : eurcAmounts,
-              ],
-            });
-          }
-          if (!hash) {
-            throw new Error("MultiSend was submitted without a transaction hash");
-          }
-          await waitForSubmitted(hash);
-          hashes.push(hash);
-        }
-        const lastHash = hashes[hashes.length - 1];
-        setReceipt({
-          ...review,
-          title: `${formatMultiSendTotals(params)} sent to ${rows.length} wallet${rows.length === 1 ? "" : "s"}`,
-          receiveLabel: hashes.length > 1 ? "Batches" : "Recipients",
-          receiveAmount:
-            hashes.length > 1
-              ? `${hashes.length} transactions`
-              : `${rows.length} wallet${rows.length === 1 ? "" : "s"}`,
-          transactionHash: lastHash,
-          explorerUrl: lastHash
-            ? `https://testnet.arcscan.app/tx/${lastHash}`
-            : undefined,
-          finalityMs: Math.max(
-            0,
-            Math.round(performance.now() - submittedAt),
-          ),
-        });
-        return;
-      }
-
-      if (action.tool === "schedulePayment") {
-        if (!publicClient) {
-          throw new Error("Arc client unavailable");
-        }
-        if (!SPOKEN_PAY_ADDRESS) {
-          throw new Error("Spoken payments are not deployed");
-        }
-        const asset = String(params.asset) as "USDC" | "EURC";
-        const token = ARC_DEX_TOKENS[asset];
-        const amount = parseUnits(String(params.amount), 6);
-        const interval = BigInt(String(params.intervalSeconds));
-        const firstRunAt = BigInt(String(params.firstRunAt ?? "0"));
-        const minHealth = healthFactorToWad(String(params.minHealthFactor ?? "1.10"));
-        if (minHealth === null) {
-          throw new Error("Invalid health-factor floor");
-        }
-        const domainName = String(params.domainName ?? "");
-        const recipient = String(params.recipient) as Address;
-        const submittedAt = performance.now();
-        await ensureAllowance(token.address, amount * 104n, SPOKEN_PAY_ADDRESS);
-        const hash = await submitContract({
-          chainId: 5042002,
-          address: SPOKEN_PAY_ADDRESS,
-          abi: spokenPayAbi,
-          functionName: "createPlan",
-          args: [
-            token.address,
-            recipient,
-            domainName,
-            amount,
-            interval,
-            firstRunAt,
-            minHealth,
-            Boolean(params.fromYield),
-          ],
-          gas: 500_000n,
-        });
-        await waitForSubmitted(hash);
-        setReceipt({
-          ...review,
-          title: `Spoken payment armed ${String(params.cadence)}`,
           transactionHash: hash,
           explorerUrl: hash ? `https://testnet.arcscan.app/tx/${hash}` : undefined,
           finalityMs: Math.max(
@@ -1751,68 +1311,6 @@ export function ActionConfirmCard({
           </div>
         ))}
       </dl>
-
-      {action.tool === "createLendrop" &&
-      Array.isArray(params.allowlist) &&
-      (params.allowlist as Array<{ address?: string; name?: string }>).length >
-        0 ? (
-        <div className="mt-3 max-h-40 overflow-y-auto rounded-lg border border-white/[0.08] bg-black/15 px-3 py-2">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-white/35">
-            Allowlist
-          </p>
-          <ul className="mt-1.5 space-y-1.5">
-            {(
-              params.allowlist as Array<{ address?: string; name?: string }>
-            )
-              .slice(0, 8)
-              .map((row, index) => (
-                <li
-                  key={row.address ?? `${index}`}
-                  className="truncate font-mono text-[11px] text-white/75"
-                >
-                  {row.name
-                    ? `${row.name} · ${shortAddress(row.address ?? "")}`
-                    : shortAddress(row.address ?? "")}
-                </li>
-              ))}
-          </ul>
-          {(params.allowlist as unknown[]).length > 8 ? (
-            <p className="mt-1.5 text-[10px] text-white/35">
-              +{(params.allowlist as unknown[]).length - 8} more
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-
-      {action.tool === "multiSend" && multiSendPreview.length > 0 ? (
-        <div className="mt-3 max-h-40 overflow-y-auto rounded-lg border border-white/[0.08] bg-black/15 px-3 py-2">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-white/35">
-            Recipients
-          </p>
-          <ul className="mt-1.5 space-y-1.5">
-            {multiSendPreview.slice(0, 8).map((row) => (
-              <li
-                key={row.recipient}
-                className="flex items-start justify-between gap-3 text-[11px]"
-              >
-                <span className="min-w-0 truncate font-mono text-white/75">
-                  {row.recipientName
-                    ? `${row.recipientName} · ${shortAddress(row.recipient)}`
-                    : shortAddress(row.recipient)}
-                </span>
-                <span className="shrink-0 font-mono text-white/55">
-                  {formatMultiSendRowAmount(row)}
-                </span>
-              </li>
-            ))}
-          </ul>
-          {multiSendPreview.length > 8 ? (
-            <p className="mt-1.5 text-[10px] text-white/35">
-              +{multiSendPreview.length - 8} more
-            </p>
-          ) : null}
-        </div>
-      ) : null}
 
       {error ? (
         <p role="alert" className="mt-3 text-xs leading-5 text-red-300">

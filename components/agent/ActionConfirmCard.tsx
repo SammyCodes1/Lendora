@@ -107,6 +107,10 @@ const arcDestination: BridgeNetwork = {
 
 const swapRouteLabels: Record<SwapRouteQuote["key"], string> = {
   tower: "Tower Exchange router",
+  arclend: "Lendora SwapPool",
+  curve: "Curve",
+  xylo: "Xylo",
+  v3: "Synthra V3",
 };
 const WALLET_DOMAIN_ADDRESS = deployments.WalletDomain as Address;
 const MARKET_USDC_ADDRESS = deployments.markets.USDC.asset as Address;
