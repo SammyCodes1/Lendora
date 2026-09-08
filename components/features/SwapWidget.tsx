@@ -41,7 +41,7 @@ type SwapProgressStep = {
 const ROUTE_METAS: Record<RouteKey, { label: string; detail: string }> = {
   tower: {
     label: "Tower Exchange",
-    detail: "Official Tower router. Quotes and routes via TowerSwapExecutor.",
+    detail: "Official DEX router on Arc.",
   },
   arclend: {
     label: "Lendora SwapPool",
@@ -549,10 +549,6 @@ export function SwapWidget() {
                       {isBest ? (
                         <span className="shrink-0 rounded bg-emerald-400/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-emerald-300">
                           Best
-                        </span>
-                      ) : key === "tower" ? (
-                        <span className="shrink-0 rounded bg-sky-400/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-sky-300">
-                          Tower
                         </span>
                       ) : selected ? (
                         <span className="shrink-0 rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-white/70">
