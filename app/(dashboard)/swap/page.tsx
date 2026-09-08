@@ -52,22 +52,22 @@ const swapSteps = [
 
 function OnchainSwapFlow() {
   return (
-    <section className="glass-panel relative h-fit overflow-hidden rounded-2xl border-white/10 bg-white/[0.04] p-5 backdrop-blur-3xl">
+    <section className="glass-panel relative h-fit overflow-hidden rounded-2xl border-white/10 bg-white/[0.04] p-4 sm:p-5 backdrop-blur-3xl">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-white/10" />
       <div className="relative">
         <div className="flex items-center gap-3">
           <ShieldCheck className="h-5 w-5 text-white/70" />
-          <h2 className="font-display text-lg font-semibold text-white">
+          <h2 className="font-display text-base sm:text-lg font-semibold text-white">
             How swaps work onchain
           </h2>
         </div>
-        <p className="mt-2 text-sm leading-6 text-white/45">
+        <p className="mt-2 text-xs sm:text-sm leading-6 text-white/45">
           Quotes are compared across peer venues including Tower Exchange, Curve,
           Xylo, Synthra V3, and Lendora&apos;s own SwapPool. Select your preferred
           router or take the best rate to settle directly back to your wallet.
         </p>
 
-        <div className="mt-6 flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-3">
+        <div className="mt-5 sm:mt-6 flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.035] px-3.5 sm:px-4 py-2.5 sm:py-3">
           <div className="flex items-center gap-2">
             <Wallet className="h-4 w-4 text-white/55" />
             <span className="text-xs text-white/60">Your wallet</span>
@@ -81,10 +81,10 @@ function OnchainSwapFlow() {
         </div>
 
         <div className="relative mt-4">
-          <div className="absolute bottom-8 left-[23px] top-8 w-px bg-white/15" />
+          <div className="hidden sm:block absolute bottom-8 left-[23px] top-8 w-px bg-white/15" />
           <motion.div
             aria-hidden="true"
-            className="absolute left-[20px] top-8 z-20 h-2 w-2 rounded-full bg-white shadow-[0_0_16px_rgba(255,255,255,0.9)]"
+            className="hidden sm:block absolute left-[20px] top-8 z-20 h-2 w-2 rounded-full bg-white shadow-[0_0_16px_rgba(255,255,255,0.9)]"
             animate={{ y: [0, 249], opacity: [0, 1, 1, 0] }}
             transition={{
               duration: 4.8,

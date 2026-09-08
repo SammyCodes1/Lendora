@@ -182,11 +182,11 @@ function DashboardTopStats({
               : "Compound annual yield on net collateral across your supplied assets."
           }
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
             <span>Net APY</span>
             {netApy !== null && netApy < 0 && (
               <span
-                className="inline-flex items-center rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300"
+                className="inline-flex items-center rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300 shrink-0"
                 title="Annual borrow interest exceeds supply yield across your positions"
               >
                 Net borrow cost
@@ -194,9 +194,9 @@ function DashboardTopStats({
             )}
           </div>
           {netApy !== null && netApy < 0 ? (
-            <TrendingDown className="h-4 w-4 text-amber-400/80" />
+            <TrendingDown className="h-4 w-4 shrink-0 text-amber-400/80" />
           ) : (
-            <TrendingUp className="h-4 w-4 text-white/40" />
+            <TrendingUp className="h-4 w-4 shrink-0 text-white/40" />
           )}
         </div>
         <div
