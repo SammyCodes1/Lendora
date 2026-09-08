@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Coins,
   ExternalLink,
+  Info,
   Loader2,
 } from "lucide-react";
 import { GlassButton } from "@/components/ui/GlassButton";
@@ -17,6 +18,7 @@ import {
   capacityFilledPercent,
   filterLendoraMarkets,
   formatRemainingCap,
+  formatReserveCap,
   maxBorrowableAmount,
   type LendoraAssetFilter,
 } from "@/lib/markets";
@@ -65,18 +67,71 @@ export function AssetFilterBar({
   );
 }
 
-function CapacityMeter({ value }: { value: number }) {
+function CapacityMeter({
+  value,
+  market,
+}: {
+  value: number;
+  market?: {
+    totalSupply: bigint;
+    supplyCap: bigint;
+    remainingSupplyCap: bigint;
+    isSupplyCapped: boolean;
+    symbol: string;
+    utilization?: number;
+  };
+}) {
   const progress = Math.max(0, Math.min(100, value));
+  const displayPercent =
+    progress > 0 && progress < 0.01
+      ? "<0.01%"
+      : progress > 0 && progress < 0.1
+      ? `${progress.toFixed(2)}%`
+      : `${progress.toFixed(1)}%`;
+
+  const barWidth = progress > 0 ? Math.max(progress, 1.5) : 0;
+
+  const toneClass =
+    progress >= 95
+      ? "bg-rose-400"
+      : progress >= 80
+      ? "bg-amber-400"
+      : "bg-white/80 group-hover:bg-white";
+
+  const textToneClass =
+    progress >= 95
+      ? "text-rose-300"
+      : progress >= 80
+      ? "text-amber-300"
+      : "text-white/55 group-hover:text-white/80";
+
+  const tooltipText = market
+    ? market.isSupplyCapped
+      ? `${displayPercent} filled (${Number(formatUnits(market.totalSupply, 6)).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${market.symbol} of ${formatReserveCap(market.supplyCap, true, { compact: true })} ${market.symbol} cap · ${formatRemainingCap(market.remainingSupplyCap, true, market.symbol)} left)`
+      : `Uncapped reserve (${displayPercent} pool utilization)`
+    : `${displayPercent} capacity filled`;
+
   return (
-    <div className="flex min-w-[140px] items-center gap-2">
+    <div
+      className="group flex min-w-[140px] items-center gap-2 cursor-help"
+      title={tooltipText}
+    >
       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.08]">
         <div
-          className="h-full rounded-full bg-white/80"
-          style={{ width: `${progress}%` }}
+          className={cn(
+            "h-full rounded-full transition-all duration-300",
+            toneClass,
+          )}
+          style={{ width: `${barWidth}%` }}
         />
       </div>
-      <span className="w-12 text-right font-mono text-xs text-white/55">
-        {progress.toFixed(1)}%
+      <span
+        className={cn(
+          "w-12 text-right font-mono text-xs transition-colors",
+          textToneClass,
+        )}
+      >
+        {displayPercent}
       </span>
     </div>
   );
@@ -151,9 +206,15 @@ export function DepositMarketsTable({
                   </dd>
                 </div>
                 <div className="col-span-2">
-                  <dt>Capacity filled</dt>
+                  <dt
+                    className="flex items-center gap-1.5 cursor-help"
+                    title="Maximum deposit capacity under protocol reserve caps"
+                  >
+                    <span>Capacity filled</span>
+                    <Info className="h-3 w-3 text-white/35" />
+                  </dt>
                   <dd className="mt-2">
-                    <CapacityMeter value={filled} />
+                    <CapacityMeter value={filled} market={market} />
                   </dd>
                 </div>
               </dl>
@@ -177,7 +238,15 @@ export function DepositMarketsTable({
               <th className="px-5 py-3 font-medium">Asset</th>
               <th className="px-5 py-3 font-medium">APY</th>
               <th className="px-5 py-3 text-right font-medium">Total deposits</th>
-              <th className="px-5 py-3 font-medium">Capacity filled</th>
+              <th className="px-5 py-3 font-medium">
+                <div
+                  className="inline-flex items-center gap-1.5 cursor-help"
+                  title="Maximum deposit capacity under protocol reserve caps. Once filled, new deposits are paused until existing deposits are withdrawn."
+                >
+                  <span>Capacity filled</span>
+                  <Info className="h-3.5 w-3.5 text-white/40 hover:text-white transition-colors" />
+                </div>
+              </th>
               <th className="px-5 py-3 text-right font-medium">Available liquidity</th>
               <th className="px-5 py-3 text-right font-medium">Action</th>
             </tr>
@@ -209,7 +278,7 @@ export function DepositMarketsTable({
                     <AnimatedNumber value={usd(market.totalSupplyUsd)} prefix="$" decimals={2} />
                   </td>
                   <td className="px-5 py-4">
-                    <CapacityMeter value={filled} />
+                    <CapacityMeter value={filled} market={market} />
                     <p className="mt-1 font-mono text-[10px] text-white/35">
                       {formatRemainingCap(
                         market.remainingSupplyCap,
