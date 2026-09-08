@@ -1,41 +1,44 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
 import {
-  Activity,
   ArrowDownCircle,
   ArrowUpCircle,
   BarChart2,
+  CheckCircle2,
   Clock,
-  Percent,
   RefreshCw,
   Shield,
   TrendingUp,
+  Wallet,
 } from "lucide-react";
-import {
-  formatUnits,
-  type Address,
-} from "viem";
+import { formatUnits, type Address } from "viem";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { GlassCard } from "@/components/ui/GlassCard";
-import { StatBadge } from "@/components/ui/StatBadge";
 import { SupplyModal } from "@/components/modals/SupplyModal";
 import { BorrowModal } from "@/components/modals/BorrowModal";
 import { RepayModal } from "@/components/modals/RepayModal";
 import { WithdrawModal } from "@/components/modals/WithdrawModal";
 import type { MarketAsset } from "@/components/modals/types";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
-import { useUserAccountData } from "@/hooks/useLendingPool";
+import { useUserAccountData, useUserBalance } from "@/hooks/useLendingPool";
 import { useLiveMarkets } from "@/hooks/useLiveMarkets";
-import { formatRemainingCap, formatReserveCap } from "@/lib/markets";
+import {
+  assetUsdValue,
+  dashboardBorrowedMarkets,
+  dashboardBorrowPowerUsedPercent,
+  dashboardHealthFactor,
+  dashboardNetApyPercent,
+  dashboardSuppliedMarkets,
+  dashboardTotals,
+  maxBorrowableAmount,
+} from "@/lib/markets";
 import { cn } from "@/lib/utils";
 import { PageTransition } from "@/components/layout/PageTransition";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
-import { HealthFactorValue } from "@/components/ui/HealthFactorValue";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { AssetMark, SectionLabel, UtilizationBar } from "@/components/ui/MarketVisuals";
+import { AssetMark } from "@/components/ui/MarketVisuals";
 import { useCircleEmailWallet } from "@/components/wallet/CircleEmailWalletProvider";
 import {
   clearPendingSupply,
@@ -44,6 +47,8 @@ import {
 } from "@/lib/supplyFlow";
 
 type ActionModal = "supply" | "borrow" | "repay" | "withdraw" | null;
+type LendoraDashboardMarket = MarketAsset & { symbol: "USDC" | "EURC" };
+
 type TxEvent = {
   hash: `0x${string}`;
   label: string;
@@ -109,295 +114,821 @@ function statusClass(status: string) {
   return "border-white/10 bg-white/[0.06] text-white/55";
 }
 
-const rowVariants = {
-  hidden: { opacity: 0, y: 14 },
-  visible: (index: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: index * 0.1, duration: 0.32 },
-  }),
-};
-
-function ProtocolStatsBar({
+function DashboardTopStats({
   markets,
-  isPaused,
+  accountData,
+  isConnected,
+  isAccountPending,
 }: {
-  markets: MarketAsset[];
-  isPaused: boolean;
+  markets: LendoraDashboardMarket[];
+  accountData?: ReturnType<typeof useUserAccountData>["accountData"];
+  isConnected: boolean;
+  isAccountPending: boolean;
 }) {
-  const totalSupply = markets.reduce((sum, market) => sum + market.totalSupplyUsd, 0n);
-  const totalBorrow = markets.reduce((sum, market) => sum + market.totalBorrowUsd, 0n);
-  const available = markets.reduce((sum, market) => sum + market.availableLiquidityUsd, 0n);
-
-  const stats = [
-    { icon: TrendingUp, label: "Total Value Locked", value: Number(formatUnits(totalSupply, 8)), prefix: "$" },
-    { icon: Percent, label: "Total Borrowing", value: Number(formatUnits(totalBorrow, 8)), prefix: "$" },
-    { icon: Activity, label: "Available Liquidity", value: Number(formatUnits(available, 8)), prefix: "$" },
-    { icon: Shield, label: "Protocol Status", text: isPaused ? "Paused" : "Active" },
-  ];
+  const totals = dashboardTotals(markets);
+  const netWorth = Number(formatUnits(totals.netWorthUsd, 8));
+  const totalSupplied = Number(formatUnits(totals.suppliedUsd, 8));
+  const totalBorrowed = Number(formatUnits(totals.borrowedUsd, 8));
+  const netApy = dashboardNetApyPercent(markets);
+  const hfValue = dashboardHealthFactor(accountData?.healthFactor);
+  const borrowPowerUsed = dashboardBorrowPowerUsedPercent(
+    accountData?.totalDebtUSD ?? 0n,
+    accountData?.availableBorrowsUSD ?? 0n,
+  );
 
   return (
-    <GlassCard depth="foreground" className="p-5 sm:p-6">
-      <div className="mb-4 flex min-w-0 flex-wrap items-center justify-between gap-3">
-        <SectionLabel>Protocol overview</SectionLabel>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Net worth */}
+      <GlassCard glowOnHover className="p-5">
+        <div className="flex items-center justify-between text-xs text-white/45">
+          <span>Net worth</span>
+          <Wallet className="h-4 w-4 text-white/40" />
+        </div>
+        <div className="mt-3 font-mono text-2xl font-semibold text-white">
+          {!isConnected ? (
+            "$0.00"
+          ) : isAccountPending ? (
+            <Skeleton height={32} className="w-28 rounded-lg" />
+          ) : (
+            <AnimatedNumber value={netWorth} prefix="$" decimals={2} />
+          )}
+        </div>
+        <div className="mt-2 flex items-center justify-between text-xs text-white/40">
+          <span>
+            Supplied $
+            {totalSupplied.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </span>
+          <span>
+            Borrowed $
+            {totalBorrowed.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </span>
+        </div>
+      </GlassCard>
 
-          return (
-            <motion.div key={stat.label} variants={rowVariants} custom={stats.indexOf(stat)} initial="hidden" animate="visible" className="rounded-2xl border border-white/[0.08] bg-black/20 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-              <div className="flex items-center gap-2 text-xs text-white/42">
-                <Icon className="h-4 w-4 text-white/65" strokeWidth={1.5} />
-                {stat.label}
-              </div>
-              <div className="mt-4 font-mono text-2xl text-white">
-                {"text" in stat ? (
-                  stat.text
-                ) : (
-                  <AnimatedNumber
-                    value={stat.value}
-                    prefix={stat.prefix}
-                    decimals={2}
-                  />
-                )}
-              </div>
-            </motion.div>
-          );
-        })}
+      {/* Net APY */}
+      <GlassCard glowOnHover className="p-5">
+        <div className="flex items-center justify-between text-xs text-white/45">
+          <span>Net APY</span>
+          <TrendingUp className="h-4 w-4 text-white/40" />
+        </div>
+        <div className="mt-3 font-mono text-2xl font-semibold text-white">
+          {!isConnected || netApy === null ? (
+            "—"
+          ) : isAccountPending ? (
+            <Skeleton height={32} className="w-20 rounded-lg" />
+          ) : (
+            `${netApy.toFixed(2)}%`
+          )}
+        </div>
+        <div className="mt-2 text-xs text-white/40">
+          Compound annual yield on net collateral
+        </div>
+      </GlassCard>
+
+      {/* Health factor */}
+      <GlassCard glowOnHover className="p-5 sm:col-span-2 lg:col-span-1">
+        <div className="flex items-center justify-between text-xs text-white/45">
+          <span>Health factor</span>
+          <Shield className="h-4 w-4 text-white/40" />
+        </div>
+        <div className="mt-3 font-mono text-2xl font-semibold">
+          {!isConnected || hfValue === null ? (
+            <span className="text-white/40">—</span>
+          ) : isAccountPending ? (
+            <Skeleton height={32} className="w-16 rounded-lg" />
+          ) : (
+            <span
+              className={cn(
+                hfValue >= 1.5
+                  ? "text-emerald-400"
+                  : hfValue >= 1.1
+                    ? "text-amber-300"
+                    : "text-red-400",
+              )}
+            >
+              {hfValue.toFixed(2)}
+            </span>
+          )}
+        </div>
+        <div className="mt-2 flex items-center justify-between text-xs text-white/40">
+          <span>
+            {isConnected && hfValue !== null
+              ? `Borrow power used ${borrowPowerUsed.toFixed(1)}%`
+              : "No active borrows"}
+          </span>
+          {isConnected && hfValue !== null ? (
+            <span className="font-mono text-[10px] text-white/30">
+              Liquidation &lt; 1.00
+            </span>
+          ) : null}
+        </div>
+      </GlassCard>
+    </div>
+  );
+}
+
+function YourSuppliesSection({
+  markets,
+  isConnected,
+  onOpen,
+}: {
+  markets: LendoraDashboardMarket[];
+  isConnected: boolean;
+  onOpen: (modal: ActionModal, market: MarketAsset) => void;
+}) {
+  const supplied = useMemo(
+    () => (isConnected ? dashboardSuppliedMarkets(markets) : []),
+    [isConnected, markets],
+  );
+
+  return (
+    <GlassCard depth="foreground" className="overflow-hidden p-0">
+      <div className="flex items-center justify-between border-b border-white/[0.08] px-5 py-4">
+        <div className="flex items-center gap-2.5">
+          <ArrowUpCircle className="h-5 w-5 text-emerald-400" />
+          <h2 className="text-lg font-semibold text-white">Your supplies</h2>
+        </div>
+      </div>
+
+      {supplied.length === 0 ? (
+        <div className="p-8 text-center">
+          <p className="text-sm font-medium text-white/70">Nothing supplied yet</p>
+          <p className="mt-1 text-xs text-white/40">
+            Supply USDC or EURC to start earning interest and use as collateral.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Mobile list */}
+          <div className="divide-y divide-white/[0.06] md:hidden">
+            {supplied.map((market) => {
+              const amount = Number(formatUnits(market.userSupply, 6));
+              const usdVal = Number(
+                formatUnits(assetUsdValue(market.userSupply, market.price), 8),
+              );
+              return (
+                <div key={market.symbol} className="space-y-3 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <AssetMark symbol={market.symbol} size="sm" />
+                      <div>
+                        <p className="font-medium text-white">{market.symbol}</p>
+                        <p className="text-xs text-white/40">{market.name}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-mono text-sm text-white">
+                        {amount.toLocaleString(undefined, {
+                          maximumFractionDigits: 6,
+                        })}
+                      </p>
+                      <p className="font-mono text-xs text-white/40">
+                        $
+                        {usdVal.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs text-white/45">
+                    <div>
+                      <span>Supply APY: </span>
+                      <span className="font-mono text-white">
+                        {market.supplyApy}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span>Can be collateral: </span>
+                      <span className="font-medium text-emerald-400">Yes</span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-1">
+                    <GlassButton
+                      variant="primary"
+                      className="flex-1 py-1.5 text-xs"
+                      onClick={() => onOpen("supply", market)}
+                    >
+                      Supply
+                    </GlassButton>
+                    <GlassButton
+                      variant="ghost"
+                      className="flex-1 py-1.5 text-xs"
+                      onClick={() => onOpen("withdraw", market)}
+                    >
+                      Withdraw
+                    </GlassButton>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-white/[0.08] text-xs text-white/45">
+                <tr>
+                  <th className="px-5 py-3 font-medium">Asset</th>
+                  <th className="px-5 py-3 font-medium">Balance</th>
+                  <th className="px-5 py-3 font-medium">APY</th>
+                  <th className="px-5 py-3 text-center font-medium">
+                    Can be collateral
+                  </th>
+                  <th className="px-5 py-3 text-right font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.05]">
+                {supplied.map((market) => {
+                  const amount = Number(formatUnits(market.userSupply, 6));
+                  const usdVal = Number(
+                    formatUnits(
+                      assetUsdValue(market.userSupply, market.price),
+                      8,
+                    ),
+                  );
+                  return (
+                    <tr
+                      key={market.symbol}
+                      className="transition hover:bg-white/[0.02]"
+                    >
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-2.5">
+                          <AssetMark symbol={market.symbol} size="sm" />
+                          <div>
+                            <p className="font-medium text-white">
+                              {market.symbol}
+                            </p>
+                            <p className="text-xs text-white/40">
+                              {market.name}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <p className="font-mono text-white">
+                          {amount.toLocaleString(undefined, {
+                            maximumFractionDigits: 6,
+                          })}
+                        </p>
+                        <p className="font-mono text-xs text-white/40">
+                          $
+                          {usdVal.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </p>
+                      </td>
+                      <td className="px-5 py-3.5 font-mono text-emerald-400">
+                        {market.supplyApy}
+                      </td>
+                      <td className="px-5 py-3.5 text-center">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-xs text-emerald-300">
+                          <CheckCircle2 className="h-3 w-3" /> Yes
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <div className="flex justify-end gap-2">
+                          <GlassButton
+                            variant="primary"
+                            className="px-3 py-1.5 text-xs"
+                            onClick={() => onOpen("supply", market)}
+                          >
+                            Supply
+                          </GlassButton>
+                          <GlassButton
+                            variant="ghost"
+                            className="px-3 py-1.5 text-xs"
+                            onClick={() => onOpen("withdraw", market)}
+                          >
+                            Withdraw
+                          </GlassButton>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </GlassCard>
+  );
+}
+
+function AssetToSupplyMobileRow({
+  market,
+  isConnected,
+  onOpen,
+}: {
+  market: LendoraDashboardMarket;
+  isConnected: boolean;
+  onOpen: (modal: ActionModal, market: MarketAsset) => void;
+}) {
+  const balance = useUserBalance(market.address, isConnected);
+  const amount = balance.data ? Number(formatUnits(balance.data.value, 6)) : 0;
+  const usdVal = amount * Number(formatUnits(market.price, 8));
+
+  return (
+    <div className="space-y-3 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <AssetMark symbol={market.symbol} size="sm" />
+          <div>
+            <p className="font-medium text-white">{market.symbol}</p>
+            <p className="text-xs text-white/40">{market.name}</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <span className="text-[10px] text-white/40">Wallet balance</span>
+          <p className="font-mono text-sm text-white">
+            {isConnected ? balance.formatted : "—"}
+          </p>
+          {isConnected ? (
+            <p className="font-mono text-xs text-white/40">
+              $
+              {usdVal.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-xs text-white/45">
+        <div>
+          <span>APY, variable: </span>
+          <span className="font-mono text-white">{market.supplyApy}</span>
+        </div>
+        <div className="text-right">
+          <span>Can be collateral: </span>
+          <span className="font-medium text-emerald-400">Yes</span>
+        </div>
+      </div>
+
+      <GlassButton
+        variant="primary"
+        className="w-full py-1.5 text-xs"
+        onClick={() => onOpen("supply", market)}
+      >
+        Supply
+      </GlassButton>
+    </div>
+  );
+}
+
+function AssetToSupplyDesktopRow({
+  market,
+  isConnected,
+  onOpen,
+}: {
+  market: LendoraDashboardMarket;
+  isConnected: boolean;
+  onOpen: (modal: ActionModal, market: MarketAsset) => void;
+}) {
+  const balance = useUserBalance(market.address, isConnected);
+  const amount = balance.data ? Number(formatUnits(balance.data.value, 6)) : 0;
+  const usdVal = amount * Number(formatUnits(market.price, 8));
+
+  return (
+    <tr className="transition hover:bg-white/[0.02]">
+      <td className="px-5 py-3.5">
+        <div className="flex items-center gap-2.5">
+          <AssetMark symbol={market.symbol} size="sm" />
+          <div>
+            <p className="font-medium text-white">{market.symbol}</p>
+            <p className="text-xs text-white/40">{market.name}</p>
+          </div>
+        </div>
+      </td>
+      <td className="px-5 py-3.5">
+        <p className="font-mono text-white">
+          {isConnected ? balance.formatted : "—"}
+        </p>
+        {isConnected ? (
+          <p className="font-mono text-xs text-white/40">
+            $
+            {usdVal.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+          </p>
+        ) : null}
+      </td>
+      <td className="px-5 py-3.5 font-mono text-emerald-400">
+        {market.supplyApy}
+      </td>
+      <td className="px-5 py-3.5 text-center">
+        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-xs text-emerald-300">
+          <CheckCircle2 className="h-3 w-3" /> Yes
+        </span>
+      </td>
+      <td className="px-5 py-3.5 text-right">
+        <GlassButton
+          variant="primary"
+          className="px-4 py-1.5 text-xs"
+          onClick={() => onOpen("supply", market)}
+        >
+          Supply
+        </GlassButton>
+      </td>
+    </tr>
+  );
+}
+
+function AssetsToSupplySection({
+  markets,
+  isConnected,
+  onOpen,
+}: {
+  markets: LendoraDashboardMarket[];
+  isConnected: boolean;
+  onOpen: (modal: ActionModal, market: MarketAsset) => void;
+}) {
+  return (
+    <GlassCard depth="foreground" className="overflow-hidden p-0">
+      <div className="border-b border-white/[0.08] px-5 py-4">
+        <h2 className="text-lg font-semibold text-white">Assets to supply</h2>
+      </div>
+
+      {/* Mobile list */}
+      <div className="divide-y divide-white/[0.06] md:hidden">
+        {markets.map((market) => (
+          <AssetToSupplyMobileRow
+            key={market.symbol}
+            market={market}
+            isConnected={isConnected}
+            onOpen={onOpen}
+          />
+        ))}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden overflow-x-auto md:block">
+        <table className="w-full text-left text-sm">
+          <thead className="border-b border-white/[0.08] text-xs text-white/45">
+            <tr>
+              <th className="px-5 py-3 font-medium">Asset</th>
+              <th className="px-5 py-3 font-medium">Wallet balance</th>
+              <th className="px-5 py-3 font-medium">APY, variable</th>
+              <th className="px-5 py-3 text-center font-medium">
+                Can be collateral
+              </th>
+              <th className="px-5 py-3 text-right font-medium">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/[0.05]">
+            {markets.map((market) => (
+              <AssetToSupplyDesktopRow
+                key={market.symbol}
+                market={market}
+                isConnected={isConnected}
+                onOpen={onOpen}
+              />
+            ))}
+          </tbody>
+        </table>
       </div>
     </GlassCard>
   );
 }
 
-function HealthFactor({ value }: { value?: bigint }) {
-  const numeric = value && value !== BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff") ? Number(formatUnits(value, 18)) : 9.99;
-  const className = numeric > 1.5 ? "text-white" : numeric >= 1.1 ? "text-white/70" : "text-white/45";
-
-  return <HealthFactorValue value={numeric} className={cn("font-mono", className)} />;
-}
-
-function weightedRate(markets: MarketAsset[], field: "userSupply" | "userDebt", rate: "supplyApyValue" | "borrowAprValue") {
-  const total = markets.reduce((sum, market) => sum + Number(market[field]), 0);
-  if (total === 0) {
-    return 0;
-  }
-
-  return markets.reduce((sum, market) => sum + Number(market[field]) * market[rate], 0) / total;
-}
-
-function UserSummary({ markets }: { markets: MarketAsset[] }) {
-  const { address, isConnected } = useArcLendAccount();
-  const { accountData, isPending: isAccountPending } = useUserAccountData(address);
-  const supplyRate = weightedRate(markets, "userSupply", "supplyApyValue");
-  const borrowRate = weightedRate(markets, "userDebt", "borrowAprValue");
-  const projectedSupplyUsd = markets.reduce(
-    (sum, market) =>
-      sum + (market.userSupply * market.price) / 1_000_000n,
-    0n,
-  );
-  const projectedDebtUsd = markets.reduce(
-    (sum, market) =>
-      sum + (market.userDebt * market.price) / 1_000_000n,
-    0n,
+function YourBorrowsSection({
+  markets,
+  isConnected,
+  onOpen,
+}: {
+  markets: LendoraDashboardMarket[];
+  isConnected: boolean;
+  onOpen: (modal: ActionModal, market: MarketAsset) => void;
+}) {
+  const borrowed = useMemo(
+    () => (isConnected ? dashboardBorrowedMarkets(markets) : []),
+    [isConnected, markets],
   );
 
-  if (!isConnected) {
-    return null;
-  }
-
-  if (isAccountPending) {
-    return (
-      <section className="grid gap-5 lg:grid-cols-2">
-        <Skeleton height={190} className="rounded-2xl" />
-        <Skeleton height={190} className="rounded-2xl" />
-      </section>
-    );
-  }
-
-  return (
-    <section className="grid gap-5 lg:grid-cols-2">
-      <GlassCard glowOnHover className="p-5">
-        <div className="flex items-center gap-3">
-          <ArrowUpCircle className="h-5 w-5" />
-          <h2 className="text-xl font-semibold">My Supplied</h2>
-        </div>
-        <div className="mt-5 space-y-3 text-sm text-white/60">
-          {markets.map((market) => (
-            <div key={market.symbol} className="flex items-start justify-between gap-3">
-              <span>a{market.symbol} balance</span>
-              <span className="text-right">
-                <span className="block font-mono text-white">
-                  {Number(formatUnits(market.settledUserSupply, 6)).toLocaleString(undefined, { maximumFractionDigits: 6 })} a{market.symbol}
-                </span>
-                {market.accruedSupply > 0n ? (
-                  <>
-                    <span className="block font-mono text-[10px] text-[#86efac]">
-                      +{formatUnits(market.accruedSupply, 6)} pending interest
-                    </span>
-                    <span className="block font-mono text-[10px] text-white/40">
-                      total {Number(formatUnits(market.userSupply, 6)).toLocaleString(undefined, { maximumFractionDigits: 6 })}
-                    </span>
-                  </>
-                ) : null}
-              </span>
-            </div>
-          ))}
-          <div className="flex justify-between"><span>Total supplied</span><AnimatedNumber className="font-mono text-white" value={Number(formatUnits(projectedSupplyUsd, 8))} prefix="$" decimals={2} /></div>
-          <p className="text-[10px] leading-4 text-white/30">
-            aToken is settled balance; pending is the live estimate on top. Settled + pending = total position.
-          </p>
-          <StatBadge label="Weighted Supply APY" value={`${supplyRate.toFixed(2)}%`} tone="positive" />
-        </div>
-      </GlassCard>
-
-      <GlassCard glowOnHover className="p-5">
-        <div className="flex items-center gap-3">
-          <ArrowDownCircle className="h-5 w-5" />
-          <h2 className="text-xl font-semibold">My Borrowed</h2>
-        </div>
-        <div className="mt-5 space-y-3 text-sm text-white/60">
-          {markets.map((market) => (
-            <div key={market.symbol} className="flex items-start justify-between gap-3">
-              <span>d{market.symbol} balance</span>
-              <span className="text-right">
-                <span className="block font-mono text-white">{Number(formatUnits(market.userDebt, 6)).toLocaleString(undefined, { maximumFractionDigits: 6 })}</span>
-                <span className="block font-mono text-[10px] text-white/42">+{formatUnits(market.accruedBorrowInterest, 6)} interest</span>
-              </span>
-            </div>
-          ))}
-          <div className="flex justify-between"><span>Total borrowed</span><AnimatedNumber className="font-mono text-white" value={Number(formatUnits(projectedDebtUsd, 8))} prefix="$" decimals={2} /></div>
-          <div className="flex items-center justify-between"><StatBadge label="Weighted Borrow APR" value={`${borrowRate.toFixed(2)}%`} /><span>Health Factor <HealthFactor value={accountData?.healthFactor} /></span></div>
-        </div>
-      </GlassCard>
-    </section>
-  );
-}
-
-function MarketsTable({ markets, onOpen }: { markets: MarketAsset[]; onOpen: (modal: ActionModal, market: MarketAsset) => void }) {
   return (
     <GlassCard depth="foreground" className="overflow-hidden p-0">
-      <div className="flex items-center gap-3 border-b border-white/[0.08] p-5">
-        <BarChart2 className="h-5 w-5" />
-        <div>
-          <h2 className="text-xl font-semibold">Markets</h2>
-          <p className="mt-1 text-xs text-white/36">
-            Supply, borrow, and utilization across Lendora reserves.
-          </p>
+      <div className="flex items-center justify-between border-b border-white/[0.08] px-5 py-4">
+        <div className="flex items-center gap-2.5">
+          <ArrowDownCircle className="h-5 w-5 text-sky-400" />
+          <h2 className="text-lg font-semibold text-white">Your borrows</h2>
         </div>
       </div>
 
-      <div className="grid gap-3 p-4 md:hidden">
-        {markets.map((market) => {
-          return (
-            <motion.div key={market.symbol} variants={rowVariants} custom={markets.indexOf(market)} initial="hidden" animate="visible" className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.035] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.32)]">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <AssetMark symbol={market.symbol} />
-                  <div>
-                    <p className="font-medium text-white">{market.name}</p>
-                    <p className="text-xs text-white/45">{market.symbol}</p>
+      {borrowed.length === 0 ? (
+        <div className="p-8 text-center">
+          <p className="text-sm font-medium text-white/70">Nothing borrowed yet</p>
+          <p className="mt-1 text-xs text-white/40">
+            Borrow USDC or EURC against your deposited collateral assets.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Mobile list */}
+          <div className="divide-y divide-white/[0.06] md:hidden">
+            {borrowed.map((market) => {
+              const debtAmount = Number(formatUnits(market.userDebt, 6));
+              const usdVal = Number(
+                formatUnits(assetUsdValue(market.userDebt, market.price), 8),
+              );
+              return (
+                <div key={market.symbol} className="space-y-3 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <AssetMark symbol={market.symbol} size="sm" />
+                      <div>
+                        <p className="font-medium text-white">{market.symbol}</p>
+                        <p className="text-xs text-white/40">{market.name}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-mono text-sm text-white">
+                        {debtAmount.toLocaleString(undefined, {
+                          maximumFractionDigits: 6,
+                        })}
+                      </p>
+                      <p className="font-mono text-xs text-white/40">
+                        $
+                        {usdVal.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-white/45">
+                    <span>APY, variable</span>
+                    <span className="font-mono text-white">
+                      {market.borrowApr}
+                    </span>
+                  </div>
+
+                  <div className="flex gap-2 pt-1">
+                    <GlassButton
+                      variant="primary"
+                      className="flex-1 py-1.5 text-xs"
+                      onClick={() => onOpen("borrow", market)}
+                    >
+                      Borrow
+                    </GlassButton>
+                    <GlassButton
+                      variant="ghost"
+                      className="flex-1 py-1.5 text-xs"
+                      onClick={() => onOpen("repay", market)}
+                    >
+                      Repay
+                    </GlassButton>
                   </div>
                 </div>
-                <span className="font-mono text-xs text-white/40">Arc reserve</span>
-              </div>
-              <div className="mt-5 grid grid-cols-2 gap-4 text-sm text-white/45">
-                <div><p>Supply APY</p><p className="mt-1 font-mono text-lg text-white">{market.supplyApy}</p></div>
-                <div className="text-right"><p>Total supplied</p><p className="mt-1 font-mono text-white"><AnimatedNumber value={Number(formatUnits(market.totalSupplyUsd, 8))} prefix="$" decimals={2} /></p></div>
-                <div><p>Borrow APR</p><p className="mt-1 font-mono text-lg text-white">{market.borrowApr}</p></div>
-                <div className="text-right"><p>Utilization</p><div className="mt-2"><UtilizationBar value={market.utilization} delay={0.2} /></div></div>
-                <div>
-                  <p>Supply cap</p>
-                  <p className="mt-1 font-mono text-white">
-                    {formatReserveCap(market.supplyCap, market.isSupplyCapped, { compact: true })}
-                  </p>
-                  <p className="mt-0.5 font-mono text-[10px] text-white/35">
-                    {formatRemainingCap(market.remainingSupplyCap, market.isSupplyCapped)} left
-                  </p>
+              );
+            })}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-white/[0.08] text-xs text-white/45">
+                <tr>
+                  <th className="px-5 py-3 font-medium">Asset</th>
+                  <th className="px-5 py-3 font-medium">Debt</th>
+                  <th className="px-5 py-3 font-medium">APY, variable</th>
+                  <th className="px-5 py-3 text-right font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.05]">
+                {borrowed.map((market) => {
+                  const debtAmount = Number(formatUnits(market.userDebt, 6));
+                  const usdVal = Number(
+                    formatUnits(
+                      assetUsdValue(market.userDebt, market.price),
+                      8,
+                    ),
+                  );
+                  return (
+                    <tr
+                      key={market.symbol}
+                      className="transition hover:bg-white/[0.02]"
+                    >
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-2.5">
+                          <AssetMark symbol={market.symbol} size="sm" />
+                          <div>
+                            <p className="font-medium text-white">
+                              {market.symbol}
+                            </p>
+                            <p className="text-xs text-white/40">
+                              {market.name}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <p className="font-mono text-white">
+                          {debtAmount.toLocaleString(undefined, {
+                            maximumFractionDigits: 6,
+                          })}
+                        </p>
+                        <p className="font-mono text-xs text-white/40">
+                          $
+                          {usdVal.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </p>
+                      </td>
+                      <td className="px-5 py-3.5 font-mono text-sky-400">
+                        {market.borrowApr}
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <div className="flex justify-end gap-2">
+                          <GlassButton
+                            variant="primary"
+                            className="px-3 py-1.5 text-xs"
+                            onClick={() => onOpen("borrow", market)}
+                          >
+                            Borrow
+                          </GlassButton>
+                          <GlassButton
+                            variant="ghost"
+                            className="px-3 py-1.5 text-xs"
+                            onClick={() => onOpen("repay", market)}
+                          >
+                            Repay
+                          </GlassButton>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </GlassCard>
+  );
+}
+
+function AssetsToBorrowSection({
+  markets,
+  isConnected,
+  availableBorrowsUsd,
+  onOpen,
+}: {
+  markets: LendoraDashboardMarket[];
+  isConnected: boolean;
+  availableBorrowsUsd: bigint;
+  onOpen: (modal: ActionModal, market: MarketAsset) => void;
+}) {
+  return (
+    <GlassCard depth="foreground" className="overflow-hidden p-0">
+      <div className="border-b border-white/[0.08] px-5 py-4">
+        <h2 className="text-lg font-semibold text-white">Assets to borrow</h2>
+      </div>
+
+      {/* Mobile list */}
+      <div className="divide-y divide-white/[0.06] md:hidden">
+        {markets.map((market) => {
+          const maxBorrow = isConnected
+            ? maxBorrowableAmount(market, availableBorrowsUsd)
+            : 0n;
+          const maxBorrowAmount = Number(formatUnits(maxBorrow, 6));
+          const maxBorrowUsd = Number(
+            formatUnits(assetUsdValue(maxBorrow, market.price), 8),
+          );
+
+          return (
+            <div key={market.symbol} className="space-y-3 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <AssetMark symbol={market.symbol} size="sm" />
+                  <div>
+                    <p className="font-medium text-white">{market.symbol}</p>
+                    <p className="text-xs text-white/40">{market.name}</p>
+                  </div>
                 </div>
                 <div className="text-right">
-                  <p>Borrow cap</p>
-                  <p className="mt-1 font-mono text-white">
-                    {formatReserveCap(market.borrowCap, market.isBorrowCapped, { compact: true })}
+                  <span className="text-[10px] text-white/40">Available</span>
+                  <p className="font-mono text-sm text-white">
+                    {isConnected
+                      ? maxBorrowAmount.toLocaleString(undefined, {
+                          maximumFractionDigits: 2,
+                        })
+                      : "—"}
                   </p>
-                  <p className="mt-0.5 font-mono text-[10px] text-white/35">
-                    {formatRemainingCap(market.remainingBorrowCap, market.isBorrowCapped)} left
-                  </p>
+                  {isConnected ? (
+                    <p className="font-mono text-xs text-white/40">
+                      $
+                      {maxBorrowUsd.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </p>
+                  ) : null}
                 </div>
               </div>
-              <div className="mt-4 flex gap-2">
-                <GlassButton variant="primary" className="flex-1 px-3 py-2" onClick={() => onOpen("supply", market)}>Supply</GlassButton>
-                <GlassButton variant="ghost" className="flex-1 px-3 py-2" onClick={() => onOpen("borrow", market)}>Borrow</GlassButton>
+
+              <div className="flex items-center justify-between text-xs text-white/45">
+                <span>APY, variable</span>
+                <span className="font-mono text-white">
+                  {market.borrowApr}
+                </span>
               </div>
-            </motion.div>
+
+              <GlassButton
+                variant="primary"
+                className="w-full py-1.5 text-xs"
+                onClick={() => onOpen("borrow", market)}
+              >
+                Borrow
+              </GlassButton>
+            </div>
           );
         })}
       </div>
 
+      {/* Desktop table */}
       <div className="hidden overflow-x-auto md:block">
-        <table className="w-full min-w-[1080px] text-left text-sm">
-          <thead className="text-white/45">
-            <tr className="border-b border-white/[0.08]">
-              <th className="px-5 py-4 font-medium">Asset</th>
-              <th className="px-5 py-4 font-medium">Supply APY</th>
-              <th className="px-5 py-4 text-right font-medium">Total supplied</th>
-              <th className="px-5 py-4 text-right font-medium">Supply cap</th>
-              <th className="px-5 py-4 text-right font-medium">Borrow APR</th>
-              <th className="px-5 py-4 text-right font-medium">Borrow cap</th>
-              <th className="px-5 py-4 text-right font-medium">Utilization</th>
-              <th className="px-5 py-4 text-right font-medium">Actions</th>
+        <table className="w-full text-left text-sm">
+          <thead className="border-b border-white/[0.08] text-xs text-white/45">
+            <tr>
+              <th className="px-5 py-3 font-medium">Asset</th>
+              <th className="px-5 py-3 font-medium">Available</th>
+              <th className="px-5 py-3 font-medium">APY, variable</th>
+              <th className="px-5 py-3 text-right font-medium">Action</th>
             </tr>
           </thead>
-          <tbody>
-            {markets.map((market, index) => {
+          <tbody className="divide-y divide-white/[0.05]">
+            {markets.map((market) => {
+              const maxBorrow = isConnected
+                ? maxBorrowableAmount(market, availableBorrowsUsd)
+                : 0n;
+              const maxBorrowAmount = Number(formatUnits(maxBorrow, 6));
+              const maxBorrowUsd = Number(
+                formatUnits(assetUsdValue(maxBorrow, market.price), 8),
+              );
+
               return (
-                <motion.tr
+                <tr
                   key={market.symbol}
-                  custom={index}
-                  initial="hidden"
-                  animate="visible"
-                  whileHover={{ y: -3, boxShadow: "0 18px 50px rgba(0,0,0,0.4)" }}
-                  variants={rowVariants}
-                  className="border-b border-white/[0.05] transition hover:bg-white/[0.05]"
+                  className="transition hover:bg-white/[0.02]"
                 >
-                  <td className="px-5 py-5">
-                    <div className="flex items-center gap-3">
+                  <td className="px-5 py-3.5">
+                    <div className="flex items-center gap-2.5">
                       <AssetMark symbol={market.symbol} size="sm" />
                       <div>
-                        <p className="font-medium text-white">{market.name}</p>
-                        <p className="text-xs text-white/45">{market.symbol}</p>
+                        <p className="font-medium text-white">
+                          {market.symbol}
+                        </p>
+                        <p className="text-xs text-white/40">
+                          {market.name}
+                        </p>
                       </div>
                     </div>
                   </td>
-                  <td className="px-5 py-5 font-mono text-white">{market.supplyApy}</td>
-                  <td className="px-5 py-5 text-right font-mono text-white"><AnimatedNumber value={Number(formatUnits(market.totalSupplyUsd, 8))} prefix="$" decimals={2} /></td>
-                  <td className="px-5 py-5 text-right">
+                  <td className="px-5 py-3.5">
                     <p className="font-mono text-white">
-                      {formatReserveCap(market.supplyCap, market.isSupplyCapped, { compact: true })}
+                      {isConnected
+                        ? maxBorrowAmount.toLocaleString(undefined, {
+                            maximumFractionDigits: 2,
+                          })
+                        : "—"}
                     </p>
-                    <p className="mt-0.5 font-mono text-[10px] text-white/35">
-                      {formatRemainingCap(market.remainingSupplyCap, market.isSupplyCapped)} left
-                    </p>
+                    {isConnected ? (
+                      <p className="font-mono text-xs text-white/40">
+                        $
+                        {maxBorrowUsd.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                    ) : null}
                   </td>
-                  <td className="px-5 py-5 text-right font-mono text-white">{market.borrowApr}</td>
-                  <td className="px-5 py-5 text-right">
-                    <p className="font-mono text-white">
-                      {formatReserveCap(market.borrowCap, market.isBorrowCapped, { compact: true })}
-                    </p>
-                    <p className="mt-0.5 font-mono text-[10px] text-white/35">
-                      {formatRemainingCap(market.remainingBorrowCap, market.isBorrowCapped)} left
-                    </p>
+                  <td className="px-5 py-3.5 font-mono text-sky-400">
+                    {market.borrowApr}
                   </td>
-                  <td className="px-5 py-5">
-                    <UtilizationBar value={market.utilization} delay={0.25 + index * 0.08} className="ml-auto max-w-44" />
+                  <td className="px-5 py-3.5 text-right">
+                    <GlassButton
+                      variant="primary"
+                      className="px-4 py-1.5 text-xs"
+                      onClick={() => onOpen("borrow", market)}
+                    >
+                      Borrow
+                    </GlassButton>
                   </td>
-                  <td className="px-5 py-5 text-right">
-                    <div className="flex justify-end gap-2">
-                      <GlassButton variant="primary" className="px-4 py-2" onClick={() => onOpen("supply", market)}>Supply</GlassButton>
-                      <GlassButton variant="ghost" className="px-4 py-2" onClick={() => onOpen("borrow", market)}>Borrow</GlassButton>
-                    </div>
-                  </td>
-                </motion.tr>
+                </tr>
               );
             })}
           </tbody>
@@ -473,7 +1004,8 @@ function useRecentTransactions(user?: Address) {
 function MyTransactions() {
   const { address, isConnected } = useArcLendAccount();
   const emailWallet = useCircleEmailWallet();
-  const activeAddress = address ?? (emailWallet.wallet?.address as Address | undefined);
+  const activeAddress =
+    address ?? (emailWallet.wallet?.address as Address | undefined);
   const { events, isLoading, error, historyComplete, refresh } =
     useRecentTransactions(activeAddress);
 
@@ -512,10 +1044,15 @@ function MyTransactions() {
             Transaction history could not be loaded. Use refresh to retry.
           </div>
         ) : events.length === 0 ? (
-          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4 text-sm text-white/45">No Lendora app transactions found for this wallet.</div>
+          <div className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4 text-sm text-white/45">
+            No Lendora app transactions found for this wallet.
+          </div>
         ) : (
           events.map((event) => (
-            <div key={event.hash} className="flex flex-col gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <div
+              key={event.hash}
+              className="flex flex-col gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+            >
               <div className="flex min-w-0 items-center gap-3">
                 <a
                   href={`https://testnet.arcscan.app/tx/${event.hash}`}
@@ -531,10 +1068,14 @@ function MyTransactions() {
                   <ArrowUpCircle className="h-4 w-4 shrink-0 text-white/50" />
                 )}
                 <div className="min-w-0">
-                  <span className="block truncate font-medium text-white">{event.label}</span>
+                  <span className="block truncate font-medium text-white">
+                    {event.label}
+                  </span>
                   <span className="block truncate text-xs text-white/40">
                     {event.memo ? (
-                      <span className="mr-1.5 italic text-white/60">&quot;{event.memo}&quot; · </span>
+                      <span className="mr-1.5 italic text-white/60">
+                        &quot;{event.memo}&quot; ·{" "}
+                      </span>
                     ) : null}
                     {event.direction === "in" && event.from
                       ? `from ${shortAddress(event.from)}`
@@ -552,13 +1093,24 @@ function MyTransactions() {
                         : "text-white/90",
                     )}
                   >
-                    {event.direction === "in" ? "+" : event.direction === "out" ? "-" : ""}
+                    {event.direction === "in"
+                      ? "+"
+                      : event.direction === "out"
+                        ? "-"
+                        : ""}
                     {event.formattedAmount}
                   </span>
                 ) : null}
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-white/50">{formatTransactionTime(event.timestamp)}</span>
-                  <span className={cn("rounded-md border px-2 py-1 font-medium", statusClass(event.status))}>
+                  <span className="font-mono text-white/50">
+                    {formatTransactionTime(event.timestamp)}
+                  </span>
+                  <span
+                    className={cn(
+                      "rounded-md border px-2 py-1 font-medium",
+                      statusClass(event.status),
+                    )}
+                  >
                     {event.status}
                   </span>
                 </div>
@@ -569,7 +1121,8 @@ function MyTransactions() {
       </div>
       {!isLoading && !error && events.length > 0 && !historyComplete ? (
         <p className="mt-3 text-xs text-white/35">
-          Showing the latest {events.length} Lendora app transactions. Older explorer pages were not loaded.
+          Showing the latest {events.length} Lendora app transactions. Older
+          explorer pages were not loaded.
         </p>
       ) : null}
     </GlassCard>
@@ -578,14 +1131,26 @@ function MyTransactions() {
 
 export default function DashboardPage() {
   const [activeModal, setActiveModal] = useState<ActionModal>(null);
-  const [selectedMarket, setSelectedMarket] = useState<MarketAsset | null>(null);
+  const [selectedMarket, setSelectedMarket] = useState<MarketAsset | null>(
+    null,
+  );
   const { markets, isPaused, isError } = useLiveMarkets();
+  const { address, isConnected } = useArcLendAccount();
+  const { accountData, isPending: isAccountPending } =
+    useUserAccountData(address);
+
+  const dashboardMarkets = useMemo(() => {
+    return markets.filter(
+      (market): market is LendoraDashboardMarket =>
+        market.symbol === "USDC" || market.symbol === "EURC",
+    );
+  }, [markets]);
 
   useEffect(() => {
     const pending = readPendingSupply();
     if (!pending || activeModal) return;
 
-    const market = markets.find(
+    const market = dashboardMarkets.find(
       (candidate) =>
         candidate.address.toLowerCase() === pending.marketAddress.toLowerCase(),
     );
@@ -593,63 +1158,121 @@ export default function DashboardPage() {
 
     setSelectedMarket(market);
     setActiveModal("supply");
-  }, [activeModal, markets]);
+  }, [activeModal, dashboardMarkets]);
 
   const closeModal = useCallback(() => {
     setActiveModal(null);
     clearPendingSupply();
   }, []);
-  const openModal = useCallback((modal: ActionModal, market: MarketAsset) => {
-    if (isPaused && (modal === "supply" || modal === "borrow")) {
-      return;
-    }
-    if (modal === "supply") {
-      writePendingSupply(market.address, "");
-    } else {
-      clearPendingSupply();
-    }
-    setSelectedMarket(market);
-    setActiveModal(modal);
-  }, [isPaused]);
+
+  const openModal = useCallback(
+    (modal: ActionModal, market: MarketAsset) => {
+      if (isPaused && (modal === "supply" || modal === "borrow")) {
+        return;
+      }
+      if (modal === "supply") {
+        writePendingSupply(market.address, "");
+      } else {
+        clearPendingSupply();
+      }
+      setSelectedMarket(market);
+      setActiveModal(modal);
+    },
+    [isPaused],
+  );
 
   const activeMarket = useMemo(() => selectedMarket, [selectedMarket]);
 
   return (
     <PageTransition>
-    <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 pb-12 sm:px-6 lg:px-8">
-      <PageHeader
-        icon={<BarChart2 />}
-        title="Lendora Markets"
-        description="A single view of stablecoin liquidity, live rates, and your lending position across Arc Network."
-      />
-      {isError ? (
-        <div
-          role="alert"
-          className="rounded-2xl border border-red-400/20 bg-red-400/[0.07] px-4 py-3 text-sm text-red-200"
-        >
-          Market data failed to load (RPC or oracle). Displayed figures may be
-          incomplete.
-        </div>
-      ) : null}
-      {isPaused ? (
-        <div
-          role="status"
-          className="rounded-2xl border border-amber-300/20 bg-amber-300/[0.07] px-4 py-3 text-sm text-amber-100"
-        >
-          Protocol is paused. Supply and borrow are disabled until the pool is
-          unpaused.
-        </div>
-      ) : null}
-      <ProtocolStatsBar markets={markets} isPaused={isPaused} />
-      <UserSummary markets={markets} />
-      <MarketsTable markets={markets} onOpen={openModal} />
-      <MyTransactions />
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 pb-12 sm:px-6 lg:px-8">
+        <PageHeader
+          icon={<BarChart2 />}
+          title="Dashboard"
+          description="A single view of your collateral, borrows, and live USDC and EURC markets on Arc."
+        />
 
-      <SupplyModal open={activeModal === "supply"} market={activeMarket} onClose={closeModal} />
-      <BorrowModal open={activeModal === "borrow"} market={activeMarket} onClose={closeModal} />
-      <RepayModal open={activeModal === "repay"} market={activeMarket} onClose={closeModal} />
-      <WithdrawModal open={activeModal === "withdraw"} market={activeMarket} onClose={closeModal} />
-    </div>
+        {isError ? (
+          <div
+            role="alert"
+            className="rounded-2xl border border-red-400/20 bg-red-400/[0.07] px-4 py-3 text-sm text-red-200"
+          >
+            Market data failed to load (RPC or oracle). Displayed figures may be
+            incomplete.
+          </div>
+        ) : null}
+
+        {isPaused ? (
+          <div
+            role="status"
+            className="rounded-2xl border border-amber-300/20 bg-amber-300/[0.07] px-4 py-3 text-sm text-amber-100"
+          >
+            Protocol is paused. Supply and borrow are disabled until the pool is
+            unpaused.
+          </div>
+        ) : null}
+
+        <DashboardTopStats
+          markets={dashboardMarkets}
+          accountData={accountData}
+          isConnected={isConnected}
+          isAccountPending={isAccountPending}
+        />
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* Supplies Column */}
+          <div className="flex flex-col gap-6">
+            <YourSuppliesSection
+              markets={dashboardMarkets}
+              isConnected={isConnected}
+              onOpen={openModal}
+            />
+            <AssetsToSupplySection
+              markets={dashboardMarkets}
+              isConnected={isConnected}
+              onOpen={openModal}
+            />
+          </div>
+
+          {/* Borrows Column */}
+          <div className="flex flex-col gap-6">
+            <YourBorrowsSection
+              markets={dashboardMarkets}
+              isConnected={isConnected}
+              onOpen={openModal}
+            />
+            <AssetsToBorrowSection
+              markets={dashboardMarkets}
+              isConnected={isConnected}
+              availableBorrowsUsd={accountData?.availableBorrowsUSD ?? 0n}
+              onOpen={openModal}
+            />
+          </div>
+        </div>
+
+        <MyTransactions />
+
+        <SupplyModal
+          open={activeModal === "supply"}
+          market={activeMarket}
+          onClose={closeModal}
+        />
+        <BorrowModal
+          open={activeModal === "borrow"}
+          market={activeMarket}
+          onClose={closeModal}
+        />
+        <RepayModal
+          open={activeModal === "repay"}
+          market={activeMarket}
+          onClose={closeModal}
+        />
+        <WithdrawModal
+          open={activeModal === "withdraw"}
+          market={activeMarket}
+          onClose={closeModal}
+        />
+      </div>
     </PageTransition>
   );
 }
