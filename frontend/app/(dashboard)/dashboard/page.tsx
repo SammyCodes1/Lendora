@@ -9,6 +9,7 @@ import {
   Clock,
   RefreshCw,
   Shield,
+  TrendingDown,
   TrendingUp,
   Wallet,
 } from "lucide-react";
@@ -173,11 +174,37 @@ function DashboardTopStats({
 
       {/* Net APY */}
       <GlassCard glowOnHover className="p-5">
-        <div className="flex items-center justify-between text-xs text-white/45">
-          <span>Net APY</span>
-          <TrendingUp className="h-4 w-4 text-white/40" />
+        <div
+          className="flex items-center justify-between text-xs text-white/45"
+          title={
+            netApy !== null && netApy < 0
+              ? "Net APY is negative because your annual borrow interest exceeds your deposit yield. You are currently paying net interest."
+              : "Compound annual yield on net collateral across your supplied assets."
+          }
+        >
+          <div className="flex items-center gap-2">
+            <span>Net APY</span>
+            {netApy !== null && netApy < 0 && (
+              <span
+                className="inline-flex items-center rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300"
+                title="Annual borrow interest exceeds supply yield across your positions"
+              >
+                Net borrow cost
+              </span>
+            )}
+          </div>
+          {netApy !== null && netApy < 0 ? (
+            <TrendingDown className="h-4 w-4 text-amber-400/80" />
+          ) : (
+            <TrendingUp className="h-4 w-4 text-white/40" />
+          )}
         </div>
-        <div className="mt-3 font-mono text-2xl font-semibold text-white">
+        <div
+          className={cn(
+            "mt-3 font-mono text-2xl font-semibold",
+            netApy !== null && netApy < 0 ? "text-amber-300" : "text-white",
+          )}
+        >
           {!isConnected || netApy === null ? (
             "—"
           ) : isAccountPending ? (
@@ -187,7 +214,9 @@ function DashboardTopStats({
           )}
         </div>
         <div className="mt-2 text-xs text-white/40">
-          Compound annual yield on net collateral
+          {netApy !== null && netApy < 0
+            ? "Borrow interest exceeds supply yield across your positions"
+            : "Compound annual yield on net collateral"}
         </div>
       </GlassCard>
 
