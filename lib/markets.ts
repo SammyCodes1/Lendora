@@ -73,3 +73,50 @@ export function formatRemainingCap(
   });
   return symbol ? `${formatted} ${symbol}` : formatted;
 }
+
+export type LendoraAssetFilter = "ALL" | "USDC" | "EURC";
+
+export function filterLendoraMarkets<T extends { symbol: "USDC" | "EURC" }>(
+  markets: T[],
+  filter: LendoraAssetFilter,
+) {
+  if (filter === "ALL") return markets;
+  return markets.filter((market) => market.symbol === filter);
+}
+
+/** Percent of cap filled. Falls back to utilization when the reserve is uncapped. */
+export function capacityFilledPercent(
+  used: bigint,
+  cap: bigint,
+  isCapped: boolean,
+  fallbackUtilization: number,
+) {
+  if (isCapped && cap > 0n) {
+    const percent = Number((used * 10_000n) / cap) / 100;
+    return Math.max(0, Math.min(100, percent));
+  }
+  return Math.max(0, Math.min(100, fallbackUtilization));
+}
+
+/** Per-asset borrowable amount in 6-decimal units, matching BorrowModal caps. */
+export function maxBorrowableAmount(
+  market: {
+    price: bigint;
+    availableLiquidity: bigint;
+    isBorrowCapped: boolean;
+    remainingBorrowCap: bigint;
+  },
+  availableUsd: bigint,
+) {
+  const price = market.price > 0n ? market.price : 1n;
+  const availableByCollateral = (availableUsd * 1_000_000n) / price;
+  let maxBorrow =
+    availableByCollateral < market.availableLiquidity
+      ? availableByCollateral
+      : market.availableLiquidity;
+  if (market.isBorrowCapped && market.remainingBorrowCap < maxBorrow) {
+    maxBorrow = market.remainingBorrowCap;
+  }
+  if (maxBorrow < 0n) return 0n;
+  return maxBorrow;
+}
