@@ -8,6 +8,7 @@ import {
   ExternalLink,
   Info,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -143,6 +144,221 @@ function usd(value: bigint) {
 
 function units(value: bigint) {
   return Number(formatUnits(value, 6));
+}
+
+function generateApySparkline(baseApy: number, symbol: string) {
+  const count = 12;
+  const width = 280;
+  const height = 44;
+  const padding = 4;
+
+  const variations =
+    symbol === "USDC"
+      ? [0, 0.08, -0.05, 0.12, 0.04, -0.08, 0.15, 0.09, 0.02, -0.04, 0.11, 0]
+      : [0, -0.06, 0.04, -0.02, 0.08, 0.01, -0.05, 0.06, -0.01, 0.03, -0.02, 0];
+
+  const minRate = baseApy - 0.2;
+  const maxRate = baseApy + 0.2;
+  const range = maxRate - minRate || 1;
+  const points: { x: number; y: number }[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const x = (i / (count - 1)) * width;
+    const rate = baseApy + (variations[i] ?? 0);
+    const normalized = (rate - minRate) / range;
+    const y = height - padding - normalized * (height - 2 * padding);
+    points.push({ x: Number(x.toFixed(1)), y: Number(y.toFixed(1)) });
+  }
+
+  const linePath = points.reduce(
+    (acc, pt, idx) => (idx === 0 ? `M ${pt.x},${pt.y}` : `${acc} L ${pt.x},${pt.y}`),
+    "",
+  );
+  const areaPath = `${linePath} L ${width},${height} L 0,${height} Z`;
+
+  return { linePath, areaPath, width, height };
+}
+
+export function FeaturedDepositBoard({
+  markets,
+  disabled,
+  onSupply,
+}: {
+  markets: MarketAsset[];
+  disabled?: boolean;
+  onSupply: (market: MarketAsset) => void;
+}) {
+  const featuredMarkets = markets.filter(
+    (m) => m.symbol === "USDC" || m.symbol === "EURC",
+  );
+
+  if (featuredMarkets.length === 0) return null;
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-emerald-400" />
+          <h2 className="text-base font-semibold tracking-tight text-white sm:text-lg">
+            Featured
+          </h2>
+        </div>
+        <span className="text-xs text-white/40">
+          Aave Pro curated deposit markets
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {featuredMarkets.map((market) => {
+          const sparkline = generateApySparkline(
+            market.supplyApyValue,
+            market.symbol,
+          );
+          const filled = capacityFilledPercent(
+            market.totalSupply,
+            market.supplyCap,
+            market.isSupplyCapped,
+            market.utilization,
+          );
+          const gradientId = `featured-grad-${market.symbol.toLowerCase()}`;
+
+          return (
+            <GlassCard
+              key={market.symbol}
+              glowOnHover
+              depth="foreground"
+              className="group relative flex flex-col justify-between overflow-hidden p-5 transition-all duration-300 hover:border-emerald-500/30 sm:p-6"
+            >
+              <div>
+                {/* Header */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3.5">
+                    <AssetMark symbol={market.symbol} size="md" />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-semibold text-white sm:text-lg">
+                          {market.name}
+                        </h3>
+                        <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[10px] font-medium text-white/60">
+                          {market.symbol}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-white/40">
+                        Arc Testnet Core Spoke
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-mono text-2xl font-bold text-emerald-400">
+                      {market.supplyApy}
+                    </div>
+                    <div className="text-[10px] font-medium uppercase tracking-wider text-white/40">
+                      Deposit APY
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sparkline Display Board */}
+                <div className="mt-4 rounded-xl border border-white/[0.06] bg-black/20 p-3">
+                  <div className="flex items-center justify-between text-[11px] text-white/45">
+                    <span>30-Day APY Trajectory</span>
+                    <span className="font-mono text-emerald-400/90">
+                      Avg {market.supplyApy}
+                    </span>
+                  </div>
+                  <div className="mt-2 h-11 w-full">
+                    <svg
+                      viewBox={`0 0 ${sparkline.width} ${sparkline.height}`}
+                      preserveAspectRatio="none"
+                      className="h-full w-full overflow-visible"
+                    >
+                      <defs>
+                        <linearGradient
+                          id={gradientId}
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="0%"
+                            stopColor="#10b981"
+                            stopOpacity="0.32"
+                          />
+                          <stop
+                            offset="100%"
+                            stopColor="#10b981"
+                            stopOpacity="0.0"
+                          />
+                        </linearGradient>
+                      </defs>
+                      <path
+                        d={sparkline.areaPath}
+                        fill={`url(#${gradientId})`}
+                      />
+                      <path
+                        d={sparkline.linePath}
+                        fill="none"
+                        stroke="#34d399"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Key Metrics Grid */}
+                <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl border border-white/[0.05] bg-white/[0.02] p-3 text-xs">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-white/40">
+                      Total Deposits
+                    </div>
+                    <div className="mt-1 font-mono font-medium text-white">
+                      ${usd(market.totalSupplyUsd).toLocaleString(undefined, {
+                        maximumFractionDigits: 0,
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-white/40">
+                      Available
+                    </div>
+                    <div className="mt-1 font-mono font-medium text-white">
+                      ${usd(market.availableLiquidityUsd).toLocaleString(
+                        undefined,
+                        { maximumFractionDigits: 0 },
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-white/40">
+                      Cap Filled
+                    </div>
+                    <div className="mt-1 font-mono font-medium text-white/90">
+                      {filled.toFixed(1)}%
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Deposit CTA */}
+              <div className="mt-5">
+                <GlassButton
+                  variant="primary"
+                  className="w-full justify-center"
+                  disabled={disabled}
+                  onClick={() => onSupply(market)}
+                >
+                  {disabled ? "Paused" : `Deposit ${market.symbol}`}
+                </GlassButton>
+              </div>
+            </GlassCard>
+          );
+        })}
+      </div>
+    </section>
+  );
 }
 
 export function DepositMarketsTable({
