@@ -143,13 +143,13 @@ function CapacityMeter({
   return (
     <div
       className={cn(
-        "group inline-flex items-center gap-2 cursor-help",
+        "group inline-flex items-center gap-1.5 sm:gap-2 cursor-help",
         className,
       )}
       title={tooltipText}
     >
       <svg
-        className="h-4 w-4 shrink-0 -rotate-90"
+        className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 -rotate-90"
         viewBox="0 0 16 16"
         aria-hidden="true"
       >
@@ -177,7 +177,7 @@ function CapacityMeter({
       </svg>
       <span
         className={cn(
-          "font-mono text-xs font-medium transition-colors",
+          "font-mono text-xs font-medium whitespace-nowrap transition-colors",
           textToneClass,
         )}
       >
@@ -271,32 +271,32 @@ export function FeaturedDepositBoard({
               key={market.symbol}
               glowOnHover
               depth="foreground"
-              className="group relative flex flex-col justify-between overflow-hidden p-5 transition-all duration-300 hover:border-emerald-500/30 sm:p-6"
+              className="group relative flex flex-col justify-between overflow-hidden p-4 sm:p-6 transition-all duration-300 hover:border-emerald-500/30"
             >
               <div>
                 {/* Header */}
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3.5">
+                  <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
                     <AssetMark symbol={market.symbol} size="md" />
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-base font-semibold text-white sm:text-lg">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <h3 className="truncate text-base font-semibold text-white sm:text-lg">
                           {market.name}
                         </h3>
-                        <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[10px] font-medium text-white/60">
+                        <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.06] px-1.5 py-0.5 text-[9px] sm:text-[10px] font-medium text-white/60">
                           {market.symbol}
                         </span>
                       </div>
-                      <p className="mt-0.5 text-xs text-white/40">
+                      <p className="mt-0.5 truncate text-xs text-white/40">
                         Arc Testnet Core Spoke
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-mono text-2xl font-bold text-emerald-400">
+                  <div className="shrink-0 text-right">
+                    <div className="font-mono text-xl sm:text-2xl font-bold text-emerald-400">
                       {market.supplyApy}
                     </div>
-                    <div className="text-[10px] font-medium uppercase tracking-wider text-white/40">
+                    <div className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider text-white/40">
                       Deposit APY
                     </div>
                   </div>
@@ -353,22 +353,22 @@ export function FeaturedDepositBoard({
                 </div>
 
                 {/* Key Metrics Grid */}
-                <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl border border-white/[0.05] bg-white/[0.02] p-3 text-xs">
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wider text-white/40">
+                <div className="mt-4 grid grid-cols-3 gap-1.5 sm:gap-2 rounded-xl border border-white/[0.05] bg-white/[0.02] p-2.5 sm:p-3 text-xs">
+                  <div className="min-w-0">
+                    <div className="truncate text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40">
                       Total Deposits
                     </div>
-                    <div className="mt-1 font-mono font-medium text-white">
+                    <div className="mt-1 truncate font-mono text-xs sm:text-sm font-medium text-white">
                       ${usd(market.totalSupplyUsd).toLocaleString(undefined, {
                         maximumFractionDigits: 0,
                       })}
                     </div>
                   </div>
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wider text-white/40">
+                  <div className="min-w-0">
+                    <div className="truncate text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40">
                       Available
                     </div>
-                    <div className="mt-1 font-mono font-medium text-white">
+                    <div className="mt-1 truncate font-mono text-xs sm:text-sm font-medium text-white">
                       ${usd(market.availableLiquidityUsd).toLocaleString(
                         undefined,
                         { maximumFractionDigits: 0 },
@@ -376,10 +376,10 @@ export function FeaturedDepositBoard({
                     </div>
                   </div>
                   <div
-                    className="cursor-help"
+                    className="min-w-0 cursor-help"
                     title={getCapacityTooltip(filled, market)}
                   >
-                    <div className="text-[10px] uppercase tracking-wider text-white/40">
+                    <div className="truncate text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40">
                       Cap Filled
                     </div>
                     <div className="mt-1 flex items-center h-5">
@@ -397,7 +397,7 @@ export function FeaturedDepositBoard({
               <div className="mt-5">
                 <GlassButton
                   variant="primary"
-                  className="w-full justify-center"
+                  className="w-full justify-center min-h-[44px]"
                   disabled={disabled}
                   onClick={() => onSupply(market)}
                 >
@@ -450,44 +450,49 @@ export function DepositMarketsTable({
           return (
             <div key={market.symbol} className="space-y-3 p-4">
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0">
                   <AssetMark symbol={market.symbol} size="sm" />
-                  <div>
+                  <div className="min-w-0">
                     <p className="font-medium text-white">{market.symbol}</p>
-                    <p className="text-xs text-white/40">{market.name}</p>
+                    <p className="truncate text-xs text-white/40">{market.name}</p>
                   </div>
                 </div>
-                <p className="font-mono text-lg text-white">{market.supplyApy}</p>
+                <p className="shrink-0 font-mono text-lg font-semibold text-white">{market.supplyApy}</p>
               </div>
               <dl className="grid grid-cols-2 gap-3 text-xs text-white/45">
                 <div>
-                  <dt>Total deposits</dt>
-                  <dd className="mt-1 font-mono text-white">
+                  <dt className="text-[11px] text-white/40">Total deposits</dt>
+                  <dd className="mt-1 font-mono text-sm text-white">
                     ${usd(market.totalSupplyUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                   </dd>
                 </div>
                 <div>
-                  <dt>Available liquidity</dt>
-                  <dd className="mt-1 font-mono text-white">
+                  <dt className="text-[11px] text-white/40">Available liquidity</dt>
+                  <dd className="mt-1 font-mono text-sm text-white">
                     ${usd(market.availableLiquidityUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                   </dd>
                 </div>
-                <div className="col-span-2">
+                <div className="col-span-2 rounded-lg border border-white/[0.05] bg-white/[0.02] p-2.5">
                   <dt
-                    className="flex items-center gap-1.5 cursor-help"
+                    className="flex items-center justify-between text-[11px] text-white/40 cursor-help"
                     title="Maximum deposit capacity under protocol reserve caps"
                   >
-                    <span>Capacity filled</span>
-                    <Info className="h-3 w-3 text-white/35" />
+                    <span className="flex items-center gap-1.5">
+                      <span>Capacity filled</span>
+                      <Info className="h-3 w-3 text-white/35" />
+                    </span>
+                    <span className="font-mono text-[10px] text-white/40">
+                      {formatRemainingCap(market.remainingSupplyCap, market.isSupplyCapped, market.symbol)} left
+                    </span>
                   </dt>
-                  <dd className="mt-2">
+                  <dd className="mt-1.5">
                     <CapacityMeter value={filled} market={market} />
                   </dd>
                 </div>
               </dl>
               <GlassButton
                 variant="primary"
-                className="w-full"
+                className="w-full min-h-[44px]"
                 disabled={disabled}
                 onClick={() => onSupply(market)}
               >

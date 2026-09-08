@@ -402,8 +402,8 @@ export function SwapWidget() {
         </div>
       </div>
 
-      <div className="space-y-5 p-5">
-        <div className="rounded-2xl border border-white/10 bg-[#0a0c0e]/90 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]">
+      <div className="space-y-5 p-4 sm:p-5">
+        <div className="rounded-2xl border border-white/10 bg-[#0a0c0e]/90 p-4 sm:p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]">
           <div className="flex items-center justify-between text-xs text-white/45">
             <span>You pay</span>
             <span>
@@ -421,7 +421,7 @@ export function SwapWidget() {
                 setTxHash(null);
               }}
               placeholder="0.0"
-              className="w-full bg-transparent font-mono text-2xl font-semibold text-white placeholder:text-white/20 focus:outline-none"
+              className="w-full bg-transparent font-mono text-xl sm:text-2xl font-semibold text-white placeholder:text-white/20 focus:outline-none"
             />
             <TokenSelector
               value={fromSymbol}
@@ -457,13 +457,13 @@ export function SwapWidget() {
               setToSymbol(fromSymbol);
               resetPairState();
             }}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/80 text-white/70 shadow-[0_10px_25px_rgba(0,0,0,0.5)] transition hover:scale-105 hover:border-white/30 hover:text-white"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/80 text-white/70 shadow-[0_10px_25px_rgba(0,0,0,0.5)] transition hover:scale-105 active:scale-95 hover:border-white/30 hover:text-white"
           >
             <ArrowDownUp className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-[#0a0c0e]/90 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]">
+        <div className="rounded-2xl border border-white/10 bg-[#0a0c0e]/90 p-4 sm:p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]">
           <div className="flex items-center justify-between text-xs text-white/45">
             <span>You receive</span>
             <span>
@@ -472,7 +472,7 @@ export function SwapWidget() {
             </span>
           </div>
           <div className="mt-3 flex items-center gap-3">
-            <span className="w-full truncate font-mono text-2xl font-semibold text-white">
+            <span className="w-full truncate font-mono text-xl sm:text-2xl font-semibold text-white">
               {quoteLoading
                 ? "…"
                 : activeRoute
@@ -488,16 +488,16 @@ export function SwapWidget() {
         </div>
 
         <div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/40">
               Router paths
             </p>
-            <div className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.035] p-1">
-              <span className="flex items-center gap-1.5 px-2 text-[10px] font-medium text-white/40">
+            <div className="flex items-center justify-between sm:justify-start gap-1.5 sm:gap-2 rounded-xl border border-white/[0.08] bg-white/[0.035] p-1 overflow-x-auto">
+              <span className="flex items-center gap-1.5 px-2 text-[10px] font-medium text-white/40 shrink-0">
                 <Settings2 className="h-3.5 w-3.5" />
                 Slippage
               </span>
-              <div className="flex gap-1" aria-label="Slippage tolerance">
+              <div className="flex gap-1 shrink-0" aria-label="Slippage tolerance">
                 {slippageOptions.map((option) => (
                   <button
                     key={option}
@@ -518,7 +518,7 @@ export function SwapWidget() {
             </div>
           </div>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <div className="mt-3 grid gap-2.5 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {(Object.keys(ROUTE_METAS) as RouteKey[]).map((key) => {
               const quote = quotes.find((item) => item.key === key);
               const selected = activeRoute?.key === key;
@@ -531,7 +531,7 @@ export function SwapWidget() {
                   disabled={!quote}
                   onClick={() => setSelectedRoute(key)}
                   className={cn(
-                    "rounded-xl border p-3.5 text-left transition flex flex-col justify-between",
+                    "rounded-xl border p-3 sm:p-3.5 text-left transition flex flex-col justify-between active:scale-[0.99]",
                     selected
                       ? "border-white/30 bg-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ring-1 ring-white/20"
                       : "border-white/[0.08] bg-white/[0.025] hover:border-white/15 hover:bg-white/[0.04]",
@@ -539,30 +539,35 @@ export function SwapWidget() {
                   )}
                 >
                   <div>
-                    <div className="flex items-center justify-between gap-1">
-                      <Route className="h-4 w-4 text-white/55" />
+                    <div className="flex items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Route className="h-4 w-4 shrink-0 text-white/55" />
+                        <span className="sm:hidden font-medium text-xs text-white truncate">
+                          {ROUTE_METAS[key].label}
+                        </span>
+                      </div>
                       {isBest ? (
-                        <span className="rounded bg-emerald-400/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-emerald-300">
+                        <span className="shrink-0 rounded bg-emerald-400/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-emerald-300">
                           Best
                         </span>
                       ) : key === "tower" ? (
-                        <span className="rounded bg-sky-400/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-sky-300">
+                        <span className="shrink-0 rounded bg-sky-400/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-sky-300">
                           Tower
                         </span>
                       ) : selected ? (
-                        <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-white/70">
+                        <span className="shrink-0 rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-white/70">
                           Selected
                         </span>
                       ) : null}
                     </div>
-                    <p className="mt-2.5 text-sm font-medium text-white">
+                    <p className="hidden sm:block mt-2.5 text-sm font-medium text-white">
                       {ROUTE_METAS[key].label}
                     </p>
                     <p className="mt-1 text-[10px] leading-4 text-white/35 line-clamp-2">
                       {ROUTE_METAS[key].detail}
                     </p>
                   </div>
-                  <div className="mt-3 border-t border-white/[0.06] pt-2">
+                  <div className="mt-2.5 sm:mt-3 border-t border-white/[0.06] pt-2">
                     <p className="truncate font-mono text-xs font-medium text-white/90">
                       {quote
                         ? `${formatUnits(quote.output, toToken.decimals)} ${toSymbol}`
@@ -609,7 +614,7 @@ export function SwapWidget() {
         <GlassButton
           type="button"
           variant="primary"
-          className="w-full"
+          className="w-full min-h-[48px] text-sm sm:text-base font-semibold"
           disabled={
             !connectorReady ||
             parsedAmount <= 0n ||
@@ -649,16 +654,16 @@ export function SwapWidget() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <div className="mx-auto flex min-h-screen max-w-3xl flex-col px-4 py-8 sm:px-6 sm:py-12">
-              <div className="flex items-start justify-between gap-6">
+            <div className="mx-auto flex min-h-screen max-w-3xl flex-col px-4 py-6 sm:px-6 sm:py-12">
+              <div className="flex items-start justify-between gap-4 sm:gap-6">
                 <div>
                   <p className="text-xs font-semibold uppercase text-white/40">
                     Arc onchain swap
                   </p>
-                  <h2 className="mt-3 text-3xl font-semibold text-white">
+                  <h2 className="mt-2 text-2xl sm:text-3xl font-semibold text-white">
                     Swap in progress
                   </h2>
-                  <p className="mt-2 text-sm text-white/45">
+                  <p className="mt-1.5 text-xs sm:text-sm text-white/45">
                     {fromSymbol} → {toSymbol} via {activeRoute?.label ?? "Arc DEX"}
                   </p>
                 </div>
@@ -667,13 +672,13 @@ export function SwapWidget() {
                   aria-label="Close swap progress"
                   disabled={swapLoading}
                   onClick={() => setProgressOpen(false)}
-                  className="rounded-lg border border-white/10 bg-white/[0.045] p-2.5 text-white/55 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                  className="rounded-lg border border-white/10 bg-white/[0.045] p-2 sm:p-2.5 text-white/55 transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-4 w-4 sm:h-5 sm:w-5" />
                 </button>
               </div>
 
-              <div className="mt-10 rounded-2xl border border-white/10 bg-white/[0.035] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+              <div className="mt-6 sm:mt-10 rounded-2xl border border-white/10 bg-white/[0.035] p-4 sm:p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
                 <div className="flex items-center justify-between text-xs text-white/40">
                   <span>Execution stages</span>
                   <span>
@@ -686,29 +691,29 @@ export function SwapWidget() {
                   {progress.map((step, index) => (
                     <div
                       key={step.key}
-                      className="flex items-center gap-4 rounded-xl border border-white/[0.06] bg-black/15 px-4 py-4"
+                      className="flex items-center gap-3 sm:gap-4 rounded-xl border border-white/[0.06] bg-black/15 p-3 sm:px-4 sm:py-4"
                     >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.045]">
+                      <span className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.045]">
                         {step.state === "success" ? (
-                          <CheckCircle2 className="h-5 w-5 text-white/75" />
+                          <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-white/75" />
                         ) : step.state === "error" ? (
-                          <XCircle className="h-5 w-5 text-red-300" />
+                          <XCircle className="h-4 w-4 sm:h-5 sm:w-5 text-red-300" />
                         ) : step.state === "active" ? (
-                          <Loader2 className="h-5 w-5 animate-spin text-white/65" />
+                          <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin text-white/65" />
                         ) : (
-                          <CircleDashed className="h-5 w-5 text-white/20" />
+                          <CircleDashed className="h-4 w-4 sm:h-5 sm:w-5 text-white/20" />
                         )}
                       </span>
                       <div className="min-w-0 flex-1">
                         <p
                           className={cn(
-                            "text-sm font-medium",
+                            "text-xs sm:text-sm font-medium",
                             step.state === "waiting"
                               ? "text-white/35"
                               : "text-white",
                           )}
                         >
-                          <span className="mr-2 text-white/25">{index + 1}.</span>
+                          <span className="mr-1.5 sm:mr-2 text-white/25">{index + 1}.</span>
                           {step.label}
                         </p>
                         {step.errorMessage ? (
@@ -717,7 +722,7 @@ export function SwapWidget() {
                           </p>
                         ) : null}
                       </div>
-                      <span className="shrink-0 font-mono text-xs text-white/45">
+                      <span className="shrink-0 font-mono text-[11px] sm:text-xs text-white/45">
                         {step.finalityMs !== undefined
                           ? `${step.finalityMs.toLocaleString()} ms`
                           : step.state === "active"
@@ -729,9 +734,9 @@ export function SwapWidget() {
                           href={arcScanTransaction(step.txHash)}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-white/45 transition hover:bg-white/[0.06] hover:text-white"
+                          className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-white/45 transition hover:bg-white/[0.06] hover:text-white shrink-0"
                         >
-                          ArcScan
+                          <span className="hidden sm:inline">ArcScan</span>
                           <ExternalLink className="h-3.5 w-3.5" />
                         </a>
                       ) : null}
@@ -772,7 +777,7 @@ export function SwapWidget() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="swap-complete-title"
-            className="fixed inset-0 z-[150] flex items-center justify-center bg-[#07090b]/90 p-4 backdrop-blur-xl"
+            className="fixed inset-0 z-[150] flex items-center justify-center bg-[#07090b]/90 p-3 sm:p-4 backdrop-blur-xl"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -783,20 +788,20 @@ export function SwapWidget() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 16 }}
               onMouseDown={(event) => event.stopPropagation()}
-              className="w-full max-w-lg rounded-2xl border border-white/12 bg-black/85 p-6 shadow-[0_30px_100px_rgba(0,0,0,0.72)] backdrop-blur-3xl"
+              className="w-full max-w-lg rounded-2xl border border-white/12 bg-black/85 p-4 sm:p-6 shadow-[0_30px_100px_rgba(0,0,0,0.72)] backdrop-blur-3xl"
             >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/[0.06]">
-                    <CheckCircle2 className="h-6 w-6 text-white/75" />
+              <div className="flex items-start justify-between gap-3 sm:gap-4">
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                  <span className="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/[0.06]">
+                    <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6 text-white/75" />
                   </span>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs font-semibold uppercase text-white/40">
                       Swap complete
                     </p>
                     <h2
                       id="swap-complete-title"
-                      className="mt-1 text-xl font-semibold text-white"
+                      className="mt-0.5 truncate text-lg sm:text-xl font-semibold text-white"
                     >
                       {fromSymbol} swapped for {toSymbol}
                     </h2>
@@ -806,40 +811,40 @@ export function SwapWidget() {
                   type="button"
                   aria-label="Close swap completion"
                   onClick={() => setCompletionOpen(false)}
-                  className="rounded-lg border border-white/10 bg-white/[0.045] p-2 text-white/50 transition hover:text-white"
+                  className="rounded-lg border border-white/10 bg-white/[0.045] p-2 text-white/50 transition hover:text-white shrink-0"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
 
-              <dl className="mt-6 divide-y divide-white/[0.07] rounded-xl border border-white/[0.08] bg-white/[0.035] px-4">
-                <div className="flex items-center justify-between gap-4 py-4">
-                  <dt className="text-sm text-white/45">Amount sent</dt>
-                  <dd className="font-mono text-sm text-white">
+              <dl className="mt-5 sm:mt-6 divide-y divide-white/[0.07] rounded-xl border border-white/[0.08] bg-white/[0.035] px-3 sm:px-4">
+                <div className="flex items-center justify-between gap-4 py-3 sm:py-4">
+                  <dt className="text-xs sm:text-sm text-white/45">Amount sent</dt>
+                  <dd className="font-mono text-xs sm:text-sm text-white">
                     {amount} {fromSymbol}
                   </dd>
                 </div>
-                <div className="flex items-center justify-between gap-4 py-4">
-                  <dt className="text-sm text-white/45">Quoted output</dt>
-                  <dd className="font-mono text-sm text-white">
+                <div className="flex items-center justify-between gap-4 py-3 sm:py-4">
+                  <dt className="text-xs sm:text-sm text-white/45">Quoted output</dt>
+                  <dd className="font-mono text-xs sm:text-sm text-white">
                     {receivedAmount} {toSymbol}
                   </dd>
                 </div>
-                <div className="flex items-center justify-between gap-4 py-4">
-                  <dt className="text-sm text-white/45">Finality time</dt>
-                  <dd className="font-mono text-sm text-white">
+                <div className="flex items-center justify-between gap-4 py-3 sm:py-4">
+                  <dt className="text-xs sm:text-sm text-white/45">Finality time</dt>
+                  <dd className="font-mono text-xs sm:text-sm text-white">
                     {finalityMs?.toLocaleString() ?? "—"} ms
                   </dd>
                 </div>
-                <div className="py-4">
-                  <dt className="text-sm text-white/45">Transaction hash</dt>
-                  <dd className="mt-2 break-all font-mono text-xs leading-5 text-white/75">
+                <div className="py-3 sm:py-4">
+                  <dt className="text-xs sm:text-sm text-white/45">Transaction hash</dt>
+                  <dd className="mt-1.5 break-all font-mono text-[11px] sm:text-xs leading-5 text-white/75">
                     {txHash}
                   </dd>
                 </div>
               </dl>
 
-              <div className="mt-5 flex gap-3">
+              <div className="mt-5 flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3">
                 <a
                   href={arcScanTransaction(txHash)}
                   target="_blank"
@@ -852,7 +857,7 @@ export function SwapWidget() {
                 <GlassButton
                   type="button"
                   variant="primary"
-                  className="flex-1"
+                  className="flex-1 min-h-11"
                   onClick={() => setCompletionOpen(false)}
                 >
                   Done
