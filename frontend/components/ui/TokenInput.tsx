@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -9,7 +10,7 @@ type TokenInputProps = {
   tokenName: string;
   tokenSymbol: string;
   balance: string;
-  icon: LucideIcon;
+  icon: LucideIcon | React.ComponentType<{ className?: string }>;
   error?: boolean;
   onMax: () => void;
 };

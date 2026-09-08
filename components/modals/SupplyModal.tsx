@@ -17,6 +17,7 @@ import {
 import deployments from "@/constants/deployments.json";
 import { useTransactionToast } from "@/hooks/useTransactionToast";
 import { TokenInput } from "@/components/ui/TokenInput";
+import { UsdcIcon, EurcIcon } from "@/components/ui/TokenMark";
 import { formatRemainingCap, formatReserveCap } from "@/lib/markets";
 import type { MarketAsset } from "./types";
 import {
@@ -106,7 +107,7 @@ export function SupplyModal({ open, market, onClose }: SupplyModalProps) {
           tokenName={market.name}
           tokenSymbol={market.symbol}
           balance={`${balance.formatted} ${market.symbol}`}
-          icon={market.symbol === "USDC" ? CircleDollarSign : Euro}
+          icon={market.symbol === "USDC" ? UsdcIcon : EurcIcon}
           error={Boolean(error) || exceedsSupplyCap}
           onMax={() => {
             const next = formatExactTokenAmount(balance.balance);
