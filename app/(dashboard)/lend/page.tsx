@@ -23,6 +23,7 @@ import { showToast } from "@/lib/toast";
 import {
   AssetFilterBar,
   DepositMarketsTable,
+  FeaturedDepositBoard,
   YourDepositsTable,
 } from "@/components/markets/ExploreMarkets";
 import type { LendoraAssetFilter } from "@/lib/markets";
@@ -242,6 +243,12 @@ export default function LendPage() {
             still work depending on pool policy.
           </div>
         ) : null}
+
+        <FeaturedDepositBoard
+          markets={markets}
+          disabled={isPaused}
+          onSupply={openSupply}
+        />
 
         <AssetFilterBar value={assetFilter} onChange={setAssetFilter} />
 
