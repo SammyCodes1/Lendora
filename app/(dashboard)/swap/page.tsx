@@ -27,19 +27,19 @@ const swapSteps = [
   {
     icon: FileSignature,
     label: "Approve",
-    detail: "Your wallet authorizes the selected router to spend only the entered amount.",
+    detail: "Your wallet authorizes the Tower Exchange router to spend only the entered amount.",
     color: "text-white/55",
   },
   {
     icon: Route,
     label: "Submit",
-    detail: "The swap transaction includes your token pair, minimum output, and slippage limit.",
+    detail: "Tower builds the unsigned swap calldata. Your wallet signs it; Lendora never holds keys.",
     color: "text-white/55",
   },
   {
     icon: Coins,
     label: "Exchange",
-    detail: "The pool receives the input token and calculates the output atomically on Arc.",
+    detail: "TowerSwapExecutor routes the trade on Arc and returns output to your wallet.",
     color: "text-white/55",
   },
   {
@@ -62,9 +62,9 @@ function OnchainSwapFlow() {
           </h2>
         </div>
         <p className="mt-2 text-sm leading-6 text-white/45">
-          Quotes are compared across peer venues (including Lendora&apos;s own
-          USDC/EURC pool). You pick a route; one signed transaction settles
-          output directly back to your wallet.
+          Swaps use the Tower Exchange router only. Lendora asks Tower for a
+          quote and unsigned calldata, then your wallet signs the Tower
+          transaction on Arc.
         </p>
 
         <div className="mt-6 flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-3">
@@ -151,7 +151,7 @@ export default function SwapPage() {
         <PageHeader
           icon={<Route />}
           title="Swap"
-          description="Exchange Arc stablecoins through a precise, transparent route with slippage and settlement visible before signing."
+          description="Exchange Arc assets through the Tower Exchange router only. Quote, slippage, and settlement are visible before you sign."
         />
 
         <div className="grid gap-5 lg:grid-cols-[1.08fr_0.92fr]">

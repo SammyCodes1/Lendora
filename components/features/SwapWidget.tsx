@@ -16,52 +16,24 @@ import {
   XCircle,
 } from "lucide-react";
 import {
-  erc20Abi,
   formatUnits,
   parseUnits,
-  type Address,
   type Hash,
 } from "viem";
-import {
-  useChainId,
-  usePublicClient,
-  useSwitchChain,
-  useWriteContract,
-} from "wagmi";
+import { useChainId } from "wagmi";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
 import { useTokenBalance } from "@/hooks/useTokenBalance";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { TokenMark } from "@/components/ui/TokenMark";
 import { useDismissibleDropdown } from "@/hooks/useDismissibleDropdown";
-import {
-  ARC_DEX_ROUTERS,
-  ARC_DEX_TOKENS,
-  CURVE_ABI,
-  encodeTowerAdapterSwapCalldata,
-  isArcLendSwapPair,
-  isStableSwapPair,
-  SWAP_POOL_ABI,
-  synthraV3FeesForPair,
-  TOWER_ABI,
-  TOWER_ADAPTER_ABI,
-  towerSwapAmountIn,
-  V2_ROUTER_ABI,
-  V3_QUOTER_ABI,
-  V3_ROUTER_ABI,
-} from "@/lib/arcDex";
+import { useSwap, type SwapRouteQuote } from "@/hooks/useSwap";
+import { ARC_DEX_TOKENS } from "@/lib/arcDex";
 import { showToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 type TokenSymbol = keyof typeof ARC_DEX_TOKENS;
-type RouteKey = "curve" | "xylo" | "v3" | "tower" | "arclend";
-type Quote = {
-  key: RouteKey;
-  label: string;
-  output: bigint;
-  router: Address;
-  fee?: number;
-};
+type Quote = SwapRouteQuote;
 type SwapProgressStep = {
   key: "switch" | "approve" | "swap";
   label: string;
@@ -71,12 +43,9 @@ type SwapProgressStep = {
   errorMessage?: string;
 };
 
-const routeMeta: Record<RouteKey, { label: string; detail: string }> = {
-  arclend: { label: "Lendora", detail: "Native USDC/EURC pool" },
-  curve: { label: "Curve", detail: "Stable pool" },
-  xylo: { label: "Xylo", detail: "V2 router" },
-  v3: { label: "Synthra V3", detail: "Concentrated liquidity" },
-  tower: { label: "Tower", detail: "Tower executor + DEX adapter" },
+const towerRouteMeta = {
+  label: "Tower Exchange",
+  detail: "Official Tower router. Quotes and calldata come from Tower; Lendora does not hop Curve, Xylo, or Synthra on its own.",
 };
 
 const tokenSymbols = Object.keys(ARC_DEX_TOKENS) as TokenSymbol[];
@@ -200,14 +169,12 @@ export function SwapWidget() {
   const { address, isConnected, source } = useArcLendAccount();
   const connectorReady = isConnected && source === "wallet";
   const chainId = useChainId();
-  const { switchChainAsync } = useSwitchChain();
-  const publicClient = usePublicClient({ chainId: 5042002 });
-  const { writeContractAsync } = useWriteContract();
+  const { quoteSwap, swap } = useSwap();
   const [fromSymbol, setFromSymbol] = useState<TokenSymbol>("USDC");
   const [toSymbol, setToSymbol] = useState<TokenSymbol>("EURC");
   const [amount, setAmount] = useState("");
   const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [selectedRoute, setSelectedRoute] = useState<RouteKey | null>(null);
+  const [selectedRoute, setSelectedRoute] = useState<"tower" | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [swapLoading, setSwapLoading] = useState(false);
   const [slippageBps, setSlippageBps] = useState(50);
@@ -304,173 +271,31 @@ export function SwapWidget() {
   };
 
   const fetchQuotes = useCallback(async () => {
-    if (!publicClient || parsedAmount <= 0n || fromSymbol === toSymbol) {
+    if (parsedAmount <= 0n || fromSymbol === toSymbol) {
       setQuotes([]);
+      setSelectedRoute(null);
       return;
     }
 
     setQuoteLoading(true);
     setError(null);
-    const path = [fromToken.address, toToken.address] as Address[];
-    const stablePair = isStableSwapPair(fromSymbol, toSymbol);
-    const arcLendPair = isArcLendSwapPair(fromSymbol, toSymbol);
-    const v3Fees = synthraV3FeesForPair(fromSymbol, toSymbol);
-    // Tower takes 0.25% on input; quote the adapter with the post-fee amount.
-    const towerAmountIn = towerSwapAmountIn(parsedAmount);
-
     try {
-      // Peer quotes only — Lendora does not wrap Curve/Xylo/V3/Tower.
-      const [[curve, xylo, tower, arclend], v3Quotes] = await Promise.all([
-        Promise.allSettled([
-          stablePair
-            ? publicClient.readContract({
-                address: ARC_DEX_ROUTERS.curve,
-                abi: CURVE_ABI,
-                functionName: "get_dy",
-                args: [
-                  fromSymbol === "USDC" ? 0n : 1n,
-                  fromSymbol === "USDC" ? 1n : 0n,
-                  parsedAmount,
-                ],
-              })
-            : Promise.resolve(null),
-          stablePair
-            ? publicClient.readContract({
-                address: ARC_DEX_ROUTERS.xylo,
-                abi: V2_ROUTER_ABI,
-                functionName: "getAmountsOut",
-                args: [parsedAmount, path],
-              })
-            : Promise.resolve(null),
-          towerAmountIn > 0n
-            ? publicClient.readContract({
-                address: ARC_DEX_ROUTERS.towerAdapter,
-                abi: TOWER_ADAPTER_ABI,
-                functionName: "getAmountOut",
-                args: [
-                  fromToken.address,
-                  toToken.address,
-                  towerAmountIn,
-                ],
-              })
-            : Promise.resolve(null),
-          arcLendPair
-            ? publicClient.readContract({
-                address: ARC_DEX_ROUTERS.arclend,
-                abi: SWAP_POOL_ABI,
-                functionName: "getQuote",
-                args: [fromToken.address, parsedAmount],
-              })
-            : Promise.resolve(null),
-        ]),
-        Promise.allSettled(
-          v3Fees.map((fee) =>
-            publicClient.simulateContract({
-              address: ARC_DEX_ROUTERS.v3Quoter,
-              abi: V3_QUOTER_ABI,
-              functionName: "quoteExactInputSingle",
-              args: [
-                {
-                  tokenIn: fromToken.address,
-                  tokenOut: toToken.address,
-                  amountIn: parsedAmount,
-                  fee,
-                  sqrtPriceLimitX96: 0n,
-                },
-              ],
-            }),
-          ),
-        ),
-      ]);
-
-      const nextQuotes: Quote[] = [];
-      if (
-        arclend.status === "fulfilled" &&
-        arclend.value !== null &&
-        arclend.value > 0n
-      ) {
-        nextQuotes.push({
-          key: "arclend",
-          label: routeMeta.arclend.label,
-          output: arclend.value,
-          router: ARC_DEX_ROUTERS.arclend,
-        });
-      }
-      if (
-        curve.status === "fulfilled" &&
-        curve.value !== null &&
-        curve.value > 0n
-      ) {
-        nextQuotes.push({
-          key: "curve",
-          label: routeMeta.curve.label,
-          output: curve.value,
-          router: ARC_DEX_ROUTERS.curve,
-        });
-      }
-      if (
-        xylo.status === "fulfilled" &&
-        xylo.value !== null &&
-        xylo.value.length > 1 &&
-        xylo.value[1] > 0n
-      ) {
-        nextQuotes.push({
-          key: "xylo",
-          label: routeMeta.xylo.label,
-          output: xylo.value[1],
-          router: ARC_DEX_ROUTERS.xylo,
-        });
-      }
-      if (
-        tower.status === "fulfilled" &&
-        tower.value !== null &&
-        tower.value > 0n
-      ) {
-        nextQuotes.push({
-          key: "tower",
-          label: routeMeta.tower.label,
-          output: tower.value,
-          router: ARC_DEX_ROUTERS.tower,
-        });
-      }
-      const bestV3 = v3Quotes.reduce<Quote | null>(
-        (best, quote, index) =>
-          quote.status === "fulfilled" &&
-          quote.value.result[0] > 0n &&
-          (!best || quote.value.result[0] > best.output)
-            ? {
-                key: "v3",
-                label: routeMeta.v3.label,
-                output: quote.value.result[0],
-                router: ARC_DEX_ROUTERS.v3,
-                fee: v3Fees[index],
-              }
-            : best,
-        null,
+      const quote = await quoteSwap(
+        fromSymbol,
+        toSymbol,
+        amount,
+        slippageBps,
       );
-      if (bestV3) {
-        nextQuotes.push(bestV3);
-      }
-      setQuotes(nextQuotes);
-      setSelectedRoute((current) =>
-        current && nextQuotes.some((quote) => quote.key === current)
-          ? current
-          : null,
-      );
+      setQuotes([quote]);
+      setSelectedRoute("tower");
     } catch (caught) {
       setError(errorMessage(caught));
       setQuotes([]);
+      setSelectedRoute(null);
     } finally {
       setQuoteLoading(false);
     }
-  }, [
-    fromSymbol,
-    fromToken.address,
-    parsedAmount,
-    publicClient,
-    toSymbol,
-    toToken.address,
-  ]);
+  }, [amount, fromSymbol, parsedAmount, quoteSwap, slippageBps, toSymbol]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -491,13 +316,7 @@ export function SwapWidget() {
   }, [completionOpen, progressOpen]);
 
   const executeSwap = async () => {
-    if (
-      !address ||
-      !publicClient ||
-      !activeRoute ||
-      parsedAmount <= 0n ||
-      exceedsBalance
-    ) {
+    if (!address || !activeRoute || parsedAmount <= 0n || exceedsBalance) {
       return;
     }
 
@@ -514,10 +333,10 @@ export function SwapWidget() {
         state: chainId === 5042002 ? "success" : "active",
         finalityMs: chainId === 5042002 ? 0 : undefined,
       },
-      { key: "approve", label: `Approve ${fromSymbol}`, state: "waiting" },
+      { key: "approve", label: `Approve ${fromSymbol} for Tower`, state: "waiting" },
       {
         key: "swap",
-        label: `Swap ${fromSymbol} for ${toSymbol}`,
+        label: `Swap ${fromSymbol} for ${toSymbol} via Tower`,
         state: "waiting",
       },
     ]);
@@ -526,149 +345,24 @@ export function SwapWidget() {
     setReceivedAmount(quotedOutput);
 
     try {
-      if (chainId !== 5042002) {
-        const switchStartedAt = performance.now();
-        await switchChainAsync({ chainId: 5042002 });
-        updateProgress("switch", {
-          state: "success",
-          finalityMs: Math.max(
-            0,
-            Math.round(performance.now() - switchStartedAt),
-          ),
-        });
-      }
-
-      const allowance = await publicClient.readContract({
-        address: fromToken.address,
-        abi: erc20Abi,
-        functionName: "allowance",
-        args: [address, activeRoute.router],
-      });
-      if (allowance < parsedAmount) {
-        const approvalStartedAt = performance.now();
-        updateProgress("approve", { state: "active" });
-        const approvalHash = await writeContractAsync({
-          chainId: 5042002,
-          address: fromToken.address,
-          abi: erc20Abi,
-          functionName: "approve",
-          args: [activeRoute.router, parsedAmount],
-        });
-        updateProgress("approve", { txHash: approvalHash });
-        await publicClient.waitForTransactionReceipt({ hash: approvalHash });
-        updateProgress("approve", {
-          state: "success",
-          finalityMs: Math.max(
-            0,
-            Math.round(performance.now() - approvalStartedAt),
-          ),
-        });
-      } else {
-        updateProgress("approve", { state: "success", finalityMs: 0 });
-      }
-
-      const minimumOutput =
-        (activeRoute.output * BigInt(10_000 - slippageBps)) / 10_000n;
-      let hash: Hash;
-      const swapStartedAt = performance.now();
-      updateProgress("swap", { state: "active" });
-
-      if (activeRoute.key === "curve") {
-        const [i, j] =
-          fromSymbol === "USDC" ? ([0n, 1n] as const) : ([1n, 0n] as const);
-        hash = await writeContractAsync({
-          chainId: 5042002,
-          address: ARC_DEX_ROUTERS.curve,
-          abi: CURVE_ABI,
-          functionName: "exchange",
-          args: [i, j, parsedAmount, minimumOutput],
-        });
-      } else if (activeRoute.key === "xylo") {
-        hash = await writeContractAsync({
-          chainId: 5042002,
-          address: ARC_DEX_ROUTERS.xylo,
-          abi: V2_ROUTER_ABI,
-          functionName: "swapExactTokensForTokens",
-          args: [
-            parsedAmount,
-            minimumOutput,
-            [fromToken.address, toToken.address],
-            address,
-            BigInt(Math.floor(Date.now() / 1000) + 20 * 60),
-          ],
-        });
-      } else if (activeRoute.key === "tower") {
-        const swapAmountIn = towerSwapAmountIn(parsedAmount);
-        if (swapAmountIn <= 0n) {
-          throw new Error("Swap amount too small after Tower fee");
-        }
-        const deadline = BigInt(Math.floor(Date.now() / 1000) + 20 * 60);
-        const routeCalldata = encodeTowerAdapterSwapCalldata({
-          tokenIn: fromToken.address,
-          tokenOut: toToken.address,
-          amountIn: swapAmountIn,
-          minAmountOut: minimumOutput,
-          deadline,
-        });
-
-        hash = await writeContractAsync({
-          chainId: 5042002,
-          address: ARC_DEX_ROUTERS.tower,
-          abi: TOWER_ABI,
-          functionName: "executeSwap",
-          args: [
-            {
-              tokenIn: fromToken.address,
-              tokenOut: toToken.address,
-              amountIn: parsedAmount,
-              minAmountOut: minimumOutput,
-              recipient: address,
-              routeTarget: ARC_DEX_ROUTERS.towerAdapter,
-              approvalSpender: ARC_DEX_ROUTERS.towerAdapter,
-              routeCalldata,
-            },
-          ],
-        });
-      } else if (activeRoute.key === "arclend") {
-        hash = await writeContractAsync({
-          chainId: 5042002,
-          address: ARC_DEX_ROUTERS.arclend,
-          abi: SWAP_POOL_ABI,
-          functionName: "swap",
-          args: [fromToken.address, parsedAmount, minimumOutput],
-        });
-      } else {
-        if (activeRoute.fee === undefined) {
-          throw new Error("Synthra V3 fee tier is unavailable");
-        }
-        hash = await writeContractAsync({
-          chainId: 5042002,
-          address: ARC_DEX_ROUTERS.v3,
-          abi: V3_ROUTER_ABI,
-          functionName: "exactInputSingle",
-          args: [
-            {
-              tokenIn: fromToken.address,
-              tokenOut: toToken.address,
-              fee: activeRoute.fee,
-              recipient: address,
-              amountIn: parsedAmount,
-              amountOutMinimum: minimumOutput,
-              sqrtPriceLimitX96: 0n,
-            },
-          ],
-        });
-      }
-
-      setTxHash(hash);
-      updateProgress("swap", { txHash: hash });
-      await publicClient.waitForTransactionReceipt({ hash });
-      updateProgress("swap", {
-        state: "success",
-        finalityMs: Math.max(0, Math.round(performance.now() - swapStartedAt)),
-      });
+      const result = await swap(
+        fromSymbol,
+        toSymbol,
+        amount,
+        slippageBps,
+        activeRoute,
+        (step, update) => {
+          updateProgress(step, {
+            state: update.state,
+            txHash: update.hash,
+            finalityMs: update.finalityMs,
+          });
+        },
+      );
+      setTxHash(result.hash);
+      setReceivedAmount(formatUnits(result.quote.output, toToken.decimals));
       setFinalityMs(Math.max(0, Math.round(performance.now() - startedAt)));
-      showToast("success", `Swapped ${fromSymbol} to ${toSymbol} on Arc`);
+      showToast("success", `Swapped ${fromSymbol} to ${toSymbol} via Tower`);
       await Promise.all([fromBalance.refetch(), toBalance.refetch()]);
       await fetchQuotes();
       setProgressOpen(false);
@@ -785,7 +479,7 @@ export function SwapWidget() {
         <div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/40">
-              Router path
+              Tower router
             </p>
             <div className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.035] p-1">
               <span className="flex items-center gap-1.5 px-2 text-[10px] font-medium text-white/40">
@@ -813,46 +507,45 @@ export function SwapWidget() {
             </div>
           </div>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            {(Object.keys(routeMeta) as RouteKey[]).map((key) => {
-              const quote = quotes.find((item) => item.key === key);
-              const selected = activeRoute?.key === key;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  disabled={!quote}
-                  onClick={() => setSelectedRoute(key)}
-                  className={cn(
-                    "rounded-xl border p-3 text-left transition",
-                    selected
-                      ? "border-white/25 bg-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
-                      : "border-white/[0.08] bg-white/[0.025]",
-                    !quote && "cursor-not-allowed opacity-35",
-                  )}
-                >
-                  <div className="flex items-center justify-between">
-                    <Route className="h-4 w-4 text-white/55" />
-                    {bestRoute?.key === key ? (
-                      <span className="text-[9px] font-semibold uppercase text-white/65">
-                        Best
-                      </span>
-                    ) : null}
-                  </div>
-                  <p className="mt-3 text-sm font-medium text-white">
-                    {routeMeta[key].label}
-                  </p>
-                  <p className="mt-1 text-[10px] text-white/35">
-                    {routeMeta[key].detail}
-                  </p>
-                  <p className="mt-3 truncate font-mono text-xs text-white/70">
-                    {quote
-                      ? `${formatUnits(quote.output, toToken.decimals)} ${toSymbol}`
-                      : "No route"}
-                  </p>
-                </button>
-              );
-            })}
+          <div className="mt-3">
+            <div
+              className={cn(
+                "rounded-xl border p-4 text-left",
+                activeRoute
+                  ? "border-white/25 bg-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                  : "border-white/[0.08] bg-white/[0.025]",
+              )}
+            >
+              <div className="flex items-center justify-between">
+                <Route className="h-4 w-4 text-white/55" />
+                <span className="text-[9px] font-semibold uppercase text-white/65">
+                  Exclusive route
+                </span>
+              </div>
+              <p className="mt-3 text-sm font-medium text-white">
+                {activeRoute?.routeLabel ?? towerRouteMeta.label}
+              </p>
+              <p className="mt-1 text-[10px] leading-4 text-white/35">
+                {towerRouteMeta.detail}
+              </p>
+              <p className="mt-3 truncate font-mono text-xs text-white/70">
+                {activeRoute
+                  ? `${formatUnits(activeRoute.output, toToken.decimals)} ${toSymbol}`
+                  : quoteLoading
+                    ? "Quoting Tower…"
+                    : "No Tower route"}
+              </p>
+              {activeRoute ? (
+                <p className="mt-2 font-mono text-[10px] text-white/40">
+                  min {formatUnits(activeRoute.minOut, toToken.decimals)} {toSymbol}
+                  {" · "}
+                  fee {activeRoute.feeBps / 100}%
+                  {activeRoute.priceImpact
+                    ? ` · impact ${activeRoute.priceImpact.toFixed(3)}%`
+                    : ""}
+                </p>
+              ) : null}
+            </div>
           </div>
         </div>
 
@@ -906,7 +599,7 @@ export function SwapWidget() {
               ? "Switch to Arc and swap"
               : swapLoading
                 ? "Confirming swap"
-                : `Swap via ${activeRoute?.label ?? "best route"}`}
+                : `Swap via ${activeRoute?.routeLabel ?? "Tower Exchange"}`}
         </GlassButton>
       </div>
     </GlassCard>
@@ -932,7 +625,7 @@ export function SwapWidget() {
                     Swap in progress
                   </h2>
                   <p className="mt-2 text-sm text-white/45">
-                    {fromSymbol} → {toSymbol} via {activeRoute?.label ?? "Arc DEX"}
+                    {fromSymbol} → {toSymbol} via {activeRoute?.routeLabel ?? "Tower Exchange"}
                   </p>
                 </div>
                 <button

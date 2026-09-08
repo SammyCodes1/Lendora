@@ -6,52 +6,110 @@ import {
   parseUnits,
   type Address,
   type Hash,
+  type Hex,
 } from "viem";
 import {
   useAccount,
   useChainId,
   usePublicClient,
+  useSendTransaction,
   useSwitchChain,
   useWriteContract,
 } from "wagmi";
+import { ARC_DEX_TOKENS } from "@/lib/arcDex";
 import {
-  ARC_DEX_ROUTERS,
-  ARC_DEX_TOKENS,
-  CURVE_ABI,
-  encodeTowerAdapterSwapCalldata,
-  isArcLendSwapPair,
-  isStableSwapPair,
-  SWAP_POOL_ABI,
-  synthraV3FeesForPair,
-  TOWER_ABI,
-  TOWER_ADAPTER_ABI,
-  towerSwapAmountIn,
-  V2_ROUTER_ABI,
-  V3_QUOTER_ABI,
-  V3_ROUTER_ABI,
-} from "@/lib/arcDex";
+  assertPreparedSwap,
+  fromTowerQuoteAmount,
+  parseOptionalTowerTxPayload,
+  parseSlippageBps,
+  parseTowerQuote,
+  parseTowerTxPayload,
+  tokenByAddress,
+  TOWER_SWAP_CHAIN_ID,
+  TOWER_SWAP_EXECUTOR,
+  towerRouteLabel,
+  type SwapTokenSymbol,
+  type TowerPreparedSwap,
+  type TowerQuoteData,
+} from "@/lib/towerSwap";
 
-export type SwapToken = keyof typeof ARC_DEX_TOKENS;
+export type SwapToken = SwapTokenSymbol;
 
 export type SwapRouteQuote = {
-  key: "curve" | "xylo" | "v3" | "tower" | "arclend";
+  key: "tower";
   output: bigint;
+  minOut: bigint;
   router: Address;
-  fee?: number;
+  dexId: string;
+  dexName: string;
+  feeBps: number;
+  priceImpact: number;
+  routeLabel: string;
+  quote: TowerQuoteData;
 };
+
+export type SwapExecutionStep = "switch" | "approve" | "swap";
 
 export type SwapExecutionResult = {
   hash: Hash;
   quote: SwapRouteQuote;
+  approvalHash?: Hash;
   finalityMs: number;
 };
+
+export type SwapStepUpdate = {
+  state: "waiting" | "active" | "success" | "error";
+  hash?: Hash;
+  finalityMs?: number;
+};
+
+type QuoteApiResponse = {
+  error?: string;
+  quote?: unknown;
+};
+
+type PrepareApiResponse = {
+  error?: string;
+  quote?: unknown;
+  approval?: unknown;
+  swap?: unknown;
+};
+
+function apiError(payload: { error?: string }, fallback: string) {
+  return payload.error?.trim() || fallback;
+}
+
+function toRouteQuote(quote: TowerQuoteData): SwapRouteQuote {
+  const outputToken = tokenByAddress(quote.outputToken);
+  const decimals = outputToken?.decimals ?? 18;
+  return {
+    key: "tower",
+    output: fromTowerQuoteAmount(quote.outputAmount, decimals),
+    minOut: fromTowerQuoteAmount(quote.minOut, decimals),
+    router: TOWER_SWAP_EXECUTOR,
+    dexId: quote.dexId,
+    dexName: quote.dexName,
+    feeBps: quote.feeBps,
+    priceImpact: quote.priceImpact,
+    routeLabel: towerRouteLabel(quote),
+    quote,
+  };
+}
+
+function parsePrepared(payload: PrepareApiResponse): TowerPreparedSwap {
+  const quote = parseTowerQuote(payload.quote);
+  const swap = parseTowerTxPayload(payload.swap, "Tower swap");
+  const approval = parseOptionalTowerTxPayload(payload.approval, "Tower approval");
+  return { quote, approval, swap };
+}
 
 export function useSwap() {
   const { address } = useAccount();
   const chainId = useChainId();
-  const publicClient = usePublicClient({ chainId: 5042002 });
+  const publicClient = usePublicClient({ chainId: TOWER_SWAP_CHAIN_ID });
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync } = useWriteContract();
+  const { sendTransactionAsync } = useSendTransaction();
   const [isPending, setIsPending] = useState(false);
   const [txHash, setTxHash] = useState<Hash | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -61,169 +119,34 @@ export function useSwap() {
       tokenIn: SwapToken,
       tokenOut: SwapToken,
       amountIn: string,
+      slippageBps = 50,
     ): Promise<SwapRouteQuote> => {
-      if (!publicClient) {
-        throw new Error("Arc client unavailable");
-      }
       if (tokenIn === tokenOut) {
         throw new Error("Swap assets must be different");
       }
-
-      const fromToken = ARC_DEX_TOKENS[tokenIn];
-      const toToken = ARC_DEX_TOKENS[tokenOut];
-      const parsedAmount = parseUnits(amountIn, fromToken.decimals);
+      parseSlippageBps(slippageBps);
+      const parsedAmount = parseUnits(amountIn, ARC_DEX_TOKENS[tokenIn].decimals);
       if (parsedAmount <= 0n) {
         throw new Error("Swap amount must be greater than zero");
       }
 
-      const path = [fromToken.address, toToken.address] as Address[];
-      const stablePair = isStableSwapPair(tokenIn, tokenOut);
-      const arcLendPair = isArcLendSwapPair(tokenIn, tokenOut);
-      const v3Fees = synthraV3FeesForPair(tokenIn, tokenOut);
-      // Tower takes fee on input; quote adapter with the post-fee amount.
-      const towerAmountIn = towerSwapAmountIn(parsedAmount);
-
-      // Each DEX is quoted independently — Lendora is one peer route, not a meta-router.
-      const [[curve, xylo, tower, arclend], v3Quotes] = await Promise.all([
-        Promise.allSettled([
-          stablePair
-            ? publicClient.readContract({
-                address: ARC_DEX_ROUTERS.curve,
-                abi: CURVE_ABI,
-                functionName: "get_dy",
-                args: [
-                  tokenIn === "USDC" ? 0n : 1n,
-                  tokenIn === "USDC" ? 1n : 0n,
-                  parsedAmount,
-                ],
-              })
-            : Promise.resolve(null),
-          stablePair
-            ? publicClient.readContract({
-                address: ARC_DEX_ROUTERS.xylo,
-                abi: V2_ROUTER_ABI,
-                functionName: "getAmountsOut",
-                args: [parsedAmount, path],
-              })
-            : Promise.resolve(null),
-          towerAmountIn > 0n
-            ? publicClient.readContract({
-                address: ARC_DEX_ROUTERS.towerAdapter,
-                abi: TOWER_ADAPTER_ABI,
-                functionName: "getAmountOut",
-                args: [
-                  fromToken.address,
-                  toToken.address,
-                  towerAmountIn,
-                ],
-              })
-            : Promise.resolve(null),
-          arcLendPair
-            ? publicClient.readContract({
-                address: ARC_DEX_ROUTERS.arclend,
-                abi: SWAP_POOL_ABI,
-                functionName: "getQuote",
-                args: [fromToken.address, parsedAmount],
-              })
-            : Promise.resolve(null),
-        ]),
-        Promise.allSettled(
-          v3Fees.map((fee) =>
-            publicClient.simulateContract({
-              address: ARC_DEX_ROUTERS.v3Quoter,
-              abi: V3_QUOTER_ABI,
-              functionName: "quoteExactInputSingle",
-              args: [
-                {
-                  tokenIn: fromToken.address,
-                  tokenOut: toToken.address,
-                  amountIn: parsedAmount,
-                  fee,
-                  sqrtPriceLimitX96: 0n,
-                },
-              ],
-            }),
-          ),
-        ),
-      ]);
-
-      const quotes: SwapRouteQuote[] = [];
-      if (
-        curve.status === "fulfilled" &&
-        curve.value !== null &&
-        curve.value > 0n
-      ) {
-        quotes.push({
-          key: "curve",
-          output: curve.value,
-          router: ARC_DEX_ROUTERS.curve,
-        });
+      const response = await fetch("/api/swap/quote", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          tokenIn,
+          tokenOut,
+          amountIn,
+          slippageBps,
+        }),
+      });
+      const payload = (await response.json()) as QuoteApiResponse;
+      if (!response.ok || !payload.quote) {
+        throw new Error(apiError(payload, "No Tower Exchange route is available"));
       }
-      if (
-        xylo.status === "fulfilled" &&
-        xylo.value !== null &&
-        xylo.value.length > 1 &&
-        xylo.value[1] > 0n
-      ) {
-        quotes.push({
-          key: "xylo",
-          output: xylo.value[1],
-          router: ARC_DEX_ROUTERS.xylo,
-        });
-      }
-      if (
-        tower.status === "fulfilled" &&
-        tower.value !== null &&
-        tower.value > 0n
-      ) {
-        quotes.push({
-          key: "tower",
-          output: tower.value,
-          router: ARC_DEX_ROUTERS.tower,
-        });
-      }
-      if (
-        arclend.status === "fulfilled" &&
-        arclend.value !== null &&
-        arclend.value > 0n
-      ) {
-        quotes.push({
-          key: "arclend",
-          output: arclend.value,
-          router: ARC_DEX_ROUTERS.arclend,
-        });
-      }
-      const bestV3 = v3Quotes.reduce<SwapRouteQuote | null>(
-        (best, quote, index) =>
-          quote.status === "fulfilled" &&
-          quote.value.result[0] > 0n &&
-          (!best || quote.value.result[0] > best.output)
-            ? {
-                key: "v3",
-                output: quote.value.result[0],
-                router: ARC_DEX_ROUTERS.v3,
-                fee: v3Fees[index],
-              }
-            : best,
-        null,
-      );
-      if (bestV3) {
-        quotes.push({
-          ...bestV3,
-        });
-      }
-
-      const best = quotes.reduce<SwapRouteQuote | null>(
-        (current, quote) =>
-          !current || quote.output > current.output ? quote : current,
-        null,
-      );
-      if (!best) {
-        throw new Error("No executable Arc swap route is available");
-      }
-      return best;
+      return toRouteQuote(parseTowerQuote(payload.quote));
     },
-    [publicClient],
+    [],
   );
 
   const swap = useCallback(
@@ -232,7 +155,8 @@ export function useSwap() {
       tokenOut: SwapToken,
       amountIn: string,
       slippageBps: number,
-      confirmedQuote?: SwapRouteQuote,
+      _confirmedQuote?: SwapRouteQuote,
+      onStep?: (step: SwapExecutionStep, update: SwapStepUpdate) => void,
     ): Promise<SwapExecutionResult> => {
       if (!address || !publicClient) {
         throw new Error("Connect a wallet before swapping");
@@ -240,16 +164,9 @@ export function useSwap() {
       if (tokenIn === tokenOut) {
         throw new Error("Swap assets must be different");
       }
-      if (
-        !Number.isInteger(slippageBps) ||
-        slippageBps < 1 ||
-        slippageBps > 500
-      ) {
-        throw new Error("Slippage must be between 1 and 500 basis points");
-      }
+      parseSlippageBps(slippageBps);
 
       const fromToken = ARC_DEX_TOKENS[tokenIn];
-      const toToken = ARC_DEX_TOKENS[tokenOut];
       const parsedAmount = parseUnits(amountIn, fromToken.decimals);
       if (parsedAmount <= 0n) {
         throw new Error("Swap amount must be greater than zero");
@@ -260,135 +177,104 @@ export function useSwap() {
       setTxHash(null);
 
       try {
-        if (chainId !== 5042002) {
-          await switchChainAsync({ chainId: 5042002 });
+        if (chainId !== TOWER_SWAP_CHAIN_ID) {
+          onStep?.("switch", { state: "active" });
+          const switchStartedAt = performance.now();
+          await switchChainAsync({ chainId: TOWER_SWAP_CHAIN_ID });
+          onStep?.("switch", {
+            state: "success",
+            finalityMs: Math.max(0, Math.round(performance.now() - switchStartedAt)),
+          });
+        } else {
+          onStep?.("switch", { state: "success", finalityMs: 0 });
         }
 
-        const path = [fromToken.address, toToken.address] as Address[];
-        const best =
-          confirmedQuote ??
-          (await quoteSwap(tokenIn, tokenOut, amountIn));
+        const prepareResponse = await fetch("/api/swap/prepare", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            tokenIn,
+            tokenOut,
+            amountIn,
+            slippageBps,
+            userAddress: address,
+          }),
+        });
+        const preparedPayload = (await prepareResponse.json()) as PrepareApiResponse;
+        if (!prepareResponse.ok) {
+          throw new Error(
+            apiError(preparedPayload, "Tower Exchange could not build this swap"),
+          );
+        }
+        const prepared = parsePrepared(preparedPayload);
+        assertPreparedSwap(prepared, {
+          userAddress: address,
+          tokenIn,
+          tokenOut,
+          inputAmount: parsedAmount.toString(),
+        });
+        const best = toRouteQuote(prepared.quote);
 
         const allowance = await publicClient.readContract({
           address: fromToken.address,
           abi: erc20Abi,
           functionName: "allowance",
-          args: [address, best.router],
+          args: [address, TOWER_SWAP_EXECUTOR],
         });
+        let approvalHash: Hash | undefined;
         if (allowance < parsedAmount) {
-          const approvalHash = await writeContractAsync({
-            chainId: 5042002,
+          onStep?.("approve", { state: "active" });
+          const approvalStartedAt = performance.now();
+          approvalHash = await writeContractAsync({
+            chainId: TOWER_SWAP_CHAIN_ID,
             address: fromToken.address,
             abi: erc20Abi,
             functionName: "approve",
-            args: [best.router, parsedAmount],
+            args: [TOWER_SWAP_EXECUTOR, parsedAmount],
           });
-          await publicClient.waitForTransactionReceipt({ hash: approvalHash });
-        }
-
-        const minimumOutput =
-          (best.output * BigInt(10_000 - slippageBps)) / 10_000n;
-        let hash: Hash;
-
-        if (best.key === "curve") {
-          const indices =
-            tokenIn === "USDC"
-              ? ([0n, 1n] as const)
-              : ([1n, 0n] as const);
-          hash = await writeContractAsync({
-            chainId: 5042002,
-            address: ARC_DEX_ROUTERS.curve,
-            abi: CURVE_ABI,
-            functionName: "exchange",
-            args: [indices[0], indices[1], parsedAmount, minimumOutput],
+          onStep?.("approve", { state: "active", hash: approvalHash });
+          const approvalReceipt = await publicClient.waitForTransactionReceipt({
+            hash: approvalHash,
           });
-        } else if (best.key === "xylo") {
-          hash = await writeContractAsync({
-            chainId: 5042002,
-            address: ARC_DEX_ROUTERS.xylo,
-            abi: V2_ROUTER_ABI,
-            functionName: "swapExactTokensForTokens",
-            args: [
-              parsedAmount,
-              minimumOutput,
-              path,
-              address,
-              BigInt(Math.floor(Date.now() / 1000) + 20 * 60),
-            ],
-          });
-        } else if (best.key === "tower") {
-          const swapAmountIn = towerSwapAmountIn(parsedAmount);
-          if (swapAmountIn <= 0n) {
-            throw new Error("Swap amount too small after Tower fee");
+          if (approvalReceipt.status !== "success") {
+            throw new Error("Token approval reverted onchain");
           }
-          const deadline = BigInt(Math.floor(Date.now() / 1000) + 20 * 60);
-          const routeCalldata = encodeTowerAdapterSwapCalldata({
-            tokenIn: fromToken.address,
-            tokenOut: toToken.address,
-            amountIn: swapAmountIn,
-            minAmountOut: minimumOutput,
-            deadline,
-          });
-
-          hash = await writeContractAsync({
-            chainId: 5042002,
-            address: ARC_DEX_ROUTERS.tower,
-            abi: TOWER_ABI,
-            functionName: "executeSwap",
-            args: [
-              {
-                tokenIn: fromToken.address,
-                tokenOut: toToken.address,
-                amountIn: parsedAmount,
-                minAmountOut: minimumOutput,
-                recipient: address,
-                routeTarget: ARC_DEX_ROUTERS.towerAdapter,
-                approvalSpender: ARC_DEX_ROUTERS.towerAdapter,
-                routeCalldata,
-              },
-            ],
-          });
-        } else if (best.key === "arclend") {
-          hash = await writeContractAsync({
-            chainId: 5042002,
-            address: ARC_DEX_ROUTERS.arclend,
-            abi: SWAP_POOL_ABI,
-            functionName: "swap",
-            args: [fromToken.address, parsedAmount, minimumOutput],
+          onStep?.("approve", {
+            state: "success",
+            hash: approvalHash,
+            finalityMs: Math.max(
+              0,
+              Math.round(performance.now() - approvalStartedAt),
+            ),
           });
         } else {
-          if (best.fee === undefined) {
-            throw new Error("Synthra V3 fee tier is unavailable");
-          }
-          hash = await writeContractAsync({
-            chainId: 5042002,
-            address: ARC_DEX_ROUTERS.v3,
-            abi: V3_ROUTER_ABI,
-            functionName: "exactInputSingle",
-            args: [
-              {
-                tokenIn: fromToken.address,
-                tokenOut: toToken.address,
-                fee: best.fee,
-                recipient: address,
-                amountIn: parsedAmount,
-                amountOutMinimum: minimumOutput,
-                sqrtPriceLimitX96: 0n,
-              },
-            ],
-          });
+          onStep?.("approve", { state: "success", finalityMs: 0 });
         }
 
+        onStep?.("swap", { state: "active" });
+        const hash = await sendTransactionAsync({
+          chainId: TOWER_SWAP_CHAIN_ID,
+          to: prepared.swap.to,
+          data: prepared.swap.data as Hex,
+          value: BigInt(prepared.swap.value),
+        });
         setTxHash(hash);
+        onStep?.("swap", { state: "active", hash });
         const submittedAt = performance.now();
-        await publicClient.waitForTransactionReceipt({ hash });
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        if (receipt.status !== "success") {
+          throw new Error("Tower swap reverted onchain");
+        }
+        onStep?.("swap", {
+          state: "success",
+          hash,
+          finalityMs: Math.max(0, Math.round(performance.now() - submittedAt)),
+        });
         return {
           hash,
           quote: best,
-          finalityMs: Math.max(
-            0,
-            Math.round(performance.now() - submittedAt),
-          ),
+          approvalHash,
+          finalityMs: Math.max(0, Math.round(performance.now() - submittedAt)),
         };
       } catch (caught) {
         const nextError =
@@ -403,7 +289,7 @@ export function useSwap() {
       address,
       chainId,
       publicClient,
-      quoteSwap,
+      sendTransactionAsync,
       switchChainAsync,
       writeContractAsync,
     ],
