@@ -68,9 +68,36 @@ export function AssetFilterBar({
   );
 }
 
+function getCapacityTooltip(
+  value: number,
+  market?: {
+    totalSupply: bigint;
+    supplyCap: bigint;
+    remainingSupplyCap: bigint;
+    isSupplyCapped: boolean;
+    symbol: string;
+    utilization?: number;
+  },
+) {
+  const progress = Math.max(0, Math.min(100, value));
+  const displayPercent =
+    progress > 0 && progress < 0.01
+      ? "<0.01%"
+      : progress > 0 && progress < 0.1
+      ? `${progress.toFixed(2)}%`
+      : `${progress.toFixed(1)}%`;
+
+  if (!market) return `${displayPercent} capacity filled`;
+  if (!market.isSupplyCapped) {
+    return `Uncapped reserve (${displayPercent} pool utilization)`;
+  }
+  return `${displayPercent} filled (${Number(formatUnits(market.totalSupply, 6)).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${market.symbol} of ${formatReserveCap(market.supplyCap, true, { compact: true })} ${market.symbol} cap · ${formatRemainingCap(market.remainingSupplyCap, true, market.symbol)} left)`;
+}
+
 function CapacityMeter({
   value,
   market,
+  className,
 }: {
   value: number;
   market?: {
@@ -81,6 +108,7 @@ function CapacityMeter({
     symbol: string;
     utilization?: number;
   };
+  className?: string;
 }) {
   const progress = Math.max(0, Math.min(100, value));
   const displayPercent =
@@ -90,45 +118,66 @@ function CapacityMeter({
       ? `${progress.toFixed(2)}%`
       : `${progress.toFixed(1)}%`;
 
-  const barWidth = progress > 0 ? Math.max(progress, 1.5) : 0;
+  // Aave V3 circular capacity indicator
+  const radius = 6;
+  const circumference = 2 * Math.PI * radius;
+  const activePercent = progress > 0 ? Math.max(progress, 2.5) : 0;
+  const strokeDashoffset = circumference - (circumference * activePercent) / 100;
 
-  const toneClass =
+  const ringToneClass =
     progress >= 95
-      ? "bg-rose-400"
+      ? "text-rose-400"
       : progress >= 80
-      ? "bg-amber-400"
-      : "bg-white/80 group-hover:bg-white";
+      ? "text-amber-400"
+      : "text-white/85 group-hover:text-white";
 
   const textToneClass =
     progress >= 95
       ? "text-rose-300"
       : progress >= 80
       ? "text-amber-300"
-      : "text-white/55 group-hover:text-white/80";
+      : "text-white/75 group-hover:text-white";
 
-  const tooltipText = market
-    ? market.isSupplyCapped
-      ? `${displayPercent} filled (${Number(formatUnits(market.totalSupply, 6)).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${market.symbol} of ${formatReserveCap(market.supplyCap, true, { compact: true })} ${market.symbol} cap · ${formatRemainingCap(market.remainingSupplyCap, true, market.symbol)} left)`
-      : `Uncapped reserve (${displayPercent} pool utilization)`
-    : `${displayPercent} capacity filled`;
+  const tooltipText = getCapacityTooltip(value, market);
 
   return (
     <div
-      className="group flex min-w-[140px] items-center gap-2 cursor-help"
+      className={cn(
+        "group inline-flex items-center gap-2 cursor-help",
+        className,
+      )}
       title={tooltipText}
     >
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.08]">
-        <div
-          className={cn(
-            "h-full rounded-full transition-all duration-300",
-            toneClass,
-          )}
-          style={{ width: `${barWidth}%` }}
+      <svg
+        className="h-4 w-4 shrink-0 -rotate-90"
+        viewBox="0 0 16 16"
+        aria-hidden="true"
+      >
+        <circle
+          cx="8"
+          cy="8"
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          className="text-white/15"
         />
-      </div>
+        <circle
+          cx="8"
+          cy="8"
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          className={cn("transition-all duration-500 ease-out", ringToneClass)}
+        />
+      </svg>
       <span
         className={cn(
-          "w-12 text-right font-mono text-xs transition-colors",
+          "font-mono text-xs font-medium transition-colors",
           textToneClass,
         )}
       >
@@ -196,16 +245,11 @@ export function FeaturedDepositBoard({
 
   return (
     <section className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-emerald-400" />
-          <h2 className="text-base font-semibold tracking-tight text-white sm:text-lg">
-            Featured
-          </h2>
-        </div>
-        <span className="text-xs text-white/40">
-          Aave Pro curated deposit markets
-        </span>
+      <div className="flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-emerald-400" />
+        <h2 className="text-base font-semibold tracking-tight text-white sm:text-lg">
+          Featured
+        </h2>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -331,12 +375,19 @@ export function FeaturedDepositBoard({
                       )}
                     </div>
                   </div>
-                  <div>
+                  <div
+                    className="cursor-help"
+                    title={getCapacityTooltip(filled, market)}
+                  >
                     <div className="text-[10px] uppercase tracking-wider text-white/40">
                       Cap Filled
                     </div>
-                    <div className="mt-1 font-mono font-medium text-white/90">
-                      {filled.toFixed(1)}%
+                    <div className="mt-1 flex items-center h-5">
+                      <CapacityMeter
+                        value={filled}
+                        market={market}
+                        className="w-full min-w-0"
+                      />
                     </div>
                   </div>
                 </div>

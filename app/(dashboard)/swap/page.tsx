@@ -27,19 +27,19 @@ const swapSteps = [
   {
     icon: FileSignature,
     label: "Approve",
-    detail: "Your wallet authorizes the Tower Exchange router to spend only the entered amount.",
+    detail: "Your wallet authorizes the selected router to spend only the entered amount.",
     color: "text-white/55",
   },
   {
     icon: Route,
-    label: "Submit",
-    detail: "Tower builds the unsigned swap calldata. Your wallet signs it; Lendora never holds keys.",
+    label: "Route",
+    detail: "Compare live quotes across Tower Exchange, Curve, Xylo, Synthra V3, and Lendora SwapPool.",
     color: "text-white/55",
   },
   {
     icon: Coins,
     label: "Exchange",
-    detail: "TowerSwapExecutor routes the trade on Arc and returns output to your wallet.",
+    detail: "The transaction executes atomically on Arc through your chosen venue.",
     color: "text-white/55",
   },
   {
@@ -62,9 +62,9 @@ function OnchainSwapFlow() {
           </h2>
         </div>
         <p className="mt-2 text-sm leading-6 text-white/45">
-          Swaps use the Tower Exchange router only. Lendora asks Tower for a
-          quote and unsigned calldata, then your wallet signs the Tower
-          transaction on Arc.
+          Quotes are compared across peer venues including Tower Exchange, Curve,
+          Xylo, Synthra V3, and Lendora&apos;s own SwapPool. Select your preferred
+          router or take the best rate to settle directly back to your wallet.
         </p>
 
         <div className="mt-6 flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.035] px-4 py-3">
@@ -151,7 +151,7 @@ export default function SwapPage() {
         <PageHeader
           icon={<Route />}
           title="Swap"
-          description="Exchange Arc assets through the Tower Exchange router only. Quote, slippage, and settlement are visible before you sign."
+          description="Exchange Arc assets through Tower Exchange, Curve, Xylo, Synthra V3, or Lendora SwapPool with live quote comparison and slippage protection."
         />
 
         <div className="grid gap-5 lg:grid-cols-[1.08fr_0.92fr]">
