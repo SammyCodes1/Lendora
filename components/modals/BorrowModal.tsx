@@ -18,6 +18,7 @@ import {
 import { GlassButton } from "@/components/ui/GlassButton";
 import { StatBadge } from "@/components/ui/StatBadge";
 import { TokenInput } from "@/components/ui/TokenInput";
+import { UsdcIcon, EurcIcon } from "@/components/ui/TokenMark";
 import { useUserAccountData } from "@/hooks/useLendingPool";
 import {
   POSITION_MANAGER_ADDRESS,
@@ -170,7 +171,7 @@ export function BorrowModal({ open, market, onClose }: BorrowModalProps) {
           tokenName={market.name}
           tokenSymbol={market.symbol}
           balance={`${formatUnits(maxBorrow, 6)} ${market.symbol} available`}
-          icon={market.symbol === "USDC" ? CircleDollarSign : Euro}
+          icon={market.symbol === "USDC" ? UsdcIcon : EurcIcon}
           error={exceedsBorrowLimit || unsafeHealthFactor}
           onMax={() => setAmount(formatUnits(maxBorrow, 6))}
         />
