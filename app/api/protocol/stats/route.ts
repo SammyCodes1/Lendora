@@ -26,6 +26,7 @@ import {
   ARC_DEX_ROUTERS,
   ARC_DEX_TOKENS,
   CURVE_ABI,
+  TOWER_ABI,
   V2_ROUTER_ABI,
   V3_ROUTER_ABI,
 } from "@/lib/arcDex";
@@ -496,6 +497,16 @@ function decodeSwap(target: string, input: Hex) {
         ? { tokenIn, tokenOut, amountIn: params.amountIn }
         : null;
     }
+    if (target === ARC_DEX_ROUTERS.tower.toLowerCase()) {
+      const decoded = decodeFunctionData({ abi: TOWER_ABI, data: input });
+      if (decoded.functionName !== "executeSwap") return null;
+      const params = decoded.args[0];
+      const tokenIn = tokenForAddress(params.tokenIn);
+      const tokenOut = tokenForAddress(params.tokenOut);
+      return tokenIn && tokenOut
+        ? { tokenIn, tokenOut, amountIn: params.amountIn }
+        : null;
+    }
   } catch {
     return null;
   }
@@ -787,7 +798,8 @@ async function buildStats() {
         if (
           target !== ARC_DEX_ROUTERS.curve.toLowerCase() &&
           target !== ARC_DEX_ROUTERS.xylo.toLowerCase() &&
-          target !== ARC_DEX_ROUTERS.v3.toLowerCase()
+          target !== ARC_DEX_ROUTERS.v3.toLowerCase() &&
+          target !== ARC_DEX_ROUTERS.tower.toLowerCase()
         ) continue;
 
         const swap = decodeSwap(target, input);

@@ -107,7 +107,7 @@ const functionDeclarations = [
   },
   {
     name: "swap",
-    description: "Swap one supported token for another using Arc's onchain swap flow",
+    description: "Swap one supported token for another through the Tower Exchange router on Arc",
     parametersJsonSchema: {
       type: "object",
       properties: {

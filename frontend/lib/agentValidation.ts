@@ -42,11 +42,7 @@ import { arcTestnet } from "viem/chains";
 import lendingPoolAbi from "@/constants/abis/LendingPool.json";
 import priceOracleAbi from "@/constants/abis/MockPriceOracle.json";
 import deployments from "@/constants/deployments.json";
-import {
-  ARC_DEX_TOKENS,
-  isStableSwapPair,
-  synthraV3FeesForPair,
-} from "@/lib/arcDex";
+import { ARC_DEX_TOKENS } from "@/lib/arcDex";
 import type {
   AgentAction,
   AgentValidationResult,
@@ -1895,13 +1891,10 @@ export async function validateAgentAction(
       }
       const tokenIn = params.tokenIn;
       const tokenOut = params.tokenOut;
-      if (
-        !isStableSwapPair(tokenIn, tokenOut) &&
-        synthraV3FeesForPair(tokenIn, tokenOut).length === 0
-      ) {
+      if (tokenIn === tokenOut) {
         return hardBlock(
           walletKey,
-          `No direct Arc swap route is available for ${tokenIn}/${tokenOut}.`,
+          `Tower Exchange cannot swap ${tokenIn} to ${tokenOut}.`,
         );
       }
       const inputToken = ARC_DEX_TOKENS[tokenIn];
