@@ -15,8 +15,6 @@ import {
   Info,
   Loader2,
   RotateCcw,
-  ShieldCheck,
-  Sparkles,
   Wallet,
   XCircle,
 } from "lucide-react";
@@ -187,7 +185,7 @@ function NetworkSelector({
                     <NetworkLogo chain={network.chain} className="h-4 w-4" />
                     <span>{network.label}</span>
                   </div>
-                  {isSelected ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : null}
+                  {isSelected ? <Check className="h-3.5 w-3.5 text-white" /> : null}
                 </button>
               );
             })}
@@ -346,8 +344,7 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold tracking-tight text-white">Bridge</h2>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-white/50">
                 CCTP v2
               </span>
             </div>
@@ -497,7 +494,7 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
 
         <div className="mt-3 flex items-center justify-between gap-2 pt-2 border-t border-white/[0.05]">
           <span className="font-mono text-xs text-white/40">{approxUsd}</span>
-          <span className="rounded-md bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+          <span className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-white/50">
             1:1 CCTP Guaranteed Peg
           </span>
         </div>
@@ -507,9 +504,8 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
       <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-3.5 space-y-2.5">
         <div className="flex items-center justify-between text-xs">
           <div className="flex items-center gap-1.5">
-            <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
             <span className="font-medium text-white">Circle CCTP v2</span>
-            <span className="rounded bg-emerald-400/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-emerald-300">
+            <span className="rounded border border-white/10 bg-white/[0.05] px-1.5 py-0.5 text-[9px] font-semibold uppercase text-white/60">
               Best Route
             </span>
           </div>
@@ -519,7 +515,7 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
               ~1–2 min
             </span>
             <span>·</span>
-            <span className="flex items-center gap-1 text-emerald-300">
+            <span className="flex items-center gap-1 text-white/60">
               <Fuel className="h-3 w-3" />
               Zero Fee
             </span>
@@ -530,9 +526,9 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
           <span>Execution path</span>
           <span className="flex items-center gap-1 text-white/80 font-mono text-[10px]">
             <span className="text-white/60">{sourceNetwork.label}</span>
-            <span className="text-emerald-400">→</span>
+            <span className="text-white/40">→</span>
             <span>CCTP Attestation</span>
-            <span className="text-emerald-400">→</span>
+            <span className="text-white/40">→</span>
             <span className="text-white/60">{destinationNetwork.label}</span>
           </span>
         </div>
@@ -541,7 +537,7 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
       {/* Wallets Connector Row */}
       <div className="space-y-2">
         <div className={cn("grid gap-2 [&>*]:w-full", requiresSolana && "sm:grid-cols-2")}>
-          <ConnectWalletButton />
+          <ConnectWalletButton hideIcon />
           {requiresSolana ? <ConnectSolanaWalletButton /> : null}
         </div>
         {requiresSolana && !solanaWalletAvailable ? (
@@ -709,9 +705,7 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
       >
         {bridgeAction.isLoading ? (
           <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Sparkles className="h-4 w-4 text-emerald-200" />
-        )}
+        ) : null}
         {!connectorReady
           ? "Connect Browser Wallet"
           : requiresSolana && !bridgeAction.solanaReady
