@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { erc20Abi, formatUnits, type Address } from "viem";
 import { useChainId, useReadContracts } from "wagmi";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
+import { TokenMark } from "@/components/ui/TokenMark";
 import { cn } from "@/lib/utils";
 
 type TokenConfig = {
@@ -45,31 +46,7 @@ type DisplayChip = {
 // ─── Token icon styling ───────────────────────────────────────────────────────
 
 function TokenIcon({ symbol }: { symbol: string }) {
-  const sym = symbol.toUpperCase();
-  const isUsdc = sym === "USDC";
-  const isEurc = sym === "EURC";
-  const isUsdt = sym === "USDT";
-
-  const label = isUsdc ? "$" : isEurc ? "€" : isUsdt ? "₮" : symbol.slice(0, 2);
-  const colorClass = isUsdc
-    ? "border-blue-300/40 bg-blue-400/15 text-blue-200"
-    : isEurc
-      ? "border-cyan-300/40 bg-cyan-300/15 text-cyan-100"
-      : isUsdt
-        ? "border-emerald-300/40 bg-emerald-400/15 text-emerald-200"
-        : "border-purple-300/40 bg-purple-400/15 text-purple-200";
-
-  return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold",
-        colorClass,
-      )}
-    >
-      {label}
-    </span>
-  );
+  return <TokenMark symbol={symbol} className="h-5 w-5" />;
 }
 
 function BalanceChip({ symbol, value }: { symbol: string; value: string }) {
