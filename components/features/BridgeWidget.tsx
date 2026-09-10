@@ -158,7 +158,7 @@ function NetworkSelector({
       {open ? (
         <div
           role="listbox"
-          className="absolute right-0 top-full z-50 mt-1.5 w-56 rounded-2xl border border-white/15 bg-[#100d1c] p-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.85)] backdrop-blur-2xl"
+          className="absolute right-0 top-full z-50 mt-1.5 w-56 rounded-2xl border border-white/15 bg-[#0d1217] p-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.85)] backdrop-blur-2xl"
         >
           <div className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/35">
             Select {label} Network
@@ -179,7 +179,7 @@ function NetworkSelector({
                   className={cn(
                     "flex w-full items-center justify-between gap-2 rounded-xl px-2.5 py-2 text-left text-xs transition",
                     isSelected
-                      ? "bg-purple-600/20 text-white font-medium border border-purple-500/30"
+                      ? "bg-emerald-500/15 text-white font-medium border border-emerald-500/30"
                       : "text-white/70 hover:bg-white/[0.06] hover:text-white",
                   )}
                 >
@@ -187,7 +187,7 @@ function NetworkSelector({
                     <NetworkLogo chain={network.chain} className="h-4 w-4" />
                     <span>{network.label}</span>
                   </div>
-                  {isSelected ? <Check className="h-3.5 w-3.5 text-purple-300" /> : null}
+                  {isSelected ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : null}
                 </button>
               );
             })}
@@ -346,8 +346,8 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold tracking-tight text-white">Bridge</h2>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-400/25 bg-purple-500/10 px-2 py-0.5 text-[10px] font-semibold text-purple-200">
-                <span className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse" />
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 CCTP v2
               </span>
             </div>
@@ -381,7 +381,7 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
       ) : null}
 
       {/* Jumper UI: "You pay" Container */}
-      <div className="rounded-2xl border border-white/[0.08] bg-[#0c0b14] p-4 transition focus-within:border-purple-500/40 focus-within:ring-1 focus-within:ring-purple-500/20">
+      <div className="rounded-2xl border border-white/[0.08] bg-[#0a0f12] p-4 transition focus-within:border-emerald-500/40 focus-within:ring-1 focus-within:ring-emerald-500/20">
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs font-semibold uppercase tracking-wider text-white/40">
             You pay
@@ -448,7 +448,7 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
                 type="button"
                 disabled={!balanceKnown || available <= 0}
                 onClick={() => setPercent(1)}
-                className="rounded-md border border-purple-400/30 bg-purple-500/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-purple-200 transition hover:bg-purple-500/25 disabled:cursor-not-allowed disabled:opacity-30"
+                className="rounded-md border border-emerald-400/30 bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-300 transition hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-30"
               >
                 MAX
               </button>
@@ -465,14 +465,14 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9, rotate: 180 }}
           onClick={handleReverse}
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-[#151224] text-white/70 shadow-lg backdrop-blur-xl transition hover:border-purple-400/50 hover:bg-[#221c38] hover:text-white active:scale-95"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-[#0d1318] text-white/70 shadow-lg backdrop-blur-xl transition hover:border-emerald-400/40 hover:bg-[#141d22] hover:text-white active:scale-95"
         >
           <ArrowDownUp className="h-4 w-4" />
         </motion.button>
       </div>
 
       {/* Jumper UI: "You receive" Container */}
-      <div className="rounded-2xl border border-white/[0.08] bg-[#0c0b14] p-4 transition hover:border-white/15">
+      <div className="rounded-2xl border border-white/[0.08] bg-[#0a0f12] p-4 transition hover:border-white/15">
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs font-semibold uppercase tracking-wider text-white/40">
             You receive
@@ -507,9 +507,9 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
       <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-3.5 space-y-2.5">
         <div className="flex items-center justify-between text-xs">
           <div className="flex items-center gap-1.5">
-            <ShieldCheck className="h-4 w-4 text-purple-400 shrink-0" />
+            <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
             <span className="font-medium text-white">Circle CCTP v2</span>
-            <span className="rounded bg-purple-400/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-purple-300">
+            <span className="rounded bg-emerald-400/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-emerald-300">
               Best Route
             </span>
           </div>
@@ -530,9 +530,9 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
           <span>Execution path</span>
           <span className="flex items-center gap-1 text-white/80 font-mono text-[10px]">
             <span className="text-white/60">{sourceNetwork.label}</span>
-            <span className="text-purple-400">→</span>
+            <span className="text-emerald-400">→</span>
             <span>CCTP Attestation</span>
-            <span className="text-purple-400">→</span>
+            <span className="text-emerald-400">→</span>
             <span className="text-white/60">{destinationNetwork.label}</span>
           </span>
         </div>
@@ -581,7 +581,7 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
                 ) : step.state === "error" ? (
                   <XCircle className="h-4 w-4 shrink-0 text-red-400" />
                 ) : step.state === "active" ? (
-                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-purple-300" />
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-emerald-400" />
                 ) : (
                   <CircleDashed className="h-4 w-4 shrink-0 text-white/20" />
                 )}
@@ -593,7 +593,7 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
                     href={step.explorerUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 font-mono text-xs text-purple-300 transition hover:text-purple-200 underline underline-offset-2"
+                    className="inline-flex items-center gap-1 font-mono text-xs text-emerald-400 transition hover:text-emerald-300 underline underline-offset-2"
                   >
                     Explorer <ExternalLink className="h-3 w-3" />
                   </a>
@@ -696,7 +696,7 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
           }
         }}
         className={cn(
-          "w-full min-h-[50px] rounded-xl font-semibold text-sm sm:text-base transition-all flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(124,58,237,0.25)] active:scale-[0.99]",
+          "w-full min-h-[50px] rounded-xl font-semibold text-sm sm:text-base transition-all flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(16,185,129,0.20)] active:scale-[0.99]",
           !connectorReady ||
             (requiresSolana && !bridgeAction.solanaReady) ||
             !amount ||
@@ -704,13 +704,13 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
             exceedsBalance ||
             bridgeAction.isLoading
             ? "cursor-not-allowed border border-white/10 bg-white/[0.05] text-white/35 shadow-none"
-            : "border border-purple-400/30 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-[0_10px_35px_rgba(124,58,237,0.35)]",
+            : "border border-emerald-400/30 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-[0_10px_35px_rgba(16,185,129,0.28)]",
         )}
       >
         {bridgeAction.isLoading ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
-          <Sparkles className="h-4 w-4 text-purple-200" />
+          <Sparkles className="h-4 w-4 text-emerald-200" />
         )}
         {!connectorReady
           ? "Connect Browser Wallet"
@@ -730,7 +730,7 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
   return embedded ? (
     content
   ) : (
-    <div className="rounded-3xl border border-white/10 bg-[#0a0814]/90 shadow-[0_24px_80px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl">
+    <div className="rounded-3xl border border-white/10 bg-[#0a0f12]/90 shadow-[0_24px_80px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl">
       {content}
     </div>
   );

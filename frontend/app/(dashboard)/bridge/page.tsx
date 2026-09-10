@@ -136,10 +136,10 @@ export default function BridgePage() {
     <PageTransition>
       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 pb-12 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-3">
-          <div className="inline-flex items-center gap-2 self-start rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-1 text-xs font-medium text-purple-200 backdrop-blur-md">
+          <div className="inline-flex items-center gap-2 self-start rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300 backdrop-blur-md">
             <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-purple-400 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-purple-500" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
             </span>
             <span>Circle CCTP Protocol · Native Cross-Chain Liquidity</span>
           </div>
@@ -158,10 +158,10 @@ export default function BridgePage() {
             <UnifiedBalance />
 
             {/* Supported Routes Board */}
-            <section className="rounded-3xl border border-white/10 bg-[#0a0814]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl">
+            <section className="rounded-3xl border border-white/10 bg-[#0a0f12]/90 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl">
               <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-purple-500/20 bg-purple-500/10 text-purple-300">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-300">
                     <Route className="h-4 w-4" />
                   </div>
                   <div>
@@ -185,7 +185,7 @@ export default function BridgePage() {
                       <RouteChainLogo chainKey={route.chainKey} />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold text-white group-hover:text-purple-200 transition-colors">
+                          <span className="text-xs font-semibold text-white group-hover:text-emerald-300 transition-colors">
                             {route.name}
                           </span>
                           <span className="rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-white/50">
@@ -206,9 +206,9 @@ export default function BridgePage() {
                 ))}
               </div>
 
-              <div className="mt-5 rounded-2xl border border-purple-500/15 bg-purple-500/[0.04] p-3.5 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-medium text-purple-200">
-                  <ShieldCheck className="h-4 w-4 text-purple-400 shrink-0" />
+              <div className="mt-5 rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.04] p-3.5 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-medium text-emerald-200">
+                  <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
                   <span>CCTP Security & Execution Standard</span>
                 </div>
                 <p className="text-[11px] leading-relaxed text-white/50">
@@ -219,7 +219,7 @@ export default function BridgePage() {
                     <Zap className="h-3 w-3 text-amber-300" /> Sub-second Arc Gas
                   </span>
                   <span className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] text-white/60">
-                    <Sparkles className="h-3 w-3 text-purple-300" /> Zero Bridge Fee
+                    <Sparkles className="h-3 w-3 text-emerald-300" /> Zero Bridge Fee
                   </span>
                   <span className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] text-white/60">
                     <CheckCircle2 className="h-3 w-3 text-emerald-300" /> Canonical USDC
