@@ -34,6 +34,7 @@ import {
   AssetFilterBar,
   BorrowMarketsTable,
   BorrowPositionStrip,
+  FeaturedBorrowBoard,
   YourBorrowsTable,
 } from "@/components/markets/ExploreMarkets";
 import type { LendoraAssetFilter } from "@/lib/markets";
@@ -254,6 +255,12 @@ export default function BorrowPage() {
           collateralUsd={accountData?.totalCollateralUSD ?? 0n}
           debtUsd={accountData?.totalDebtUSD ?? 0n}
           availableUsd={accountData?.availableBorrowsUSD ?? 0n}
+        />
+
+        <FeaturedBorrowBoard
+          markets={markets}
+          disabled={isPaused}
+          onBorrow={(selected) => setModal({ type: "borrow", market: selected })}
         />
 
         <AssetFilterBar value={assetFilter} onChange={setAssetFilter} />

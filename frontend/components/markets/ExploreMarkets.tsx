@@ -75,9 +75,14 @@ function getCapacityTooltip(
     supplyCap: bigint;
     remainingSupplyCap: bigint;
     isSupplyCapped: boolean;
+    totalBorrow?: bigint;
+    borrowCap?: bigint;
+    remainingBorrowCap?: bigint;
+    isBorrowCapped?: boolean;
     symbol: string;
     utilization?: number;
   },
+  isBorrow = false,
 ) {
   const progress = Math.max(0, Math.min(100, value));
   const displayPercent =
@@ -88,6 +93,12 @@ function getCapacityTooltip(
       : `${progress.toFixed(1)}%`;
 
   if (!market) return `${displayPercent} capacity filled`;
+  if (isBorrow) {
+    if (!market.isBorrowCapped) {
+      return `Uncapped borrow reserve (${displayPercent} pool utilization)`;
+    }
+    return `${displayPercent} filled (${Number(formatUnits(market.totalBorrow ?? 0n, 6)).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${market.symbol} of ${formatReserveCap(market.borrowCap ?? 0n, true, { compact: true })} ${market.symbol} borrow cap · ${formatRemainingCap(market.remainingBorrowCap ?? 0n, true, market.symbol)} left)`;
+  }
   if (!market.isSupplyCapped) {
     return `Uncapped reserve (${displayPercent} pool utilization)`;
   }
@@ -97,6 +108,7 @@ function getCapacityTooltip(
 function CapacityMeter({
   value,
   market,
+  isBorrow = false,
   className,
 }: {
   value: number;
@@ -105,9 +117,14 @@ function CapacityMeter({
     supplyCap: bigint;
     remainingSupplyCap: bigint;
     isSupplyCapped: boolean;
+    totalBorrow?: bigint;
+    borrowCap?: bigint;
+    remainingBorrowCap?: bigint;
+    isBorrowCapped?: boolean;
     symbol: string;
     utilization?: number;
   };
+  isBorrow?: boolean;
   className?: string;
 }) {
   const progress = Math.max(0, Math.min(100, value));
@@ -138,7 +155,7 @@ function CapacityMeter({
       ? "text-amber-300"
       : "text-white/75 group-hover:text-white";
 
-  const tooltipText = getCapacityTooltip(value, market);
+  const tooltipText = getCapacityTooltip(value, market, isBorrow);
 
   return (
     <div
@@ -232,11 +249,16 @@ export function FeaturedDepositBoard({
   markets,
   disabled,
   onSupply,
+  onBorrow,
+  mode = "deposit",
 }: {
   markets: MarketAsset[];
   disabled?: boolean;
-  onSupply: (market: MarketAsset) => void;
+  onSupply?: (market: MarketAsset) => void;
+  onBorrow?: (market: MarketAsset) => void;
+  mode?: "deposit" | "borrow";
 }) {
+  const isBorrow = mode === "borrow";
   const featuredMarkets = markets.filter(
     (m) => m.symbol === "USDC" || m.symbol === "EURC",
   );
@@ -255,16 +277,23 @@ export function FeaturedDepositBoard({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {featuredMarkets.map((market) => {
           const sparkline = generateApySparkline(
-            market.supplyApyValue,
+            isBorrow ? market.borrowAprValue : market.supplyApyValue,
             market.symbol,
           );
-          const filled = capacityFilledPercent(
-            market.totalSupply,
-            market.supplyCap,
-            market.isSupplyCapped,
-            market.utilization,
-          );
-          const gradientId = `featured-grad-${market.symbol.toLowerCase()}`;
+          const filled = isBorrow
+            ? capacityFilledPercent(
+                market.totalBorrow,
+                market.borrowCap,
+                market.isBorrowCapped,
+                market.utilization,
+              )
+            : capacityFilledPercent(
+                market.totalSupply,
+                market.supplyCap,
+                market.isSupplyCapped,
+                market.utilization,
+              );
+          const gradientId = `featured-${mode}-grad-${market.symbol.toLowerCase()}`;
 
           return (
             <GlassCard
@@ -294,10 +323,10 @@ export function FeaturedDepositBoard({
                   </div>
                   <div className="shrink-0 text-right">
                     <div className="font-mono text-xl sm:text-2xl font-bold text-emerald-400">
-                      {market.supplyApy}
+                      {isBorrow ? market.borrowApr : market.supplyApy}
                     </div>
                     <div className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider text-white/40">
-                      Deposit APY
+                      {isBorrow ? "Borrow APY" : "Deposit APY"}
                     </div>
                   </div>
                 </div>
@@ -307,7 +336,7 @@ export function FeaturedDepositBoard({
                   <div className="flex items-center justify-between text-[11px] text-white/45">
                     <span>30-Day APY Trajectory</span>
                     <span className="font-mono text-emerald-400/90">
-                      Avg {market.supplyApy}
+                      Avg {isBorrow ? market.borrowApr : market.supplyApy}
                     </span>
                   </div>
                   <div className="mt-2 h-11 w-full">
@@ -356,10 +385,10 @@ export function FeaturedDepositBoard({
                 <div className="mt-4 grid grid-cols-3 gap-1.5 sm:gap-2 rounded-xl border border-white/[0.05] bg-white/[0.02] p-2.5 sm:p-3 text-xs">
                   <div className="min-w-0">
                     <div className="truncate text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40">
-                      Total Deposits
+                      {isBorrow ? "Total Borrowed" : "Total Deposits"}
                     </div>
                     <div className="mt-1 truncate font-mono text-xs sm:text-sm font-medium text-white">
-                      ${usd(market.totalSupplyUsd).toLocaleString(undefined, {
+                      ${usd(isBorrow ? market.totalBorrowUsd : market.totalSupplyUsd).toLocaleString(undefined, {
                         maximumFractionDigits: 0,
                       })}
                     </div>
@@ -377,7 +406,7 @@ export function FeaturedDepositBoard({
                   </div>
                   <div
                     className="min-w-0 cursor-help"
-                    title={getCapacityTooltip(filled, market)}
+                    title={getCapacityTooltip(filled, market, isBorrow)}
                   >
                     <div className="truncate text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40">
                       Cap Filled
@@ -386,6 +415,7 @@ export function FeaturedDepositBoard({
                       <CapacityMeter
                         value={filled}
                         market={market}
+                        isBorrow={isBorrow}
                         className="w-full min-w-0"
                       />
                     </div>
@@ -393,15 +423,21 @@ export function FeaturedDepositBoard({
                 </div>
               </div>
 
-              {/* Deposit CTA */}
+              {/* Action CTA */}
               <div className="mt-5">
                 <GlassButton
                   variant="primary"
                   className="w-full justify-center min-h-[44px]"
                   disabled={disabled}
-                  onClick={() => onSupply(market)}
+                  onClick={() => {
+                    if (isBorrow) {
+                      onBorrow?.(market);
+                    } else {
+                      onSupply?.(market);
+                    }
+                  }}
                 >
-                  {disabled ? "Paused" : `Deposit ${market.symbol}`}
+                  {disabled ? "Paused" : `${isBorrow ? "Borrow" : "Deposit"} ${market.symbol}`}
                 </GlassButton>
               </div>
             </GlassCard>
@@ -409,6 +445,25 @@ export function FeaturedDepositBoard({
         })}
       </div>
     </section>
+  );
+}
+
+export function FeaturedBorrowBoard({
+  markets,
+  disabled,
+  onBorrow,
+}: {
+  markets: MarketAsset[];
+  disabled?: boolean;
+  onBorrow: (market: MarketAsset) => void;
+}) {
+  return (
+    <FeaturedDepositBoard
+      markets={markets}
+      disabled={disabled}
+      onBorrow={onBorrow}
+      mode="borrow"
+    />
   );
 }
 
