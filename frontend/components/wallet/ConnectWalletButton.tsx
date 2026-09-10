@@ -17,8 +17,10 @@ function truncateAddress(address: string) {
 
 export function ConnectWalletButton({
   onSignInOpen,
+  hideIcon = false,
 }: {
   onSignInOpen?: () => void;
+  hideIcon?: boolean;
 } = {}) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -107,7 +109,7 @@ export function ConnectWalletButton({
               }
             }}
           >
-            <Wallet className="h-4 w-4" />
+            {!hideIcon ? <Wallet className="h-4 w-4" /> : null}
             Connect Wallet
           </GlassButton>
           <GlassButton
