@@ -5,14 +5,14 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   CheckCircle2,
-  CircleDollarSign,
-  Euro,
   ExternalLink,
   Loader2,
   PiggyBank,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
+import { AssetMark } from "@/components/ui/MarketVisuals";
+import { UsdcIcon, EurcIcon } from "@/components/ui/TokenMark";
 import { formatUnits, type Abi, type Address, type Hash } from "viem";
 import {
   useChainId,
@@ -37,7 +37,6 @@ import { useUserBalance } from "@/hooks/useLendingPool";
 import { resultHash, useArcLendContractWrite } from "@/hooks/useArcLendContractWrite";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
 import { showToast } from "@/lib/toast";
-import { arcscanTokenUrl } from "@/lib/markets";
 import {
   ARCSCAN_TX,
   errorMessage,
@@ -51,7 +50,7 @@ type VaultMode = "deposit" | "withdraw";
 const erc20WriteAbi = erc20Abi as Abi;
 
 function iconFor(symbol: EarnVaultMarket["symbol"]) {
-  return symbol === "USDC" ? CircleDollarSign : Euro;
+  return symbol === "USDC" ? UsdcIcon : EurcIcon;
 }
 
 function VaultCard({
@@ -235,25 +234,12 @@ function VaultCard({
     <GlassCard glowOnHover className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="rounded-md border border-white/[0.08] bg-white/[0.06] p-3">
-            <Icon className="h-5 w-5" />
-          </div>
+          <AssetMark symbol={vault.symbol} size="sm" />
           <div>
             <h2 className="text-lg font-semibold text-white">{vault.symbol} Earn Vault</h2>
             <p className="mt-1 text-xs text-white/35">
-              {vault.deployed ? "Lendora Earn Vault" : "Deployment pending"}
+              {vault.deployed ? "Lendora managed vault" : "Deployment pending"}
             </p>
-            {vault.deployed ? (
-              <a
-                href={arcscanTokenUrl(vault.vault)}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-1 inline-flex items-center gap-1 font-mono text-[10px] text-white/45 transition hover:text-white"
-              >
-                ev{vault.symbol} on ArcScan
-                <ExternalLink className="h-2.5 w-2.5" />
-              </a>
-            ) : null}
           </div>
         </div>
         <StatBadge label="Lending APY" value={supplyApy} tone="positive" />
@@ -447,7 +433,10 @@ export default function EarnPage() {
                     className="rounded-md border border-white/[0.08] bg-black/15 p-3"
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <span className="font-medium text-white">{market.symbol}</span>
+                      <span className="flex items-center gap-2 font-medium text-white">
+                        <AssetMark symbol={market.symbol} size="sm" />
+                        {market.symbol}
+                      </span>
                       <StatBadge label="Supply APY" value={market.supplyApy} tone="positive" />
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-white/50">
