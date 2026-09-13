@@ -433,7 +433,10 @@ export default function EarnPage() {
                     className="rounded-md border border-white/[0.08] bg-black/15 p-3"
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <span className="font-medium text-white">{market.symbol}</span>
+                      <span className="flex items-center gap-2 font-medium text-white">
+                        <AssetMark symbol={market.symbol} size="sm" />
+                        {market.symbol}
+                      </span>
                       <StatBadge label="Supply APY" value={market.supplyApy} tone="positive" />
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-white/50">
