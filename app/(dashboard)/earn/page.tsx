@@ -5,14 +5,14 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   CheckCircle2,
-  CircleDollarSign,
-  Euro,
   ExternalLink,
   Loader2,
   PiggyBank,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
+import { AssetMark } from "@/components/ui/MarketVisuals";
+import { UsdcIcon, EurcIcon } from "@/components/ui/TokenMark";
 import { formatUnits, type Abi, type Address, type Hash } from "viem";
 import {
   useChainId,
@@ -50,7 +50,7 @@ type VaultMode = "deposit" | "withdraw";
 const erc20WriteAbi = erc20Abi as Abi;
 
 function iconFor(symbol: EarnVaultMarket["symbol"]) {
-  return symbol === "USDC" ? CircleDollarSign : Euro;
+  return symbol === "USDC" ? UsdcIcon : EurcIcon;
 }
 
 function VaultCard({
@@ -234,9 +234,7 @@ function VaultCard({
     <GlassCard glowOnHover className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="rounded-md border border-white/[0.08] bg-white/[0.06] p-3">
-            <Icon className="h-5 w-5" />
-          </div>
+          <AssetMark symbol={vault.symbol} size="sm" />
           <div>
             <h2 className="text-lg font-semibold text-white">{vault.symbol} Earn Vault</h2>
             <p className="mt-1 text-xs text-white/35">
