@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <g fill="none" fill-rule="evenodd">
+    <circle cx="16" cy="16" r="16" fill="#0b101b"/>
+    <circle cx="16" cy="16" r="15" stroke="#2775C9" stroke-width="0.75" stroke-opacity="0.4"/>
+    <g transform="translate(6, 6)">
+      <!-- Circle Internet Group Corporate Emblem -->
+      <path d="M10 0C4.477 0 0 4.477 0 10c0 5.523 4.477 10 10 10 3.314 0 6.25-1.612 8.04-4.094l-2.618-1.512A6.974 6.974 0 0 1 10 17c-3.866 0-7-3.134-7-7s3.134-7 7-7c2.148 0 4.07.967 5.353 2.494l2.673-1.414C16.148 1.583 13.262 0 10 0Z" fill="#2775C9"/>
+      <circle cx="15.5" cy="10" r="3.2" fill="#00D2FF"/>
+      <circle cx="10" cy="10" r="2" fill="#FFFFFF"/>
+    </g>
+  </g>
+</svg>

@@ -26,35 +26,42 @@ type RouteInfo = {
 
 const SUPPORTED_ROUTES: RouteInfo[] = [
   {
-    name: "Arc Testnet",
+    name: "Arc Mainnet",
     chainKey: "arc",
     badge: "Hub · Sub-second",
     speed: "< 1 sec",
     status: "fast",
   },
   {
-    name: "Ethereum Sepolia",
+    name: "Ethereum",
     chainKey: "ethereum",
     badge: "Circle CCTP v2",
     speed: "~1–2 min",
     status: "live",
   },
   {
-    name: "Base Sepolia",
+    name: "Base",
     chainKey: "base",
     badge: "Circle CCTP v2",
     speed: "~1–2 min",
     status: "live",
   },
   {
-    name: "Polygon Amoy",
+    name: "Polygon",
     chainKey: "polygon",
     badge: "Circle CCTP v2",
     speed: "~1–2 min",
     status: "live",
   },
   {
-    name: "Solana Devnet",
+    name: "Arbitrum",
+    chainKey: "arbitrum",
+    badge: "Circle CCTP v2",
+    speed: "~1–2 min",
+    status: "live",
+  },
+  {
+    name: "Solana",
     chainKey: "solana",
     badge: "Circle CCTP v2",
     speed: "~1–2 min",
@@ -112,6 +119,20 @@ function RouteChainLogo({ chainKey }: { chainKey: string }) {
     );
   }
 
+  if (chainKey === "arbitrum") {
+    return (
+      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#28A0F0]/20 p-1 shrink-0 shadow-inner">
+        <svg className="h-full w-full" viewBox="0 0 24 24" fill="none" aria-label="Arbitrum">
+          <circle cx="12" cy="12" r="10" fill="#28A0F0" />
+          <path
+            d="M12 5.5l-4.5 7.8h2.1l2.4-4.2 2.4 4.2h2.1L12 5.5zm-2.1 9l-1 1.8h6.2l-1-1.8H9.9z"
+            fill="white"
+          />
+        </svg>
+      </span>
+    );
+  }
+
   // Solana
   return (
     <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#14F195]/20 p-1 shrink-0 shadow-inner">
@@ -131,7 +152,7 @@ export default function BridgePage() {
         <PageHeader
           icon={<ArrowLeftRight />}
           title="Bridge USDC"
-          description="Move native testnet USDC between Arc and supported networks with 1:1 burn-and-mint settlement, zero slippage, and non-custodial browser wallet execution."
+          description="Move native USDC between Arc Mainnet and supported networks with 1:1 burn-and-mint settlement, zero slippage, and non-custodial browser wallet execution."
         />
 
         <div className="grid gap-6 lg:grid-cols-[1.12fr_0.88fr] items-start">
@@ -148,7 +169,7 @@ export default function BridgePage() {
                   <p className="text-[11px] text-white/45">Native burn & mint without wrapped risk</p>
                 </div>
                 <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-0.5 text-[11px] font-medium text-white/60">
-                  5 Chains Live
+                  6 Chains Live
                 </span>
               </div>
 
@@ -169,7 +190,7 @@ export default function BridgePage() {
                             {route.badge}
                           </span>
                         </div>
-                        <p className="text-[11px] text-white/40">USDC ↔ Arc Testnet</p>
+                        <p className="text-[11px] text-white/40">USDC ↔ Arc Mainnet</p>
                       </div>
                     </div>
 

@@ -33,10 +33,11 @@ type CompatibleWallet = WalletWithFeatures<
     >
 >;
 
-const SOLANA_CHAIN = "solana:devnet" as const;
+const SOLANA_CHAIN = "solana:mainnet" as const;
 const selectedWalletStorageKey = "arclend:solana-wallet";
-export const SOLANA_DEVNET_USDC_MINT =
-  "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
+export const SOLANA_MAINNET_USDC_MINT =
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+export const SOLANA_DEVNET_USDC_MINT = SOLANA_MAINNET_USDC_MINT;
 
 let initialized = false;
 let selectedWalletName: string | null = null;
@@ -315,7 +316,7 @@ export function useSolanaUsdcBalance(publicKey: string | null) {
     const load = async () => {
       setIsLoading(true);
       try {
-        const response = await fetch("https://api.devnet.solana.com", {
+        const response = await fetch("https://api.mainnet-beta.solana.com", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
@@ -324,7 +325,7 @@ export function useSolanaUsdcBalance(publicKey: string | null) {
             method: "getTokenAccountsByOwner",
             params: [
               publicKey,
-              { mint: SOLANA_DEVNET_USDC_MINT },
+              { mint: SOLANA_MAINNET_USDC_MINT },
               { encoding: "jsonParsed", commitment: "confirmed" },
             ],
           }),

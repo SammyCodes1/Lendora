@@ -16,7 +16,7 @@ import { useAccount, useChainId, useReadContracts, useSwitchChain } from "wagmi"
 import erc20Abi from "@/constants/abis/ERC20.json";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
 import { useSolanaWallet } from "@/hooks/useSolanaWallet";
-import { appKit, createAppKitAdapter } from "@/lib/appkit";
+import { appKit, createAppKitAdapter, ArcMainnet } from "@/lib/appkit";
 
 export type AppKitStatus =
   | "idle"
@@ -28,18 +28,19 @@ export type AppKitStatus =
 
 export type BridgeNetwork = {
   chain:
-    | "Arc_Testnet"
-    | "Ethereum_Sepolia"
-    | "Base_Sepolia"
-    | "Polygon_Amoy_Testnet";
-  chainId: 5042002 | 11155111 | 84532 | 80002;
+    | "Arc"
+    | "Ethereum"
+    | "Base"
+    | "Polygon"
+    | "Arbitrum";
+  chainId: 5042 | 1 | 8453 | 137 | 42161;
   label: string;
 };
 
 export type BridgeSource = BridgeNetwork;
 
 export type SolanaBridgeNetwork = {
-  chain: "Solana_Devnet";
+  chain: "Solana";
   chainId: null;
   label: string;
 };
@@ -63,7 +64,7 @@ export type BridgeProgressStep = {
 };
 
 function createBridgeProgress(
-  destinationLabel = "Arc Testnet",
+  destinationLabel = "Arc Mainnet",
 ): BridgeProgressStep[] {
   return [
     { key: "switch", label: "Switch source network", state: "waiting" },
@@ -95,23 +96,28 @@ const nextBridgeStep: Partial<
 const walletUsdcContracts = [
   {
     key: "arc",
-    chainId: 5042002,
+    chainId: 5042,
     address: "0x3600000000000000000000000000000000000000",
   },
   {
     key: "ethereum",
-    chainId: 11155111,
-    address: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+    chainId: 1,
+    address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
   },
   {
     key: "base",
-    chainId: 84532,
-    address: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    chainId: 8453,
+    address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
   },
   {
     key: "polygon",
-    chainId: 80002,
-    address: "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582",
+    chainId: 137,
+    address: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+  },
+  {
+    key: "arbitrum",
+    chainId: 42161,
+    address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
   },
 ] as const;
 
@@ -244,8 +250,8 @@ export function useBridge() {
       onEvent?: (event: BridgeEvent) => void,
     ) => {
       const { source, destination, amount } = input;
-      const sourceIsSolana = source.chain === "Solana_Devnet";
-      const destinationIsSolana = destination.chain === "Solana_Devnet";
+      const sourceIsSolana = source.chain === "Solana";
+      const destinationIsSolana = destination.chain === "Solana";
       const usesSolana = sourceIsSolana || destinationIsSolana;
       const evmSource = sourceIsSolana ? null : source;
 
@@ -309,34 +315,40 @@ export function useBridge() {
                 provider: solanaProvider,
                 capabilities: { addressContext: "user-controlled" },
               });
+              const bridgeSourceChain = (source.chain === "Arc" ? ArcMainnet : source.chain) as any;
+              const bridgeDestinationChain = (destination.chain === "Arc" ? ArcMainnet : destination.chain) as any;
               return sourceIsSolana
                 ? bridgeKit.bridge({
-                    from: { adapter: solanaAdapter, chain: "Solana_Devnet" },
+                    from: { adapter: solanaAdapter, chain: "Solana" },
                     to: {
                       adapter,
-                      chain: destination.chain,
+                      chain: bridgeDestinationChain,
                       useForwarder: true,
                     },
                     amount,
                     token: "USDC",
                   })
                 : bridgeKit.bridge({
-                    from: { adapter, chain: source.chain },
-                    to: { adapter: solanaAdapter, chain: "Solana_Devnet" },
+                    from: { adapter, chain: bridgeSourceChain },
+                    to: { adapter: solanaAdapter, chain: "Solana" },
                     amount,
                     token: "USDC",
                   });
             })()
-          : await bridgeKit.bridge({
-              from: { adapter, chain: source.chain },
-              to: {
-                adapter,
-                chain: destination.chain,
-                useForwarder: true,
-              },
-              amount,
-              token: "USDC",
-            });
+          : await (async () => {
+              const bridgeSourceChain = (source.chain === "Arc" ? ArcMainnet : source.chain) as any;
+              const bridgeDestinationChain = (destination.chain === "Arc" ? ArcMainnet : destination.chain) as any;
+              return bridgeKit.bridge({
+                from: { adapter, chain: bridgeSourceChain },
+                to: {
+                  adapter,
+                  chain: bridgeDestinationChain,
+                  useForwarder: true,
+                },
+                amount,
+                token: "USDC",
+              });
+            })();
         const completedAt = performance.now();
         setFinalityMs(
           bridgeStartedAtRef.current === null
@@ -476,7 +488,7 @@ export function useUnifiedBalance() {
       const balances = await appKit.unifiedBalance.getBalances({
         token: "USDC",
         sources: { address },
-        networkType: "testnet",
+        networkType: "mainnet",
       });
       setData(balances);
       setStatus("success");
@@ -508,7 +520,7 @@ export function useUnifiedBalance() {
           from: { adapter },
           to: {
             adapter,
-            chain: "Arc_Testnet",
+            chain: ArcMainnet as any,
             recipientAddress: address,
             useForwarder: true,
           },
@@ -545,6 +557,7 @@ export function useUnifiedBalance() {
     ethereum: walletBalanceFor(1),
     base: walletBalanceFor(2),
     polygon: walletBalanceFor(3),
+    arbitrum: walletBalanceFor(4),
   };
   const gatewayTotal = Number(data?.totalConfirmedBalance ?? 0);
   const walletTotal = Object.values(walletBreakdown).reduce(
@@ -562,10 +575,11 @@ export function useUnifiedBalance() {
     walletTotal,
     walletBreakdown,
     breakdown: {
-      arc: balanceFor("Arc_Testnet"),
-      ethereum: balanceFor("Ethereum_Sepolia"),
-      base: balanceFor("Base_Sepolia"),
-      polygon: balanceFor("Polygon_Amoy_Testnet"),
+      arc: balanceFor("Arc"),
+      ethereum: balanceFor("Ethereum"),
+      base: balanceFor("Base"),
+      polygon: balanceFor("Polygon"),
+      arbitrum: balanceFor("Arbitrum"),
     },
     isLoading:
       status === "loading" ||

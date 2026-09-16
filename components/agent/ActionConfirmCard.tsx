@@ -80,29 +80,35 @@ const sourceNetworks: Array<
   BridgeNetwork & { aliases: string[] }
 > = [
   {
-    chain: "Ethereum_Sepolia",
-    chainId: 11155111,
-    label: "Ethereum Sepolia",
-    aliases: ["ethereum", "ethereum sepolia", "sepolia"],
+    chain: "Ethereum",
+    chainId: 1,
+    label: "Ethereum",
+    aliases: ["ethereum", "mainnet", "eth"],
   },
   {
-    chain: "Base_Sepolia",
-    chainId: 84532,
-    label: "Base Sepolia",
-    aliases: ["base", "base sepolia"],
+    chain: "Base",
+    chainId: 8453,
+    label: "Base",
+    aliases: ["base"],
   },
   {
-    chain: "Polygon_Amoy_Testnet",
-    chainId: 80002,
-    label: "Polygon Amoy",
-    aliases: ["polygon", "polygon amoy", "amoy"],
+    chain: "Polygon",
+    chainId: 137,
+    label: "Polygon",
+    aliases: ["polygon", "matic", "pol"],
+  },
+  {
+    chain: "Arbitrum",
+    chainId: 42161,
+    label: "Arbitrum",
+    aliases: ["arbitrum", "arb"],
   },
 ];
 
 const arcDestination: BridgeNetwork = {
-  chain: "Arc_Testnet",
-  chainId: 5042002,
-  label: "Arc Testnet",
+  chain: "Arc",
+  chainId: 5042,
+  label: "Arc Mainnet",
 };
 
 const swapRouteLabels: Record<SwapRouteQuote["key"], string> = {
@@ -450,7 +456,7 @@ export function ActionConfirmCard({
             "Arc mint",
           ],
           detail:
-            "Circle CCTP burns USDC on the source chain and mints the same asset on Arc Testnet after attestation.",
+            "Circle CCTP burns USDC on the source chain and mints the same asset on Arc Mainnet after attestation.",
         });
         return;
       }
@@ -757,7 +763,7 @@ export function ActionConfirmCard({
           transactionHash: completedStep.txHash,
           explorerUrl:
             completedStep.explorerUrl ??
-            `https://testnet.arcscan.app/tx/${completedStep.txHash}`,
+            `https://arcscan.app/tx/${completedStep.txHash}`,
           finalityMs: Math.max(
             0,
             Math.round(performance.now() - submittedAt),

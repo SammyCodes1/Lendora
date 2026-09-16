@@ -41,18 +41,20 @@ import { cn } from "@/lib/utils";
 type BridgeWidgetProps = { embedded?: boolean };
 
 const BRIDGE_NETWORKS: BridgeEndpoint[] = [
-  { chain: "Arc_Testnet", chainId: 5042002, label: "Arc Testnet" },
-  { chain: "Ethereum_Sepolia", chainId: 11155111, label: "Ethereum Sepolia" },
-  { chain: "Base_Sepolia", chainId: 84532, label: "Base Sepolia" },
-  { chain: "Polygon_Amoy_Testnet", chainId: 80002, label: "Polygon Amoy" },
-  { chain: "Solana_Devnet", chainId: null, label: "Solana Devnet" },
+  { chain: "Arc", chainId: 5042, label: "Arc Mainnet" },
+  { chain: "Ethereum", chainId: 1, label: "Ethereum" },
+  { chain: "Base", chainId: 8453, label: "Base" },
+  { chain: "Polygon", chainId: 137, label: "Polygon" },
+  { chain: "Arbitrum", chainId: 42161, label: "Arbitrum" },
+  { chain: "Solana", chainId: null, label: "Solana" },
 ];
 
 const USDC_BY_CHAIN = {
-  Arc_Testnet: "0x3600000000000000000000000000000000000000",
-  Ethereum_Sepolia: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
-  Base_Sepolia: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-  Polygon_Amoy_Testnet: "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582",
+  Arc: "0x3600000000000000000000000000000000000000",
+  Ethereum: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+  Base: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  Polygon: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+  Arbitrum: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
 } as const;
 
 function NetworkLogo({
@@ -62,7 +64,7 @@ function NetworkLogo({
   chain: BridgeEndpoint["chain"];
   className?: string;
 }) {
-  if (chain === "Arc_Testnet") {
+  if (chain === "Arc") {
     return (
       <span className={cn("inline-flex items-center justify-center rounded-full bg-[#1a1d24] p-0.5 shrink-0", className)}>
         <svg className="h-full w-full" viewBox="0 0 31 32" fill="none" aria-label="Arc">
@@ -75,7 +77,7 @@ function NetworkLogo({
     );
   }
 
-  if (chain === "Ethereum_Sepolia") {
+  if (chain === "Ethereum") {
     return (
       <span className={cn("inline-flex items-center justify-center rounded-full bg-[#627EEA]/20 p-0.5 shrink-0", className)}>
         <svg className="h-full w-full" viewBox="0 0 24 24" fill="none" aria-label="Ethereum">
@@ -87,7 +89,7 @@ function NetworkLogo({
     );
   }
 
-  if (chain === "Base_Sepolia") {
+  if (chain === "Base") {
     return (
       <span className={cn("inline-flex items-center justify-center rounded-full bg-[#0052FF]/20 p-0.5 shrink-0", className)}>
         <svg className="h-full w-full" viewBox="0 0 24 24" fill="none" aria-label="Base">
@@ -98,7 +100,7 @@ function NetworkLogo({
     );
   }
 
-  if (chain === "Polygon_Amoy_Testnet") {
+  if (chain === "Polygon") {
     return (
       <span className={cn("inline-flex items-center justify-center rounded-full bg-[#8247E5]/20 p-0.5 shrink-0", className)}>
         <svg className="h-full w-full" viewBox="0 0 24 24" fill="none" aria-label="Polygon">
@@ -111,7 +113,21 @@ function NetworkLogo({
     );
   }
 
-  // Solana_Devnet
+  if (chain === "Arbitrum") {
+    return (
+      <span className={cn("inline-flex items-center justify-center rounded-full bg-[#28A0F0]/20 p-0.5 shrink-0", className)}>
+        <svg className="h-full w-full" viewBox="0 0 24 24" fill="none" aria-label="Arbitrum">
+          <circle cx="12" cy="12" r="10" fill="#28A0F0" />
+          <path
+            d="M12 5.5l-4.5 7.8h2.1l2.4-4.2 2.4 4.2h2.1L12 5.5zm-2.1 9l-1 1.8h6.2l-1-1.8H9.9z"
+            fill="white"
+          />
+        </svg>
+      </span>
+    );
+  }
+
+  // Solana
   return (
     <span className={cn("inline-flex items-center justify-center rounded-full bg-[#14F195]/20 p-0.5 shrink-0", className)}>
       <svg className="h-full w-full" viewBox="0 0 397.7 311.7" fill="none" aria-label="Solana">
@@ -202,38 +218,45 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
   const solanaBalance = useSolanaUsdcBalance(publicKey);
   const arcBalance = useTokenBalance({
     address,
-    token: USDC_BY_CHAIN.Arc_Testnet,
-    chainId: 5042002,
+    token: USDC_BY_CHAIN.Arc,
+    chainId: 5042,
     enabled: Boolean(address),
     refetchInterval: 15_000,
   });
   const ethereumBalance = useTokenBalance({
     address,
-    token: USDC_BY_CHAIN.Ethereum_Sepolia,
-    chainId: 11155111,
+    token: USDC_BY_CHAIN.Ethereum,
+    chainId: 1,
     enabled: Boolean(address),
     refetchInterval: 15_000,
   });
   const baseBalance = useTokenBalance({
     address,
-    token: USDC_BY_CHAIN.Base_Sepolia,
-    chainId: 84532,
+    token: USDC_BY_CHAIN.Base,
+    chainId: 8453,
     enabled: Boolean(address),
     refetchInterval: 15_000,
   });
   const polygonBalance = useTokenBalance({
     address,
-    token: USDC_BY_CHAIN.Polygon_Amoy_Testnet,
-    chainId: 80002,
+    token: USDC_BY_CHAIN.Polygon,
+    chainId: 137,
+    enabled: Boolean(address),
+    refetchInterval: 15_000,
+  });
+  const arbitrumBalance = useTokenBalance({
+    address,
+    token: USDC_BY_CHAIN.Arbitrum,
+    chainId: 42161,
     enabled: Boolean(address),
     refetchInterval: 15_000,
   });
   const bridgeAction = useBridge();
   const [sourceNetwork, setSourceNetwork] = useState<BridgeEndpoint>(
-    BRIDGE_NETWORKS[0],
+    BRIDGE_NETWORKS[2],
   );
   const [destinationNetwork, setDestinationNetwork] = useState<BridgeEndpoint>(
-    BRIDGE_NETWORKS[4],
+    BRIDGE_NETWORKS[0],
   );
   const [amount, setAmount] = useState("");
   const [fundsOpen, setFundsOpen] = useState(false);
@@ -242,17 +265,18 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
   const connectorReady =
     isConnected && accountSource === "wallet" && bridgeAction.evmReady;
   const evmBalances = {
-    Arc_Testnet: arcBalance,
-    Ethereum_Sepolia: ethereumBalance,
-    Base_Sepolia: baseBalance,
-    Polygon_Amoy_Testnet: polygonBalance,
+    Arc: arcBalance,
+    Ethereum: ethereumBalance,
+    Base: baseBalance,
+    Polygon: polygonBalance,
+    Arbitrum: arbitrumBalance,
   };
   const selectedEvmBalance =
-    sourceNetwork.chain === "Solana_Devnet"
+    sourceNetwork.chain === "Solana"
       ? null
       : evmBalances[sourceNetwork.chain];
   const available =
-    sourceNetwork.chain === "Solana_Devnet"
+    sourceNetwork.chain === "Solana"
       ? (solanaBalance.balance ?? 0)
       : selectedEvmBalance?.data
         ? Number(
@@ -263,16 +287,16 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
           )
         : 0;
   const balanceLoading =
-    sourceNetwork.chain === "Solana_Devnet"
+    sourceNetwork.chain === "Solana"
       ? solanaBalance.isLoading
       : Boolean(selectedEvmBalance?.isLoading);
   const balanceKnown =
-    sourceNetwork.chain === "Solana_Devnet"
+    sourceNetwork.chain === "Solana"
       ? solanaBalance.balance !== null
       : Boolean(selectedEvmBalance?.data);
   const requiresSolana =
-    sourceNetwork.chain === "Solana_Devnet" ||
-    destinationNetwork.chain === "Solana_Devnet";
+    sourceNetwork.chain === "Solana" ||
+    destinationNetwork.chain === "Solana";
   const showFundingReminder = balanceKnown && available === 0;
   const exceedsBalance = Boolean(amount) && Number(amount) > available;
   const explorerUrl = useMemo(
@@ -349,7 +373,7 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
               </span>
             </div>
             <p className="mt-0.5 text-xs text-white/45">
-              Zero slippage · Native burn & mint between testnets
+              Zero slippage · Native burn & mint cross-chain
             </p>
           </div>
 
@@ -364,13 +388,13 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
               <span className="hidden sm:inline">Reset</span>
             </button>
             <a
-              href="https://faucet.circle.com"
+              href="https://www.circle.com/en/cross-chain-transfer-protocol"
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs text-white/50 transition hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
             >
-              <Droplets className="h-3 w-3 text-cyan-300" />
-              <span>Faucet</span>
+              <Info className="h-3 w-3 text-cyan-300" />
+              <span>CCTP Docs</span>
               <ExternalLink className="h-2.5 w-2.5 text-white/30" />
             </a>
           </div>
@@ -542,7 +566,7 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
         </div>
         {requiresSolana && !solanaWalletAvailable ? (
           <p className="text-xs text-amber-200/80 bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5">
-            No Solana wallet detected. Install Phantom or Backpack to bridge to/from Solana Devnet.
+            No Solana wallet detected. Install Phantom or Backpack to bridge to/from Solana.
           </p>
         ) : null}
       </div>
@@ -613,22 +637,21 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
             onClick={() => setFundsOpen((value) => !value)}
             className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-xs font-medium text-amber-100/75"
           >
-            <span>Need testnet funds on {sourceNetwork.label}?</span>
+            <span>Need USDC on {sourceNetwork.label}?</span>
             <ChevronDown
               className={cn("h-4 w-4 transition-transform", fundsOpen && "rotate-180")}
             />
           </button>
           {fundsOpen ? (
             <div className="space-y-2 border-t border-white/[0.06] px-3 py-2.5 text-xs text-white/50">
-              <a className="flex items-center justify-between hover:text-white" href="https://faucet.circle.com" target="_blank" rel="noreferrer">
-                <span>Get Circle testnet USDC</span>
+              <a className="flex items-center justify-between hover:text-white" href="https://www.circle.com/en/usdc" target="_blank" rel="noreferrer">
+                <span>Learn about Circle native USDC</span>
                 <ExternalLink className="h-3 w-3" />
               </a>
               {requiresSolana ? (
-                <a className="flex items-center justify-between hover:text-white" href="https://faucet.solana.com" target="_blank" rel="noreferrer">
-                  <span>Get Solana Devnet SOL for gas</span>
-                  <ExternalLink className="h-3 w-3" />
-                </a>
+                <p className="text-[11px] text-white/40">
+                  Ensure your Solana wallet has SOL for transaction fees.
+                </p>
               ) : null}
             </div>
           ) : null}
