@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { useChainId, useSwitchChain } from "wagmi";
+import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import testnetDeployments from "@/constants/deployments-testnet.json";
 import mainnetDeployments from "@/constants/deployments-mainnet.json";
 
@@ -22,9 +22,10 @@ export function setActiveChainId(chainId: number) {
 }
 
 export function useActiveDeployment() {
+  const { isConnected } = useAccount();
   const walletChainId = useChainId();
   const { switchChain } = useSwitchChain();
-  const [preferredChainId, setPreferredChainId] = useState<number>(ARC_TESTNET_CHAIN_ID);
+  const [preferredChainId, setPreferredChainId] = useState<number>(() => getActiveChainId());
 
   useEffect(() => {
     setPreferredChainId(getActiveChainId());
@@ -40,11 +41,11 @@ export function useActiveDeployment() {
   }, []);
 
   const activeChainId = useMemo(() => {
-    if (walletChainId === ARC_MAINNET_CHAIN_ID || walletChainId === ARC_TESTNET_CHAIN_ID) {
+    if (isConnected && (walletChainId === ARC_MAINNET_CHAIN_ID || walletChainId === ARC_TESTNET_CHAIN_ID)) {
       return walletChainId;
     }
     return preferredChainId;
-  }, [walletChainId, preferredChainId]);
+  }, [isConnected, walletChainId, preferredChainId]);
 
   const isMainnet = activeChainId === ARC_MAINNET_CHAIN_ID;
   const deployment = isMainnet ? mainnetDeployments : testnetDeployments;
