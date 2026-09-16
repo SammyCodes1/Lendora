@@ -6,6 +6,22 @@ import { walletConnect } from 'wagmi/connectors/walletConnect'
 
 export { arcTestnet }
 
+export const arcMainnet = defineChain({
+  id: 5042,
+  name: 'Arc Mainnet',
+  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+  rpcUrls: {
+    default: {
+      http: [
+        process.env.NEXT_PUBLIC_ARC_MAINNET_RPC_URL || 'https://rpc.mainnet.arc.io',
+      ],
+    },
+  },
+  blockExplorers: {
+    default: { name: 'ArcScan', url: 'https://arcscan.app' },
+  },
+})
+
 const arcRpcUrls = [
   process.env.NEXT_PUBLIC_ARC_TESTNET_RPC_URL,
   'https://rpc.testnet.arc.network',
@@ -54,7 +70,7 @@ export const wagmiConfig = createConfig({
   // Defer persisted wallet state until after React hydration so the server
   // and initial client markup remain identical.
   ssr: true,
-  chains: [arcTestnet, sepolia, baseSepolia, polygonAmoy],
+  chains: [arcMainnet, arcTestnet, sepolia, baseSepolia, polygonAmoy],
   connectors: [
     injected(),
     walletConnect({
@@ -65,6 +81,7 @@ export const wagmiConfig = createConfig({
     }),
   ],
   transports: {
+    [arcMainnet.id]: http(process.env.NEXT_PUBLIC_ARC_MAINNET_RPC_URL || 'https://rpc.mainnet.arc.io', { retryCount: 1, timeout: 12_000 }),
     [arcTestnet.id]: createArcTestnetTransport(),
     [sepolia.id]: http(),
     [baseSepolia.id]: http(),

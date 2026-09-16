@@ -4,6 +4,7 @@ import type { Address } from "viem";
 import { useReadContracts } from "wagmi";
 import mockPriceOracleAbi from "@/constants/abis/MockPriceOracle.json";
 import deployments from "@/constants/deployments.json";
+import { useActiveDeployment } from "@/hooks/useActiveDeployment";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const oracleAbi = mockPriceOracleAbi;
@@ -28,22 +29,25 @@ function isValidPrice(
  * primary oracle first, then fallback when primary is stale/zero/invalid.
  */
 export function useAssetPrice(asset: Address) {
+  const { deployment, chainId } = useActiveDeployment();
+  const primaryOracleAddr = (deployment.priceOracle || primaryOracle) as Address;
+  const fallbackOracleAddr = (deployment.fallbackPriceOracle ?? ZERO_ADDRESS) as Address;
   const hasFallback =
-    fallbackOracle !== ZERO_ADDRESS &&
-    fallbackOracle.toLowerCase() !== primaryOracle.toLowerCase();
+    fallbackOracleAddr !== ZERO_ADDRESS &&
+    fallbackOracleAddr.toLowerCase() !== primaryOracleAddr.toLowerCase();
 
   const result = useReadContracts({
     contracts: [
       {
-        chainId: 5042002,
-        address: primaryOracle,
+        chainId,
+        address: primaryOracleAddr,
         abi: oracleAbi,
         functionName: "getPrice",
         args: [asset],
       },
       {
-        chainId: 5042002,
-        address: hasFallback ? fallbackOracle : primaryOracle,
+        chainId,
+        address: hasFallback ? fallbackOracleAddr : primaryOracleAddr,
         abi: oracleAbi,
         functionName: "getPrice",
         args: [asset],
@@ -52,7 +56,7 @@ export function useAssetPrice(asset: Address) {
     allowFailure: true,
     query: {
       enabled:
-        primaryOracle !== ZERO_ADDRESS &&
+        primaryOracleAddr !== ZERO_ADDRESS &&
         Boolean(asset) &&
         asset !== ZERO_ADDRESS,
       refetchInterval: 4_000,

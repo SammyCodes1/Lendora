@@ -7,6 +7,7 @@ import { useReadContract, useReadContracts } from "wagmi";
 import lendingPoolAbi from "@/constants/abis/LendingPool.json";
 import deployments from "@/constants/deployments.json";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
+import { useActiveDeployment } from "@/hooks/useActiveDeployment";
 import {
   resultHash,
   useArcLendContractWrite,
@@ -155,14 +156,16 @@ function mapUserAccountData(data: unknown): UserAccountData | undefined {
 }
 
 export function useReservesList() {
+  const { deployment, chainId } = useActiveDeployment();
+  const poolAddr = (deployment.lendingPool || lendingPoolAddress) as Address;
   const result = useReadContract({
-    chainId: 5042002,
-    address: lendingPoolAddress,
+    chainId,
+    address: poolAddr,
     abi,
     functionName: "getReservesList",
     query: {
       enabled:
-        lendingPoolAddress !==
+        poolAddr !==
         "0x0000000000000000000000000000000000000000",
       refetchInterval: 4_000,
     },
@@ -177,11 +180,13 @@ export function useReservesList() {
 }
 
 export function useReserveData(asset: Address, enabled = true) {
+  const { deployment, chainId } = useActiveDeployment();
+  const poolAddr = (deployment.lendingPool || lendingPoolAddress) as Address;
   const result = useReadContracts({
     contracts: [
       {
-        chainId: 5042002,
-        address: lendingPoolAddress,
+        chainId,
+        address: poolAddr,
         abi,
         functionName: "getReserveData",
         args: [asset],
@@ -190,7 +195,7 @@ export function useReserveData(asset: Address, enabled = true) {
     query: {
       enabled:
         enabled &&
-        lendingPoolAddress !==
+        poolAddr !==
           "0x0000000000000000000000000000000000000000",
     },
   });
@@ -202,14 +207,16 @@ export function useReserveData(asset: Address, enabled = true) {
 }
 
 export function useUserAccountData(user?: Address) {
+  const { deployment, chainId } = useActiveDeployment();
+  const poolAddr = (deployment.lendingPool || lendingPoolAddress) as Address;
   const result = useReadContract({
-    chainId: 5042002,
-    address: lendingPoolAddress,
+    chainId,
+    address: poolAddr,
     abi,
     functionName: "getUserAccountData",
     args: user ? [user] : undefined,
     query: {
-      enabled: Boolean(user) && lendingPoolAddress !== "0x0000000000000000000000000000000000000000",
+      enabled: Boolean(user) && poolAddr !== "0x0000000000000000000000000000000000000000",
       refetchInterval: 4_000,
     },
   });
@@ -222,6 +229,8 @@ export function useUserAccountData(user?: Address) {
 
 export function useSupplyAction() {
   const { address } = useArcLendAccount();
+  const { deployment, chainId } = useActiveDeployment();
+  const poolAddr = (deployment.lendingPool || lendingPoolAddress) as Address;
   const write = useArcLendContractWrite();
 
   return {
@@ -231,8 +240,8 @@ export function useSupplyAction() {
     error: write.error,
     supply: (asset: Address, amount: bigint, onBehalfOf: Address = address as Address) =>
       write.writeContractAsync({
-        chainId: 5042002,
-        address: lendingPoolAddress,
+        chainId,
+        address: poolAddr,
         abi,
         functionName: "supply",
         args: [asset, amount, onBehalfOf],
@@ -242,6 +251,8 @@ export function useSupplyAction() {
 
 export function useWithdrawAction() {
   const { address } = useArcLendAccount();
+  const { deployment, chainId } = useActiveDeployment();
+  const poolAddr = (deployment.lendingPool || lendingPoolAddress) as Address;
   const write = useArcLendContractWrite();
 
   return {
@@ -251,8 +262,8 @@ export function useWithdrawAction() {
     error: write.error,
     withdraw: (asset: Address, amount: bigint, to: Address = address as Address) =>
       write.writeContractAsync({
-        chainId: 5042002,
-        address: lendingPoolAddress,
+        chainId,
+        address: poolAddr,
         abi,
         functionName: "withdraw",
         args: [asset, amount, to],
@@ -262,6 +273,8 @@ export function useWithdrawAction() {
 
 export function useBorrowAction() {
   const { address } = useArcLendAccount();
+  const { deployment, chainId } = useActiveDeployment();
+  const poolAddr = (deployment.lendingPool || lendingPoolAddress) as Address;
   const write = useArcLendContractWrite();
 
   return {
@@ -271,8 +284,8 @@ export function useBorrowAction() {
     error: write.error,
     borrow: (asset: Address, amount: bigint, onBehalfOf: Address = address as Address) =>
       write.writeContractAsync({
-        chainId: 5042002,
-        address: lendingPoolAddress,
+        chainId,
+        address: poolAddr,
         abi,
         functionName: "borrow",
         args: [asset, amount, onBehalfOf],
@@ -282,6 +295,8 @@ export function useBorrowAction() {
 
 export function useRepayAction() {
   const { address } = useArcLendAccount();
+  const { deployment, chainId } = useActiveDeployment();
+  const poolAddr = (deployment.lendingPool || lendingPoolAddress) as Address;
   const write = useArcLendContractWrite();
 
   return {
@@ -291,8 +306,8 @@ export function useRepayAction() {
     error: write.error,
     repay: (asset: Address, amount: bigint, onBehalfOf: Address = address as Address) =>
       write.writeContractAsync({
-        chainId: 5042002,
-        address: lendingPoolAddress,
+        chainId,
+        address: poolAddr,
         abi,
         functionName: "repay",
         args: [asset, amount, onBehalfOf],
@@ -301,6 +316,8 @@ export function useRepayAction() {
 }
 
 export function useLiquidateAction() {
+  const { deployment, chainId } = useActiveDeployment();
+  const poolAddr = (deployment.lendingPool || lendingPoolAddress) as Address;
   const write = useArcLendContractWrite();
 
   return {
@@ -316,8 +333,8 @@ export function useLiquidateAction() {
       receiveAToken = false,
     ) =>
       write.writeContractAsync({
-        chainId: 5042002,
-        address: lendingPoolAddress,
+        chainId,
+        address: poolAddr,
         abi,
         functionName: "liquidate",
         // 5-arg overload settles collateral as aTokens when pool cash is thin.
@@ -328,10 +345,11 @@ export function useLiquidateAction() {
 
 export function useUserBalance(token: Address, enabled = true) {
   const { address } = useArcLendAccount();
+  const { chainId } = useActiveDeployment();
   const result = useTokenBalance({
     address,
     token: token === ZERO_ADDRESS ? undefined : token,
-    chainId: 5042002,
+    chainId,
     enabled: enabled && Boolean(address) && token !== ZERO_ADDRESS,
     refetchInterval: 4_000,
   });

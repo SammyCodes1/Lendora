@@ -21,9 +21,25 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
+    hardhat: {
+      ...(process.env.FORK === "true"
+        ? {
+            forking: {
+              url: process.env.ARC_MAINNET_RPC_URL ?? "https://rpc.mainnet.arc.io",
+            },
+          }
+        : {}),
+      chainId: 5042,
+    },
     arc_testnet: {
       url: arcTestnetRpcUrl,
       chainId: 5042002,
+      accounts: privateKey ? [privateKey] : [],
+      gasPrice: "auto",
+    },
+    arc_mainnet: {
+      url: process.env.ARC_MAINNET_RPC_URL ?? "https://rpc.mainnet.arc.io",
+      chainId: 5042,
       accounts: privateKey ? [privateKey] : [],
       gasPrice: "auto",
     },
@@ -31,6 +47,7 @@ const config: HardhatUserConfig = {
   etherscan: {
     apiKey: {
       arc_testnet: arcscanApiKey,
+      arc_mainnet: arcscanApiKey,
     },
     customChains: [
       {
@@ -39,6 +56,14 @@ const config: HardhatUserConfig = {
         urls: {
           apiURL: "https://testnet.arcscan.app/api",
           browserURL: "https://testnet.arcscan.app",
+        },
+      },
+      {
+        network: "arc_mainnet",
+        chainId: 5042,
+        urls: {
+          apiURL: "https://arcscan.app/api",
+          browserURL: "https://arcscan.app",
         },
       },
     ],

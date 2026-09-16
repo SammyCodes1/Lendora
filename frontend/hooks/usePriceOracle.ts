@@ -2,18 +2,13 @@
 
 import type { Address } from "viem";
 import { useReadContracts } from "wagmi";
-import pythPriceOracleAbi from "@/constants/abis/PythPriceOracle.json";
 import mockPriceOracleAbi from "@/constants/abis/MockPriceOracle.json";
 import deployments from "@/constants/deployments.json";
+import { useActiveDeployment } from "@/hooks/useActiveDeployment";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-
-// Use PythPriceOracle when available, fall back to MockPriceOracle
-const hasPythOracle = Boolean((deployments as any).PythPriceOracle);
-const oracleAbi = hasPythOracle ? pythPriceOracleAbi : mockPriceOracleAbi;
-const primaryOracle = (hasPythOracle
-  ? (deployments as any).PythPriceOracle
-  : deployments.priceOracle) as Address;
+const oracleAbi = mockPriceOracleAbi;
+const primaryOracle = deployments.priceOracle as Address;
 const fallbackOracle = (
   deployments.fallbackPriceOracle ?? ZERO_ADDRESS
 ) as Address;
@@ -32,33 +27,28 @@ function isValidPrice(
 /**
  * Resolves USD price the same way LendingPool._getPrice does:
  * primary oracle first, then fallback when primary is stale/zero/invalid.
- *
- * After Pyth integration, the primary oracle is PythPriceOracle (live prices)
- * and fallback is MockPriceOracle (deprecated, emergency use only).
- * The getPrice() interface is identical for both — (uint256, uint8).
  */
 export function useAssetPrice(asset: Address) {
+  const { deployment, chainId } = useActiveDeployment();
+  const primaryOracleAddr = (deployment.priceOracle || primaryOracle) as Address;
+  const fallbackOracleAddr = (deployment.fallbackPriceOracle ?? ZERO_ADDRESS) as Address;
   const hasFallback =
-    fallbackOracle !== ZERO_ADDRESS &&
-    fallbackOracle.toLowerCase() !== primaryOracle.toLowerCase();
-
-  // Both oracles implement the same getPrice(address) → (uint256, uint8)
-  // interface, so we use the same ABI for the fallback call
-  const fallbackAbi = hasPythOracle ? mockPriceOracleAbi : oracleAbi;
+    fallbackOracleAddr !== ZERO_ADDRESS &&
+    fallbackOracleAddr.toLowerCase() !== primaryOracleAddr.toLowerCase();
 
   const result = useReadContracts({
     contracts: [
       {
-        chainId: 5042002,
-        address: primaryOracle,
+        chainId,
+        address: primaryOracleAddr,
         abi: oracleAbi,
         functionName: "getPrice",
         args: [asset],
       },
       {
-        chainId: 5042002,
-        address: hasFallback ? fallbackOracle : primaryOracle,
-        abi: hasFallback ? fallbackAbi : oracleAbi,
+        chainId,
+        address: hasFallback ? fallbackOracleAddr : primaryOracleAddr,
+        abi: oracleAbi,
         functionName: "getPrice",
         args: [asset],
       },
@@ -66,7 +56,7 @@ export function useAssetPrice(asset: Address) {
     allowFailure: true,
     query: {
       enabled:
-        primaryOracle !== ZERO_ADDRESS &&
+        primaryOracleAddr !== ZERO_ADDRESS &&
         Boolean(asset) &&
         asset !== ZERO_ADDRESS,
       refetchInterval: 4_000,
@@ -100,7 +90,5 @@ export function useAssetPrice(asset: Address) {
     isError: result.isError || bothFailed,
     price,
     decimals,
-    /** True when prices are sourced from Pyth Network live feeds */
-    isPythOracle: hasPythOracle && primary?.status === "success" && isValidPrice(primaryResult),
   };
 }

@@ -8,6 +8,7 @@ import { useState, useCallback, useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { ConnectWalletButton } from "@/components/wallet/ConnectWalletButton";
 import { NetworkSwitcher } from "@/components/wallet/NetworkSwitcher";
+import { NetworkModeToggle } from "@/components/wallet/NetworkModeToggle";
 import { AssetBalanceChips } from "@/components/wallet/AssetBalanceChips";
 import { useDismissibleDropdown } from "@/hooks/useDismissibleDropdown";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
@@ -42,12 +43,9 @@ const links: LinkItem[] = [
   { href: "/borrow", label: "Borrow" },
   { href: "/positions", label: "Positions" },
   { href: "/swap", label: "Swap" },
-  { href: "/spoken", label: "Spoken pay" },
   {
     label: "More",
     sublinks: [
-      { href: "/pay", label: "Request pay" },
-      { href: "/arcdrop", label: "Lendrop" },
       { href: "/multisend", label: "MultiSend" },
       { href: "/bridge", label: "Bridge" },
       { href: "/liquidate", label: "Liquidate" },
@@ -344,6 +342,7 @@ export function Navbar() {
               <NavLinks onNavigate={closeMenuDeferred} />
               <div className="flex flex-col gap-3 pt-2">
                 <AssetBalanceChips mobile />
+                <NetworkModeToggle mobile />
                 <NetworkSwitcher mobile />
                 <div className="flex items-center gap-2">
                   <div className="min-w-0 flex-1">
@@ -402,6 +401,7 @@ export function Navbar() {
               <UnifiedBalanceChip />
             </div>
             <AssetBalanceChips />
+            <NetworkModeToggle />
             <NetworkSwitcher />
             <div className="flex shrink-0 items-center gap-2">
               <ConnectWalletButton onSignInOpen={closeMenu} />

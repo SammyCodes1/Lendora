@@ -1,5 +1,6 @@
 import { formatUnits, type Address } from "viem";
 import deployments from "@/constants/deployments.json";
+import { getDeployment } from "@/constants/deployments";
 
 export type MarketDefinition = {
   name: string;
@@ -9,25 +10,31 @@ export type MarketDefinition = {
   debtToken: Address;
 };
 
-export const marketDefinitions: MarketDefinition[] = [
-  {
-    name: "USD Coin",
-    symbol: "USDC",
-    address: deployments.markets.USDC.asset as Address,
-    aToken: deployments.markets.USDC.aToken as Address,
-    debtToken: deployments.markets.USDC.debtToken as Address,
-  },
-  {
-    name: "Euro Coin",
-    symbol: "EURC",
-    address: deployments.markets.EURC.asset as Address,
-    aToken: deployments.markets.EURC.aToken as Address,
-    debtToken: deployments.markets.EURC.debtToken as Address,
-  },
-];
+export function getMarketDefinitions(chainId?: number): MarketDefinition[] {
+  const dep = getDeployment(chainId);
+  return [
+    {
+      name: "USD Coin",
+      symbol: "USDC",
+      address: dep.markets.USDC.asset as Address,
+      aToken: dep.markets.USDC.aToken as Address,
+      debtToken: dep.markets.USDC.debtToken as Address,
+    },
+    {
+      name: "Euro Coin",
+      symbol: "EURC",
+      address: dep.markets.EURC.asset as Address,
+      aToken: dep.markets.EURC.aToken as Address,
+      debtToken: dep.markets.EURC.debtToken as Address,
+    },
+  ];
+}
 
-export function marketSymbolForAddress(asset: Address) {
-  return marketDefinitions.find((market) => market.address.toLowerCase() === asset.toLowerCase())?.symbol ?? "USDC";
+export const marketDefinitions: MarketDefinition[] = getMarketDefinitions(5042002);
+
+export function marketSymbolForAddress(asset: Address, chainId?: number) {
+  const list = getMarketDefinitions(chainId);
+  return list.find((market) => market.address.toLowerCase() === asset.toLowerCase())?.symbol ?? "USDC";
 }
 
 /** Format an on-chain reserve cap (6-decimal units). 0 = uncapped. */

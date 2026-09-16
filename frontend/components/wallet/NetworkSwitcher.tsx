@@ -8,6 +8,7 @@ import { useCloseOnResume } from "@/hooks/useCloseOnResume";
 import { cn } from "@/lib/utils";
 
 const networkNames: Record<number, string> = {
+  5042: "Arc Mainnet",
   5042002: "Arc Testnet",
   11155111: "Ethereum Sepolia",
   84532: "Base Sepolia",
@@ -21,7 +22,7 @@ function NetworkLogo({
   chainId: number;
   className?: string;
 }) {
-  if (chainId === 5042002) {
+  if (chainId === 5042 || chainId === 5042002) {
     return (
       <span className={cn("inline-flex items-center justify-center rounded-full bg-[#1a1d24] p-0.5", className)}>
         <svg className="h-full w-full" viewBox="0 0 31 32" fill="none" aria-label="Arc">

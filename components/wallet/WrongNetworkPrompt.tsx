@@ -6,6 +6,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useAccount, useChainId, useSwitchChain } from "wagmi";
 
 const ARC_TESTNET_CHAIN_ID = 5042002;
+const ARC_MAINNET_CHAIN_ID = 5042;
+const isArcChain = (id?: number) => id === ARC_MAINNET_CHAIN_ID || id === ARC_TESTNET_CHAIN_ID;
 
 function arcConfiguredStorageKey(address: string) {
   return `arclend:arc-network-configured:${address.toLowerCase()}`;
@@ -13,7 +15,7 @@ function arcConfiguredStorageKey(address: string) {
 
 /**
  * Full-screen prompt shown only when a browser-wallet user has not yet
- * configured Arc Testnet in their wallet. Once Arc has been added / used
+ * configured Arc in their wallet. Once Arc has been added / used
  * with this address, the prompt stays hidden — including when the user
  * intentionally switches away (e.g. bridging from Sepolia / Base / Amoy).
  *
@@ -29,7 +31,7 @@ export function WrongNetworkPrompt() {
   // Default true so we never flash the modal before reading storage / chain.
   const [arcConfigured, setArcConfigured] = useState(true);
 
-  // Persist "Arc is in this wallet" once we've observed Arc Testnet for the
+  // Persist "Arc is in this wallet" once we've observed Arc for the
   // connected address. Multi-chain flows (bridge) can then leave Arc without
   // re-triggering the full-screen blocker.
   useEffect(() => {
@@ -40,7 +42,7 @@ export function WrongNetworkPrompt() {
 
     const key = arcConfiguredStorageKey(address);
 
-    if (chainId === ARC_TESTNET_CHAIN_ID) {
+    if (isArcChain(chainId)) {
       window.localStorage.setItem(key, "1");
       setArcConfigured(true);
       return;
@@ -53,7 +55,7 @@ export function WrongNetworkPrompt() {
     isConnected &&
     Boolean(address) &&
     connector?.type !== "circle-email" &&
-    chainId !== ARC_TESTNET_CHAIN_ID &&
+    !isArcChain(chainId) &&
     !arcConfigured;
 
   const handleSwitch = useCallback(async () => {

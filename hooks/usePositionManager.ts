@@ -14,8 +14,9 @@ import {
 import positionManagerAbi from "@/constants/abis/PositionManager.json";
 import positionNFTAbi from "@/constants/abis/PositionNFT.json";
 import deployments from "@/constants/deployments.json";
-import { marketDefinitions } from "@/lib/markets";
+import { marketDefinitions, getMarketDefinitions } from "@/lib/markets";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
+import { useActiveDeployment } from "@/hooks/useActiveDeployment";
 import {
   resultHash,
   useArcLendContractWrite,
@@ -102,6 +103,8 @@ function useManagerAction(
     | "claimExistingPosition"
     | "closePosition",
 ) {
+  const { deployment, chainId } = useActiveDeployment();
+  const currentManagerAddress = (deployment.PositionManager || managerAddress) as Address;
   const write = useArcLendContractWrite();
 
   return {
@@ -111,8 +114,8 @@ function useManagerAction(
     error: write.error,
     execute: (args: readonly unknown[]) =>
       write.writeContractAsync({
-        chainId: 5042002,
-        address: managerAddress,
+        chainId,
+        address: currentManagerAddress,
         abi: managerAbi,
         functionName,
         args,
@@ -232,9 +235,12 @@ export function useBurnAllPositions() {
 
 export function useUserPositionNFTs() {
   const { address } = useArcLendAccount();
-  const publicClient = usePublicClient({ chainId: 5042002 });
+  const { chainId, deployment } = useActiveDeployment();
+  const publicClient = usePublicClient({ chainId });
+  const currentNftAddress = (deployment.PositionNFT || nftAddress) as Address;
+  const currentManagerAddress = (deployment.PositionManager || managerAddress) as Address;
   const query = useQuery({
-    queryKey: ["arclend", "position-nfts", address],
+    queryKey: ["arclend", "position-nfts", address, chainId],
     enabled: Boolean(address && publicClient),
     staleTime: 15_000,
     refetchInterval: 30_000,
@@ -248,14 +254,31 @@ export function useUserPositionNFTs() {
 
       // Pin every read to one block, but batch them through Multicall3. All
       // hook consumers share this query key, so modals no longer start their
-      // own competing RPC polling loops.
+      const defs = getMarketDefinitions(chainId);
+      const activePositionKeys = defs.flatMap((market) => [
+        {
+          asset: market.address,
+          symbol: market.symbol,
+          linkedToken: market.aToken,
+          positionType: 0 as const,
+          typeLabel: "Supply" as const,
+        },
+        {
+          asset: market.address,
+          symbol: market.symbol,
+          linkedToken: market.debtToken,
+          positionType: 1 as const,
+          typeLabel: "Borrow" as const,
+        },
+      ]);
+
       const blockNumber = await publicClient.getBlockNumber();
       const snapshotResults = await publicClient.multicall({
         allowFailure: false,
         blockNumber,
-        contracts: positionKeys.flatMap((key) => [
+        contracts: activePositionKeys.flatMap((key) => [
           {
-            address: nftAddress,
+            address: currentNftAddress,
             abi: nftAbi,
             functionName: "userPositionToken",
             args: [address, key.asset, key.positionType],
@@ -268,7 +291,7 @@ export function useUserPositionNFTs() {
           },
         ]),
       });
-      const snapshots = positionKeys.map((key, index) => ({
+      const snapshots = activePositionKeys.map((key, index) => ({
         ...key,
         tokenId: snapshotResults[index * 2] as bigint,
         liveBalance: snapshotResults[index * 2 + 1] as bigint,
@@ -280,13 +303,13 @@ export function useUserPositionNFTs() {
             blockNumber,
             contracts: owned.flatMap((snapshot) => [
               {
-                address: nftAddress,
+                address: currentNftAddress,
                 abi: nftAbi,
                 functionName: "positions",
                 args: [snapshot.tokenId],
               },
               {
-                address: nftAddress,
+                address: currentNftAddress,
                 abi: nftAbi,
                 functionName: "tokenURI",
                 args: [snapshot.tokenId],
