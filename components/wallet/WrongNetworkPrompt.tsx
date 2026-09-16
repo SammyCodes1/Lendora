@@ -7,7 +7,7 @@ import { useAccount, useChainId, useSwitchChain } from "wagmi";
 
 const ARC_TESTNET_CHAIN_ID = 5042002;
 const ARC_MAINNET_CHAIN_ID = 5042;
-const isArcChain = (id?: number) => id === ARC_MAINNET_CHAIN_ID || id === ARC_TESTNET_CHAIN_ID;
+const isArcChain = (id?: number) => id === ARC_MAINNET_CHAIN_ID;
 
 function arcConfiguredStorageKey(address: string) {
   return `arclend:arc-network-configured:${address.toLowerCase()}`;
@@ -63,7 +63,7 @@ export function WrongNetworkPrompt() {
     setSwitching(true);
     setError(null);
     try {
-      await switchChainAsync({ chainId: ARC_TESTNET_CHAIN_ID });
+      await switchChainAsync({ chainId: ARC_MAINNET_CHAIN_ID });
       // Successful switch (or add-then-switch via EIP-3085) means Arc is
       // configured for this wallet — never block on multi-chain use again.
       window.localStorage.setItem(arcConfiguredStorageKey(address), "1");
@@ -110,16 +110,16 @@ export function WrongNetworkPrompt() {
               {/* Copy */}
               <div className="space-y-2">
                 <h2 className="text-xl font-semibold text-white">
-                  Add Arc Testnet
+                  Add Arc Mainnet
                 </h2>
                 <p className="text-sm leading-relaxed text-white/55">
-                  Lendora needs{" "}
+                  Lendora operates on{" "}
                   <span className="font-medium text-white/80">
-                    Arc Testnet
+                    Arc Mainnet
                   </span>{" "}
-                  in your wallet. Switch once to add it — after that you can
+                  (Chain ID 5042). Switch once to add it — after that you can
                   freely change networks to bridge without seeing this again.
-                  If Arc Testnet isn&apos;t added yet, your browser will prompt
+                  If Arc Mainnet isn&apos;t added yet, your browser will prompt
                   you to add it automatically.
                 </p>
               </div>
@@ -139,7 +139,7 @@ export function WrongNetworkPrompt() {
                 ) : (
                   <>
                     <ArrowRightLeft className="h-4 w-4" />
-                    Switch to Arc Testnet
+                    Switch to Arc Mainnet
                   </>
                 )}
               </button>

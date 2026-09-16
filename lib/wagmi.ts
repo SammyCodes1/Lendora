@@ -28,6 +28,21 @@ export const arcMainnet = defineChain({
   },
 })
 
+export function createArcMainnetTransport() {
+  const directUrl = process.env.NEXT_PUBLIC_ARC_MAINNET_RPC_URL || 'https://rpc.mainnet.arc.io';
+  // Use direct RPC with same-origin Next.js proxy fallback for browser reliability
+  if (typeof window !== 'undefined') {
+    return fallback(
+      [
+        http(directUrl, { retryCount: 2, timeout: 12_000 }),
+        http('/api/rpc/mainnet', { retryCount: 2, timeout: 15_000 }),
+      ],
+      { retryCount: 1 },
+    );
+  }
+  return http(directUrl, { retryCount: 2, timeout: 15_000 });
+}
+
 const arcRpcUrls = [
   process.env.NEXT_PUBLIC_ARC_TESTNET_RPC_URL,
   'https://rpc.testnet.arc.network',
@@ -76,7 +91,7 @@ export const wagmiConfig = createConfig({
   // Defer persisted wallet state until after React hydration so the server
   // and initial client markup remain identical.
   ssr: true,
-  chains: [arcTestnet, arcMainnet, sepolia, baseSepolia, polygonAmoy],
+  chains: [arcMainnet, sepolia, baseSepolia, polygonAmoy, arcTestnet],
   connectors: [
     injected(),
     walletConnect({
@@ -87,7 +102,7 @@ export const wagmiConfig = createConfig({
     }),
   ],
   transports: {
-    [arcMainnet.id]: http(process.env.NEXT_PUBLIC_ARC_MAINNET_RPC_URL || 'https://rpc.mainnet.arc.io', { retryCount: 2, timeout: 15_000 }),
+    [arcMainnet.id]: createArcMainnetTransport(),
     [arcTestnet.id]: createArcTestnetTransport(),
     [sepolia.id]: http(),
     [baseSepolia.id]: http(),

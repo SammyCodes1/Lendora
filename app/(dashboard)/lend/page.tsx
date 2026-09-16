@@ -44,7 +44,7 @@ export default function LendPage() {
   const { address, source } = useArcLendAccount();
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
-  const publicClient = usePublicClient({ chainId: 5042002 });
+  const publicClient = usePublicClient({ chainId: 5042 });
   const withdrawAction = useWithdrawAction();
   const { markets, isLoading, isError, isPaused, refetch } = useLiveMarkets();
 
@@ -108,8 +108,8 @@ export default function LendPage() {
     if (!publicClient) {
       throw new Error("Arc client is unavailable.");
     }
-    if (source === "wallet" && chainId !== 5042002) {
-      await switchChainAsync({ chainId: 5042002 });
+    if (source === "wallet" && chainId !== 5042) {
+      await switchChainAsync({ chainId: 5042 });
     }
   }, [address, chainId, publicClient, source, switchChainAsync]);
 

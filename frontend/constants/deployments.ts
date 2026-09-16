@@ -3,13 +3,13 @@ import mainnetDeployments from "./deployments-mainnet.json";
 
 export { testnetDeployments, mainnetDeployments };
 
-export type DeploymentManifest = typeof testnetDeployments;
+export type DeploymentManifest = typeof mainnetDeployments;
 
 export function getDeployment(chainId?: number): DeploymentManifest {
-  if (chainId === 5042) {
-    return mainnetDeployments as unknown as DeploymentManifest;
+  if (chainId === 5042002) {
+    return testnetDeployments as unknown as DeploymentManifest;
   }
-  return testnetDeployments;
+  return mainnetDeployments;
 }
 
-export default testnetDeployments;
+export default mainnetDeployments;

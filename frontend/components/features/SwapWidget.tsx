@@ -183,16 +183,16 @@ export function SwapWidget() {
   const fromBalance = useTokenBalance({
     address,
     token: fromToken.address,
-    chainId: 5042002,
+    chainId: 5042,
     enabled: Boolean(address),
-    refetchInterval: 4_000,
+    refetchInterval: 8_000,
   });
   const toBalance = useTokenBalance({
     address,
     token: toToken.address,
-    chainId: 5042002,
+    chainId: 5042,
     enabled: Boolean(address),
-    refetchInterval: 4_000,
+    refetchInterval: 8_000,
   });
   const available = fromBalance.data
     ? formatUnits(fromBalance.data.value, fromBalance.data.decimals)
@@ -331,9 +331,9 @@ export function SwapWidget() {
     setProgress([
       {
         key: "switch",
-        label: "Switch to Arc Testnet",
-        state: chainId === 5042002 ? "success" : "active",
-        finalityMs: chainId === 5042002 ? 0 : undefined,
+        label: "Switch to Arc Mainnet",
+        state: chainId === 5042 ? "success" : "active",
+        finalityMs: chainId === 5042 ? 0 : undefined,
       },
       { key: "approve", label: `Approve ${fromSymbol} for ${activeRoute.label}`, state: "waiting" },
       {
@@ -630,7 +630,7 @@ export function SwapWidget() {
             ? "Connect wallet"
             : !connectorReady
               ? "Use browser wallet"
-            : chainId !== 5042002
+            : chainId !== 5042
               ? "Switch to Arc and swap"
               : swapLoading
                 ? "Confirming swap"

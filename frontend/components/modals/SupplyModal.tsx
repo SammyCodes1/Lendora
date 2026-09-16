@@ -176,7 +176,7 @@ export function SupplyModal({ open, market, onClose }: SupplyModalProps) {
             disabled={!address || parsedAmount === 0n || approveAction.isPending}
             onClick={async () => {
               await approveAction.writeContractAsync({
-                chainId: 5042002,
+                chainId: 5042,
                 address: market.address,
                 abi: erc20WriteAbi,
                 functionName: "approve",

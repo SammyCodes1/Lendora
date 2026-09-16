@@ -71,10 +71,10 @@ function BalanceChip({ symbol, value }: { symbol: string; value: string }) {
 export function AssetBalanceChips({ mobile = false }: { mobile?: boolean }) {
   const { isConnected, address, source } = useArcLendAccount();
   const connectedChainId = useChainId();
-  const chainId = source === "email" ? 5042002 : (connectedChainId || 5042002);
+  const chainId = source === "email" ? 5042 : (connectedChainId || 5042);
 
   const tokensForChain = useMemo(() => {
-    return KNOWN_TOKENS[chainId] ?? KNOWN_TOKENS[5042002];
+    return KNOWN_TOKENS[chainId] ?? KNOWN_TOKENS[5042];
   }, [chainId]);
 
   const tokenEntries = useMemo(() => {

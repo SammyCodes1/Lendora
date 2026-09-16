@@ -31,7 +31,7 @@ import { showToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { ARCSCAN_TX_BASE, DROP_EXPIRY_OPTIONS, DROP_MODE_CLAIM_ALL, DROP_MODE_EQUAL_SPLIT, MAX_LENDROP_ALLOWLIST, allDropShareUrls, clientDropUrl, formatDropAmount, parseDropAmount, readSavedLendrops, writeSavedLendrops, type DropAsset, type DropClaim, type DropMode, type SavedLendrop } from "@/lib/arcDrop";
 import { DropClaimants } from "@/components/features/DropClaimants";
-import { ARC_TESTNET_CONTRACTS } from "@/constants/contracts";
+import { ARC_MAINNET_CONTRACTS } from "@/constants/contracts";
 import deployments from "@/constants/deployments.json";
 import erc20Json from "@/constants/abis/ERC20.json";
 import arcDropJson from "@/constants/abis/ArcDrop.json";
@@ -63,8 +63,8 @@ function contractForSavedDrop(drop: SavedDrop): `0x${string}` | undefined {
 }
 
 const ASSET_ADDRESSES: Record<DropAsset, `0x${string}`> = {
-  USDC: ARC_TESTNET_CONTRACTS.USDC as `0x${string}`,
-  EURC: ARC_TESTNET_CONTRACTS.EURC as `0x${string}`,
+  USDC: ARC_MAINNET_CONTRACTS.USDC as `0x${string}`,
+  EURC: ARC_MAINNET_CONTRACTS.EURC as `0x${string}`,
 };
 
 type SavedDrop = SavedLendrop;

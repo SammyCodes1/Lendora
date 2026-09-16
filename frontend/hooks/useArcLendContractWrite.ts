@@ -158,7 +158,7 @@ export function useArcLendContractWrite() {
       }
 
       const hash = await wagmiWrite.writeContractAsync({
-        chainId: request.chainId ?? 5042002,
+        chainId: request.chainId ?? 5042,
         address: request.address,
         abi: request.abi,
         functionName: request.functionName,

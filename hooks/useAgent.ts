@@ -132,14 +132,14 @@ export function useAgent() {
   const cirBtcWallet = useTokenBalance({
     address,
     token: cirBtc.address,
-    chainId: 5042002,
+    chainId: 5042,
     enabled: Boolean(address),
     refetchInterval: 8_000,
   });
   const usdtWallet = useTokenBalance({
     address,
     token: usdt.address,
-    chainId: 5042002,
+    chainId: 5042,
     enabled: Boolean(address),
     refetchInterval: 8_000,
   });

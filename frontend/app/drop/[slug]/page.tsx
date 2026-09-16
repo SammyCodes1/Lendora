@@ -40,6 +40,7 @@ const ARCDROP_ADDRESS = (deployments as Record<string, unknown>).ArcDrop as
 const ASSET_SYMBOLS: Record<string, string> = {
   "0x3600000000000000000000000000000000000000": "USDC",
   "0x89b50855aa3be2f677cd6303cec089b5f319d72a": "EURC",
+  "0xbef5f6d51cb62b58e6a8f77868681825c6fe21c1": "EURC",
 };
 
 function assetSymbol(address: string): string {
@@ -145,10 +146,10 @@ export default function DropClaimPage() {
       setCheckingClaimed(true);
       try {
         const { createPublicClient, http } = await import("viem");
-        const { arcTestnet } = await import("viem/chains");
+        const { arcMainnet } = await import("@/lib/wagmi");
         const client = createPublicClient({
-          chain: arcTestnet,
-          transport: http("https://rpc.testnet.arc.network"),
+          chain: arcMainnet,
+          transport: http("https://rpc.mainnet.arc.io"),
         });
         const claimed = await client.readContract({
           address: contract,
@@ -192,7 +193,7 @@ export default function DropClaimPage() {
     setClaimError("");
     try {
       const result = await writeContractAsync({
-        chainId: 5042002,
+        chainId: 5042,
         address: contract,
         abi: ARCDROP_ABI,
         functionName: "claim",

@@ -22,8 +22,8 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { GlassCard } from "@/components/ui/GlassCard";
 import {
-  useClosePosition,
   useBurnAllPositions,
+  useClosePosition,
   useClaimExistingPosition,
   useUserPositionNFTs,
   type ClaimablePositionReceipt,
@@ -32,70 +32,26 @@ import {
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
 import deployments from "@/constants/deployments.json";
 import { showToast } from "@/lib/toast";
-import {
-  LENDORA_POSITION_NFT_NAME,
-  LENDORA_POSITION_NFT_SYMBOL,
-} from "@/lib/markets";
 
 function nftExplorerUrl(tokenId: bigint) {
-  return `https://testnet.arcscan.app/token/${deployments.PositionNFT}?a=${tokenId}`;
+  return `https://arcscan.app/token/${deployments.PositionNFT}?a=${tokenId}`;
 }
 
 export default function PositionsPage() {
   const { address, isConnected, source } = useArcLendAccount();
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
-  const publicClient = usePublicClient({ chainId: 5042002 });
+  const publicClient = usePublicClient({ chainId: 5042 });
   const receipts = useUserPositionNFTs();
   const claimAction = useClaimExistingPosition();
   const closeAction = useClosePosition();
   const burnAllAction = useBurnAllPositions();
-  const burnablePositions = receipts.positions.filter(
-    (p) => p.liveBalance === 0n,
-  );
   const [claimingKey, setClaimingKey] = useState<string | null>(null);
   const [closingTokenId, setClosingTokenId] = useState<bigint | null>(null);
 
-  const burnAllReceipts = async () => {
-    if (!address) {
-      showToast("error", "Connect your wallet before burning receipts.");
-      return;
-    }
-    if (!publicClient) {
-      showToast("error", "Arc client is unavailable.");
-      return;
-    }
-    if (burnablePositions.length === 0) {
-      showToast("error", "No receipts ready to burn.");
-      return;
-    }
-    if (source !== "email" && chainId !== 5042002) {
-      try {
-        await switchChainAsync({ chainId: 5042002 });
-      } catch {
-        showToast("error", "Switch to Arc Testnet to continue.");
-        return;
-      }
-    }
-    const results = await burnAllAction.burnAll(burnablePositions);
-    const succeeded = results.filter((r) => r.success).length;
-    const failed = results.filter((r) => !r.success).length;
-    // Wait a short time for the last transaction to confirm on-chain
-    // before refetching, since each position requires its own wallet signature.
-    if (succeeded > 0) {
-      await new Promise((r) => setTimeout(r, 2_000));
-    }
-    await receipts.refetch();
-    burnAllAction.reset();
-    if (failed === 0) {
-      showToast("success", `Burned ${succeeded} receipt${succeeded !== 1 ? "s" : ""}.`);
-    } else {
-      showToast(
-        "error",
-        `Burned ${succeeded}, ${failed} failed. Check the console for details.`,
-      );
-    }
-  };
+  const burnablePositions = receipts.positions.filter(
+    (p) => p.liveBalance === 0n,
+  );
 
   const claimReceipt = async (
     claimable: ClaimablePositionReceipt,
@@ -104,8 +60,8 @@ export default function PositionsPage() {
     const key = `${claimable.asset}-${claimable.positionType}`;
     setClaimingKey(key);
     try {
-      if (source !== "email" && chainId !== 5042002) {
-        await switchChainAsync({ chainId: 5042002 });
+      if (source !== "email" && chainId !== 5042) {
+        await switchChainAsync({ chainId: 5042 });
       }
       const hash = await claimAction.claimExistingPosition(
         claimable.asset,
@@ -149,8 +105,8 @@ export default function PositionsPage() {
     }
     setClosingTokenId(position.tokenId);
     try {
-      if (source !== "email" && chainId !== 5042002) {
-        await switchChainAsync({ chainId: 5042002 });
+      if (source !== "email" && chainId !== 5042) {
+        await switchChainAsync({ chainId: 5042 });
       }
       const hash = await closeAction.closePosition(
         position.asset,
@@ -176,13 +132,54 @@ export default function PositionsPage() {
     }
   };
 
+  const burnAllReceipts = async () => {
+    if (!address) {
+      showToast("error", "Connect your wallet before burning receipts.");
+      return;
+    }
+    if (!publicClient) {
+      showToast("error", "Arc client is unavailable.");
+      return;
+    }
+    if (burnablePositions.length === 0) {
+      showToast("error", "No receipts ready to burn.");
+      return;
+    }
+    if (source !== "email" && chainId !== 5042) {
+      try {
+        await switchChainAsync({ chainId: 5042 });
+      } catch {
+        showToast("error", "Switch to Arc Mainnet to continue.");
+        return;
+      }
+    }
+    const results = await burnAllAction.burnAll(burnablePositions);
+    const succeeded = results.filter((r) => r.success).length;
+    const failed = results.filter((r) => !r.success).length;
+    // Wait a short time for the last transaction to confirm on-chain
+    // before refetching, since each position requires its own wallet signature.
+    if (succeeded > 0) {
+      await new Promise((r) => setTimeout(r, 2_000));
+    }
+    await receipts.refetch();
+    burnAllAction.reset();
+    if (failed === 0) {
+      showToast("success", `Burned ${succeeded} receipt${succeeded !== 1 ? "s" : ""}.`);
+    } else {
+      showToast(
+        "error",
+        `Burned ${succeeded}, ${failed} failed. Check the console for details.`,
+      );
+    }
+  };
+
   return (
     <PageTransition>
       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 pb-12 sm:px-6 lg:px-8">
         <PageHeader
           icon={<Award />}
           title="Positions"
-          description={`${LENDORA_POSITION_NFT_NAME} (${LENDORA_POSITION_NFT_SYMBOL}) NFTs for live Lendora supply and borrow positions.`}
+          description="Claim and inspect on-chain receipts that represent Lendora supply and borrow positions across the protocol."
           stats={[
             {
               label: "Receipts",
@@ -346,8 +343,7 @@ export default function PositionsPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="font-semibold text-white">
-                        {position.metadata?.name ??
-                          `${position.symbol} Position`}
+                        {position.symbol} Position
                       </p>
                       <p className="mt-1 text-xs text-white/40">
                         Opened{" "}

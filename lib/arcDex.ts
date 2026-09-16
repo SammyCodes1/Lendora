@@ -8,7 +8,7 @@ export const ARC_DEX_TOKENS = {
   },
   EURC: {
     symbol: "EURC",
-    address: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
+    address: "0xbEf5f6d51CB62b58e6A8f77868681825C6fe21c1",
     decimals: 6,
   },
   USDT: {
@@ -31,7 +31,7 @@ export const ARC_DEX_ROUTERS = {
    * Lendora native constant-product pool (USDC/EURC).
    * Peer route — does not wrap or replace other DEX routers.
    */
-  arclend: "0xDdEf47EDEAf376dEa6f200f25460f58FadcDFc2D",
+  arclend: "0x5Eb309a76C6E993293CD756d938BBb35F3bFd35f",
   /** TowerSwapExecutor — separate swap entrypoint (not Xylo/Curve/V3). */
   tower: "0x2De8906a641d65d490bC60A4179d961d59742bCb",
   /** TowerDexAdapter — route target called by Tower.executeSwap. */
