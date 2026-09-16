@@ -23,7 +23,7 @@ export function UnifiedBalance() {
           <div>
             <h2 className="font-semibold text-white">Unified USDC Balance</h2>
             <p className="mt-1 text-xs text-white/45">
-              Wallet and Circle Gateway USDC across supported testnets
+              Wallet and Circle Gateway USDC across supported networks
             </p>
           </div>
         </div>
@@ -140,20 +140,24 @@ export function UnifiedBalanceChip() {
 
   const chains = [
     {
-      name: "Arc Testnet",
+      name: "Arc Mainnet",
       amount: balance.walletBreakdown.arc + balance.breakdown.arc,
     },
     {
-      name: "Ethereum Sepolia",
+      name: "Ethereum",
       amount: balance.walletBreakdown.ethereum + balance.breakdown.ethereum,
     },
     {
-      name: "Base Sepolia",
+      name: "Base",
       amount: balance.walletBreakdown.base + balance.breakdown.base,
     },
     {
-      name: "Polygon Amoy",
+      name: "Polygon",
       amount: balance.walletBreakdown.polygon + balance.breakdown.polygon,
+    },
+    {
+      name: "Arbitrum",
+      amount: balance.walletBreakdown.arbitrum + balance.breakdown.arbitrum,
     },
   ];
 

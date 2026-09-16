@@ -1,10 +1,10 @@
 import { createConfig } from 'wagmi'
 import { defineChain, fallback, http } from 'viem'
-import { arcTestnet } from 'viem/chains'
+import { arcTestnet, arbitrum, base, mainnet, polygon } from 'viem/chains'
 import { injected } from 'wagmi/connectors/injected'
 import { walletConnect } from 'wagmi/connectors/walletConnect'
 
-export { arcTestnet }
+export { arcTestnet, arbitrum, base, mainnet, polygon }
 
 export const arcMainnet = defineChain({
   id: 5042,
@@ -91,7 +91,7 @@ export const wagmiConfig = createConfig({
   // Defer persisted wallet state until after React hydration so the server
   // and initial client markup remain identical.
   ssr: true,
-  chains: [arcMainnet, sepolia, baseSepolia, polygonAmoy, arcTestnet],
+  chains: [arcMainnet, mainnet, base, polygon, arbitrum, sepolia, baseSepolia, polygonAmoy, arcTestnet],
   connectors: [
     injected(),
     walletConnect({
@@ -103,6 +103,10 @@ export const wagmiConfig = createConfig({
   ],
   transports: {
     [arcMainnet.id]: createArcMainnetTransport(),
+    [mainnet.id]: http(),
+    [base.id]: http(),
+    [polygon.id]: http(),
+    [arbitrum.id]: http(),
     [arcTestnet.id]: createArcTestnetTransport(),
     [sepolia.id]: http(),
     [baseSepolia.id]: http(),

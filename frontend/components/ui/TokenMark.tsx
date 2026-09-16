@@ -94,6 +94,49 @@ export function CirBtcIcon({ className }: { className?: string }) {
   );
 }
 
+export function CrclIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 32 32"
+      className={className}
+      aria-label="CRCL"
+    >
+      <g fill="none" fillRule="evenodd">
+        <circle cx="16" cy="16" r="16" fill="#0b101b" />
+        <circle cx="16" cy="16" r="15" stroke="#2775C9" strokeWidth="0.75" strokeOpacity="0.4" />
+        <g transform="translate(6, 6)">
+          <path
+            d="M10 0C4.477 0 0 4.477 0 10c0 5.523 4.477 10 10 10 3.314 0 6.25-1.612 8.04-4.094l-2.618-1.512A6.974 6.974 0 0 1 10 17c-3.866 0-7-3.134-7-7s3.134-7 7-7c2.148 0 4.07.967 5.353 2.494l2.673-1.414C16.148 1.583 13.262 0 10 0Z"
+            fill="#2775C9"
+          />
+          <circle cx="15.5" cy="10" r="3.2" fill="#00D2FF" />
+          <circle cx="10" cy="10" r="2" fill="#FFFFFF" />
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+export function ChainlinkIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-label="Chainlink"
+    >
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M12 2L20.6603 7V17L12 22L3.33975 17V7L12 2ZM6.33975 8.73205V15.2679L12 18.5359L17.6603 15.2679V8.73205L12 5.4641L6.33975 8.73205Z"
+        fill="#375BD2"
+      />
+    </svg>
+  );
+}
+
 type TokenVisual = {
   Icon: LucideIcon;
   colorClassName: string;
@@ -189,6 +232,34 @@ export function TokenMark({
         )}
       >
         <CirBtcIcon className="h-full w-full" />
+      </span>
+    );
+  }
+
+  if (norm === "CRCL") {
+    return (
+      <span
+        aria-hidden="true"
+        className={cn(
+          "relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full overflow-hidden shadow-[0_2px_8px_rgba(39,117,201,0.25)]",
+          className,
+        )}
+      >
+        <CrclIcon className="h-full w-full" />
+      </span>
+    );
+  }
+
+  if (norm === "CHAINLINK" || norm === "LINK") {
+    return (
+      <span
+        aria-hidden="true"
+        className={cn(
+          "relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full overflow-hidden shadow-[0_2px_8px_rgba(55,91,210,0.25)]",
+          className,
+        )}
+      >
+        <ChainlinkIcon className="h-full w-full" />
       </span>
     );
   }
