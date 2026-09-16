@@ -43,25 +43,18 @@ const ROUTE_METAS: Record<RouteKey, { label: string; detail: string }> = {
     label: "Tower Exchange",
     detail: "Official DEX router on Arc.",
   },
-  arclend: {
-    label: "Lendora SwapPool",
-    detail: "Native USDC/EURC constant-product pool on Arc.",
-  },
-  curve: { label: "Curve", detail: "Stable pool for pegged assets on Arc." },
-  xylo: { label: "Xylo", detail: "V2 AMM router on Arc." },
-  v3: { label: "Synthra V3", detail: "Concentrated liquidity pools on Arc." },
 };
 
 const tokenSymbols = Object.keys(ARC_DEX_TOKENS) as TokenSymbol[];
 const slippageOptions = [25, 50, 100] as const;
 const initialSwapProgress: SwapProgressStep[] = [
-  { key: "switch", label: "Switch to Arc Testnet", state: "waiting" },
+  { key: "switch", label: "Switch to Arc Mainnet", state: "waiting" },
   { key: "approve", label: "Approve input token", state: "waiting" },
   { key: "swap", label: "Execute and settle swap", state: "waiting" },
 ];
 
 function arcScanTransaction(hash: Hash) {
-  return `https://testnet.arcscan.app/tx/${hash}`;
+  return `https://arcscan.app/tx/${hash}`;
 }
 
 function errorMessage(error: unknown) {
@@ -518,7 +511,7 @@ export function SwapWidget() {
             </div>
           </div>
 
-          <div className="mt-3 grid gap-2.5 sm:gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <div className="mt-3 grid gap-2.5 sm:gap-3 grid-cols-1">
             {(Object.keys(ROUTE_METAS) as RouteKey[]).map((key) => {
               const quote = quotes.find((item) => item.key === key);
               const selected = activeRoute?.key === key;

@@ -31,15 +31,9 @@ export class TowerApiError extends Error {
 
 function apiKey() {
   const key = process.env.TOWER_API_KEY?.trim();
-  if (!key) {
+  if (!key || (!key.startsWith("sk_live_") && !key.startsWith("sk_test_"))) {
     throw new TowerApiError(
-      "Tower API key is not configured. Set TOWER_API_KEY on the Lendora server.",
-      503,
-    );
-  }
-  if (!key.startsWith("sk_live_") && !key.startsWith("sk_test_")) {
-    throw new TowerApiError(
-      "Tower API key format is invalid. Use a sk_test_ or sk_live_ key from the Tower console.",
+      "Tower API key not configured. Set TOWER_API_KEY env var.",
       503,
     );
   }
