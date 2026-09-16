@@ -4,7 +4,7 @@
   "deployer": "0x48d38B9311294DdC4Aa4c3CB21E84B865FFB9438",
   "addressesProvider": "0xBDC3F5e9cc6af3b125A45d177E65C67154fa008c",
   "lendingPool": "0x3Fa2817A41F8a00583A7c73DaB4Ab2DB7237266A",
-  "priceOracle": "0x7F5821a7F140e92d8E092b024590af0820430aB6",
+  "priceOracle": "0xbee561CF55b5976213325EdBa41839b6277908de",
   "fallbackPriceOracle": "0x13b607B33F034c14B401da60a9df1A69E4C4AA56",
   "interestRateModel": "0xB88fc006A0cdE6a44963014c22abbC32bAe69739",
   "markets": {
@@ -64,5 +64,6 @@
     "LendingPoolAddressesProvider": "0x7e30e43f031e4ae2320c9f10069ec16aead52774bc2102a4a220629ce2c96187"
   },
   "Treasury": "0x59eA806D4F33c48C68C400392D8D5754621Ea5dd",
-  "treasuryDeploymentBlock": 21149394
+  "treasuryDeploymentBlock": 21149394,
+  "ChainlinkPriceOracle": "0xbee561CF55b5976213325EdBa41839b6277908de"
 }

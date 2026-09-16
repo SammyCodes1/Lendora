@@ -6,6 +6,7 @@ const CONTRACTS = [
   "LendingPool",
   "MockPriceOracle",
   "PythPriceOracle",
+  "ChainlinkPriceOracle",
   "AToken",
   "DebtToken",
   "InterestRateModel",
