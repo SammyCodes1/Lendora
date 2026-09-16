@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 
 const networkNames: Record<number, string> = {
   5042: "Arc Mainnet",
+  5042002: "Arc Testnet",
   11155111: "Ethereum Sepolia",
   84532: "Base Sepolia",
   80002: "Polygon Amoy",
@@ -21,7 +22,7 @@ function NetworkLogo({
   chainId: number;
   className?: string;
 }) {
-  if (chainId === 5042) {
+  if (chainId === 5042 || chainId === 5042002) {
     return (
       <span className={cn("inline-flex items-center justify-center rounded-full bg-[#1a1d24] p-0.5", className)}>
         <svg className="h-full w-full" viewBox="0 0 31 32" fill="none" aria-label="Arc">
@@ -53,13 +54,26 @@ function NetworkLogo({
     );
   }
 
+  if (chainId === 80002 || chainId === 137) {
+    return (
+      <svg className={className} viewBox="0 0 24 24" fill="none" aria-label="Polygon">
+        <path
+          d="m8.3 9.1 2.5-1.5a2.4 2.4 0 0 1 2.4 0l2.5 1.5a2.4 2.4 0 0 1 1.2 2.1v2.9l2.2-1.3v-2.9L16.6 8.4a2.4 2.4 0 0 0-2.4 0l-2.5 1.5a2.4 2.4 0 0 0-1.2 2.1v2.9l-2.2 1.3-2.2-1.3V12l2.2-1.3 1.3.8V8.9L9.5 8a2.4 2.4 0 0 0-2.4 0l-2.5 1.5a2.4 2.4 0 0 0-1.2 2.1v2.9a2.4 2.4 0 0 0 1.2 2.1l2.5 1.5a2.4 2.4 0 0 0 2.4 0l2.5-1.5a2.4 2.4 0 0 0 1.2-2.1v-2.9l2.2-1.3 2.2 1.3v2.9l-2.2 1.3-1.3-.8v2.6l.1.1a2.4 2.4 0 0 0 2.4 0l2.5-1.5a2.4 2.4 0 0 0 1.2-2.1v-2.9a2.4 2.4 0 0 0-1.2-2.1l-2.5-1.5a2.4 2.4 0 0 0-2.4 0l-2.5 1.5a2.4 2.4 0 0 0-1.2 2.1v2.9l-2.2 1.3-2.2-1.3v-2.9l2.2-1.3Z"
+          fill="#8247E5"
+        />
+      </svg>
+    );
+  }
+
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-label="Polygon">
-      <path
-        d="m8.3 9.1 2.5-1.5a2.4 2.4 0 0 1 2.4 0l2.5 1.5a2.4 2.4 0 0 1 1.2 2.1v2.9l2.2-1.3v-2.9L16.6 8.4a2.4 2.4 0 0 0-2.4 0l-2.5 1.5a2.4 2.4 0 0 0-1.2 2.1v2.9l-2.2 1.3-2.2-1.3V12l2.2-1.3 1.3.8V8.9L9.5 8a2.4 2.4 0 0 0-2.4 0l-2.5 1.5a2.4 2.4 0 0 0-1.2 2.1v2.9a2.4 2.4 0 0 0 1.2 2.1l2.5 1.5a2.4 2.4 0 0 0 2.4 0l2.5-1.5a2.4 2.4 0 0 0 1.2-2.1v-2.9l2.2-1.3 2.2 1.3v2.9l-2.2 1.3-1.3-.8v2.6l.1.1a2.4 2.4 0 0 0 2.4 0l2.5-1.5a2.4 2.4 0 0 0 1.2-2.1v-2.9a2.4 2.4 0 0 0-1.2-2.1l-2.5-1.5a2.4 2.4 0 0 0-2.4 0l-2.5 1.5a2.4 2.4 0 0 0-1.2 2.1v2.9l-2.2 1.3-2.2-1.3v-2.9l2.2-1.3Z"
-        fill="#8247E5"
-      />
-    </svg>
+    <span className={cn("inline-flex items-center justify-center rounded-full bg-[#1a1d24] p-0.5", className)}>
+      <svg className="h-full w-full" viewBox="0 0 31 32" fill="none" aria-label="Arc">
+        <path
+          d="M0 32C.26 24.17 1.59 16.85 3.82 11.17 6.64 3.97 10.73 0 15.32 0s8.68 3.97 11.5 11.17c1.47 3.75 2.55 8.2 3.19 13.04.06.43.11.87.16 1.31.02.03.03.05.02.07 0 0 .38 2.34.46 6.41h-.04c-.56-.46-7.14-5.61-18.04-4.12.16-1.84.39-3.63.68-5.34l.05-.26c4.28-.13 8.02.37 10.89 1.02l-.03-.21c-.59-3.66-1.46-7.01-2.58-9.88-1.84-4.68-4.23-7.59-6.25-7.59s-4.41 2.91-6.25 7.59c-.44 1.13-.85 2.34-1.21 3.62-.51 1.79-.94 3.7-1.28 5.71-.51 2.97-.82 6.16-.94 9.46H0Z"
+          fill="white"
+        />
+      </svg>
+    </span>
   );
 }
 
