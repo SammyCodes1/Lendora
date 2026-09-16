@@ -33,13 +33,13 @@ const swapSteps = [
   {
     icon: Route,
     label: "Route",
-    detail: "Compare live quotes across Tower Exchange, Curve, Xylo, Synthra V3, and Lendora SwapPool.",
+    detail: "Quotes are fetched directly from Tower Exchange on Arc.",
     color: "text-white/55",
   },
   {
     icon: Coins,
     label: "Exchange",
-    detail: "The transaction executes atomically on Arc through your chosen venue.",
+    detail: "The transaction executes atomically on Arc through Tower Exchange.",
     color: "text-white/55",
   },
   {
@@ -62,9 +62,7 @@ function OnchainSwapFlow() {
           </h2>
         </div>
         <p className="mt-2 text-xs sm:text-sm leading-6 text-white/45">
-          Quotes are compared across peer venues including Tower Exchange, Curve,
-          Xylo, Synthra V3, and Lendora&apos;s own SwapPool. Select your preferred
-          router or take the best rate to settle directly back to your wallet.
+          Swaps route directly through Tower Exchange on Arc. Quotes and calldata are computed with slippage protection and settle directly back to your wallet.
         </p>
 
         <div className="mt-5 sm:mt-6 flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.035] px-3.5 sm:px-4 py-2.5 sm:py-3">
@@ -77,7 +75,7 @@ function OnchainSwapFlow() {
             animate={{ scale: [1, 1.65, 1], opacity: [0.45, 1, 0.45] }}
             transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
           />
-          <span className="font-mono text-xs text-white/40">Arc Testnet</span>
+          <span className="font-mono text-xs text-white/40">Arc Mainnet</span>
         </div>
 
         <div className="relative mt-4">
@@ -151,7 +149,7 @@ export default function SwapPage() {
         <PageHeader
           icon={<Route />}
           title="Swap"
-          description="Exchange Arc assets through Tower Exchange, Curve, Xylo, Synthra V3, or Lendora SwapPool with live quote comparison and slippage protection."
+          description="Exchange Arc assets through Tower Exchange with live quote execution and slippage protection."
         />
 
         <div className="grid gap-5 lg:grid-cols-[1.08fr_0.92fr]">
