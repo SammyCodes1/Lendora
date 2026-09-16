@@ -9,9 +9,10 @@ import mockPriceOracleAbi from "@/constants/abis/MockPriceOracle.json";
 import erc20Abi from "@/constants/abis/ERC20.json";
 import deployments from "@/constants/deployments.json";
 import type { MarketAsset } from "@/components/modals/types";
-import { marketDefinitions } from "@/lib/markets";
+import { marketDefinitions, getMarketDefinitions } from "@/lib/markets";
 import { mapReserveData } from "@/hooks/useLendingPool";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
+import { useActiveDeployment } from "@/hooks/useActiveDeployment";
 
 const SECONDS_PER_YEAR = 31_536_000;
 const RAY = 1e27;
@@ -145,102 +146,107 @@ export function useLiveMarkets(
     }, 1_000);
     return () => window.clearInterval(timer);
   }, []);
-  const activeDefinitions = useMemo(
-    () =>
-      activeAssetAddresses
-        ? marketDefinitions.filter((market) =>
-            activeAssetAddresses.has(market.address.toLowerCase()),
-          )
-        : marketDefinitions,
-    [activeAssetAddresses],
-  );
+  const { deployment, chainId } = useActiveDeployment();
+  const currentPoolAddress = (deployment.lendingPool || lendingPoolAddress) as Address;
+  const currentPriceOracleAddress = (deployment.priceOracle || priceOracleAddress) as Address;
+  const currentFallbackOracleAddress = (
+    deployment.fallbackPriceOracle ?? ZERO_ADDRESS
+  ) as Address;
+  const currentRateModelAddress = (deployment.interestRateModel || rateModelAddress) as Address;
+
+  const activeDefinitions = useMemo(() => {
+    const defs = getMarketDefinitions(chainId);
+    return activeAssetAddresses
+      ? defs.filter((market) => activeAssetAddresses.has(market.address.toLowerCase()))
+      : defs;
+  }, [activeAssetAddresses, chainId]);
 
   const hasFallbackOracle =
-    fallbackPriceOracleAddress !== ZERO_ADDRESS &&
-    fallbackPriceOracleAddress.toLowerCase() !==
-      priceOracleAddress.toLowerCase();
+    currentFallbackOracleAddress !== ZERO_ADDRESS &&
+    currentFallbackOracleAddress.toLowerCase() !==
+      currentPriceOracleAddress.toLowerCase();
 
   const baseReads = useReadContracts({
     contracts: [
       ...activeDefinitions.flatMap((market) => [
         {
-          chainId: 5042002,
-          address: lendingPoolAddress,
+          chainId,
+          address: currentPoolAddress,
           abi: poolAbi,
           functionName: "getReserveData" as const,
           args: [market.address],
         },
         {
-          chainId: 5042002,
-          address: priceOracleAddress,
+          chainId,
+          address: currentPriceOracleAddress,
           abi: oracleAbi,
           functionName: "getPrice" as const,
           args: [market.address],
         },
         {
-          chainId: 5042002,
+          chainId,
           // When no distinct fallback is configured, re-read primary so the
           // slot stays populated without inventing a zero address call.
           address: hasFallbackOracle
-            ? fallbackPriceOracleAddress
-            : priceOracleAddress,
+            ? currentFallbackOracleAddress
+            : currentPriceOracleAddress,
           abi: oracleAbi,
           functionName: "getPrice" as const,
           args: [market.address],
         },
         {
-          chainId: 5042002,
+          chainId,
           address: market.aToken,
           abi: tokenAbi,
           functionName: "balanceOf" as const,
           args: [account],
         },
         {
-          chainId: 5042002,
+          chainId,
           address: market.aToken,
           abi: indexedBalanceAbi,
           functionName: "scaledBalanceOf" as const,
           args: [account],
         },
         {
-          chainId: 5042002,
+          chainId,
           address: market.debtToken,
           abi: tokenAbi,
           functionName: "balanceOf" as const,
           args: [account],
         },
         {
-          chainId: 5042002,
+          chainId,
           address: market.debtToken,
           abi: indexedBalanceAbi,
           functionName: "scaledBalanceOf" as const,
           args: [account],
         },
         {
-          chainId: 5042002,
-          address: lendingPoolAddress,
+          chainId,
+          address: currentPoolAddress,
           abi: poolAbi,
           functionName: "supplyCaps" as const,
           args: [market.address],
         },
         {
-          chainId: 5042002,
-          address: lendingPoolAddress,
+          chainId,
+          address: currentPoolAddress,
           abi: poolAbi,
           functionName: "borrowCaps" as const,
           args: [market.address],
         },
         {
-          chainId: 5042002,
+          chainId,
           address: market.address,
           abi: tokenAbi,
           functionName: "balanceOf" as const,
-          args: [lendingPoolAddress],
+          args: [currentPoolAddress],
         },
       ]),
       {
-        chainId: 5042002,
-        address: lendingPoolAddress,
+        chainId,
+        address: currentPoolAddress,
         abi: poolAbi,
         functionName: "paused" as const,
       },
@@ -248,9 +254,9 @@ export function useLiveMarkets(
     allowFailure: true,
     query: {
       enabled:
-        lendingPoolAddress !== ZERO_ADDRESS &&
-        priceOracleAddress !== ZERO_ADDRESS &&
-        rateModelAddress !== ZERO_ADDRESS,
+        currentPoolAddress !== ZERO_ADDRESS &&
+        currentPriceOracleAddress !== ZERO_ADDRESS &&
+        currentRateModelAddress !== ZERO_ADDRESS,
       refetchInterval: 4_000,
     },
   });
@@ -270,15 +276,15 @@ export function useLiveMarkets(
 
       return [
         {
-          chainId: 5042002,
-          address: rateModelAddress,
+          chainId,
+          address: currentRateModelAddress,
           abi: rateAbi,
           functionName: "calculateSupplyRate" as const,
           args,
         },
         {
-          chainId: 5042002,
-          address: rateModelAddress,
+          chainId,
+          address: currentRateModelAddress,
           abi: rateAbi,
           functionName: "calculateBorrowRate" as const,
           args,
@@ -287,7 +293,7 @@ export function useLiveMarkets(
     }),
     allowFailure: true,
     query: {
-      enabled: reserves.every(Boolean) && rateModelAddress !== ZERO_ADDRESS,
+      enabled: reserves.every(Boolean) && currentRateModelAddress !== ZERO_ADDRESS,
       refetchInterval: 4_000,
     },
   });

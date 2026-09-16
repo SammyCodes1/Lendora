@@ -6,8 +6,9 @@ import { formatUnits } from "viem";
 import { useReadContracts } from "wagmi";
 import earnVaultAbi from "@/constants/abis/EarnVault.json";
 import deployments from "@/constants/deployments.json";
-import { marketDefinitions } from "@/lib/markets";
+import { marketDefinitions, getMarketDefinitions } from "@/lib/markets";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
+import { useActiveDeployment } from "@/hooks/useActiveDeployment";
 import {
   resultHash,
   useArcLendContractWrite,
@@ -30,24 +31,21 @@ export type EarnVaultMarket = {
   assetsPerShare: number;
 };
 
-function vaultAddress(symbol: "USDC" | "EURC") {
-  const configured = deployments.earnVaults?.[symbol] as Address | undefined;
-  return configured ?? ZERO_ADDRESS;
-}
-
 function bigintResult(value: unknown): bigint {
   return typeof value === "bigint" ? value : 0n;
 }
 
 export function useEarnVaultMarkets() {
   const { address } = useArcLendAccount();
+  const { deployment, chainId } = useActiveDeployment();
+
   const definitions = useMemo(
     () =>
-      marketDefinitions.map((market) => ({
+      getMarketDefinitions(chainId).map((market) => ({
         ...market,
-        vault: vaultAddress(market.symbol),
+        vault: ((deployment.earnVaults as Record<string, string> | undefined)?.[market.symbol] ?? ZERO_ADDRESS) as Address,
       })),
-    [],
+    [chainId, deployment],
   );
   const deployedDefinitions = definitions.filter(
     (market) => market.vault !== ZERO_ADDRESS,
@@ -56,26 +54,26 @@ export function useEarnVaultMarkets() {
   const reads = useReadContracts({
     contracts: deployedDefinitions.flatMap((market) => [
       {
-        chainId: 5042002,
+        chainId,
         address: market.vault,
         abi,
         functionName: "totalAssets",
       },
       {
-        chainId: 5042002,
+        chainId,
         address: market.vault,
         abi,
         functionName: "totalSupply",
       },
       {
-        chainId: 5042002,
+        chainId,
         address: market.vault,
         abi,
         functionName: "balanceOf",
         args: [address ?? ZERO_ADDRESS],
       },
       {
-        chainId: 5042002,
+        chainId,
         address: market.vault,
         abi,
         functionName: "availableAssets",
@@ -146,6 +144,7 @@ export function useEarnVaultMarkets() {
 }
 
 export function useEarnVaultAction() {
+  const { chainId } = useActiveDeployment();
   const write = useArcLendContractWrite();
 
   return {
@@ -156,7 +155,7 @@ export function useEarnVaultAction() {
     reset: write.reset,
     deposit: (vault: Address, assets: bigint, receiver: Address, minShares: bigint) =>
       write.writeContractAsync({
-        chainId: 5042002,
+        chainId,
         address: vault,
         abi,
         functionName: "deposit",
@@ -164,7 +163,7 @@ export function useEarnVaultAction() {
       }).then(resultHash),
     withdraw: (vault: Address, assets: bigint, receiver: Address, owner: Address) =>
       write.writeContractAsync({
-        chainId: 5042002,
+        chainId,
         address: vault,
         abi,
         functionName: "withdraw",

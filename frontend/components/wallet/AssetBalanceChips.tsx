@@ -15,6 +15,11 @@ type TokenConfig = {
 
 // Known tokens allowed to display on the navbar
 const KNOWN_TOKENS: Record<number, Record<Address, TokenConfig>> = {
+  // Arc Mainnet (5042)
+  5042: {
+    "0x3600000000000000000000000000000000000000": { symbol: "USDC", decimals: 6, alwaysShow: true },
+    "0xbEf5f6d51CB62b58e6A8f77868681825C6fe21c1": { symbol: "EURC", decimals: 6, alwaysShow: true },
+  },
   // Arc Testnet (5042002)
   5042002: {
     "0x3600000000000000000000000000000000000000": { symbol: "USDC", decimals: 6, alwaysShow: true },

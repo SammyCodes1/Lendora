@@ -1,4 +1,5 @@
-import deployments from "@/constants/deployments.json";
+import testnetDeployments from "@/constants/deployments-testnet.json";
+import mainnetDeployments from "@/constants/deployments-mainnet.json";
 
 export const ARC_TESTNET_CONTRACTS = {
   // USDC is native gas on Arc. Gas uses 18 decimals; ERC-20 USDC uses 6 decimals.
@@ -14,11 +15,18 @@ export const ARC_TESTNET_CONTRACTS = {
   STABLE_FX_ESCROW: "0x867650F5eAe8df91445971f14d89fd84F0C9a9f8",
 } as const;
 
+export const ARC_MAINNET_CONTRACTS = {
+  USDC: "0x3600000000000000000000000000000000000000",
+  EURC: "0xbEf5f6d51CB62b58e6A8f77868681825C6fe21c1",
+  PERMIT2: "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+  MULTICALL3: "0xcA11bde05977b3631167028862bE2a173976CA11",
+} as const;
+
 export const ARCLEND_PROTOCOL_CONTRACTS = {
-  LENDING_POOL: deployments.lendingPool,
-  INTEREST_RATE_MODEL: deployments.interestRateModel,
-  PRICE_ORACLE: deployments.priceOracle,
-  WALLET_DOMAIN: deployments.WalletDomain,
+  LENDING_POOL: testnetDeployments.lendingPool,
+  INTEREST_RATE_MODEL: testnetDeployments.interestRateModel,
+  PRICE_ORACLE: testnetDeployments.priceOracle,
+  WALLET_DOMAIN: testnetDeployments.WalletDomain,
 } as const;
 
 export const ARC_TESTNET_METADATA = {
@@ -27,3 +35,27 @@ export const ARC_TESTNET_METADATA = {
   explorerUrl: "https://testnet.arcscan.app",
   faucetUrl: "https://faucet.circle.com",
 } as const;
+
+export const ARC_MAINNET_METADATA = {
+  chainId: 5042,
+  rpcUrl: "https://rpc.mainnet.arc.io",
+  explorerUrl: "https://arcscan.app",
+} as const;
+
+export function getArcContracts(chainId?: number) {
+  return chainId === 5042 ? ARC_MAINNET_CONTRACTS : ARC_TESTNET_CONTRACTS;
+}
+
+export function getArcMetadata(chainId?: number) {
+  return chainId === 5042 ? ARC_MAINNET_METADATA : ARC_TESTNET_METADATA;
+}
+
+export function getProtocolContracts(chainId?: number) {
+  const dep = chainId === 5042 ? mainnetDeployments : testnetDeployments;
+  return {
+    LENDING_POOL: dep.lendingPool,
+    INTEREST_RATE_MODEL: dep.interestRateModel,
+    PRICE_ORACLE: dep.priceOracle,
+    WALLET_DOMAIN: dep.WalletDomain,
+  };
+}

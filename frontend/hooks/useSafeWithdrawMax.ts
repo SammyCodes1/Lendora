@@ -11,6 +11,7 @@ import { usePublicClient } from "wagmi";
 import lendingPoolAbi from "@/constants/abis/LendingPool.json";
 import deployments from "@/constants/deployments.json";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
+import { useActiveDeployment } from "@/hooks/useActiveDeployment";
 import type { MarketAsset } from "@/components/modals/types";
 
 const poolAddress = deployments.lendingPool as Address;
@@ -27,7 +28,9 @@ export function useSafeWithdrawMax(
   enabled: boolean,
 ) {
   const { address } = useArcLendAccount();
-  const publicClient = usePublicClient({ chainId: 5042002 });
+  const { deployment, chainId } = useActiveDeployment();
+  const publicClient = usePublicClient({ chainId });
+  const currentPoolAddress = (deployment.lendingPool || poolAddress) as Address;
   const [maxWithdrawable, setMaxWithdrawable] = useState(0n);
   const [poolCash, setPoolCash] = useState(0n);
   const [isLoading, setIsLoading] = useState(false);
@@ -47,7 +50,7 @@ export function useSafeWithdrawMax(
         address: market.address,
         abi: erc20Abi,
         functionName: "balanceOf",
-        args: [poolAddress],
+        args: [currentPoolAddress],
       });
       setPoolCash(cash);
 
@@ -65,7 +68,7 @@ export function useSafeWithdrawMax(
       // Fast path: try cash cap first.
       try {
         await publicClient.simulateContract({
-          address: poolAddress,
+          address: currentPoolAddress,
           abi: poolAbi,
           functionName: "withdraw",
           args: [market.address, cashCap, address],
@@ -95,7 +98,7 @@ export function useSafeWithdrawMax(
         }
         try {
           await publicClient.simulateContract({
-            address: poolAddress,
+            address: currentPoolAddress,
             abi: poolAbi,
             functionName: "withdraw",
             args: [market.address, mid, address],

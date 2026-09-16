@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { parseAbi, parseAbiItem, type Address } from "viem";
 import { usePublicClient } from "wagmi";
 import deployments from "@/constants/deployments.json";
+import { useActiveDeployment } from "@/hooks/useActiveDeployment";
 import {
   PRIMARY_DOMAIN_CHANGED_EVENT,
   type PrimaryDomainChangedDetail,
@@ -41,7 +42,9 @@ export function displayDomainName(name: string) {
 }
 
 export function usePrimaryDomain(address?: Address) {
-  const publicClient = usePublicClient({ chainId: 5042002 });
+  const { deployment, chainId } = useActiveDeployment();
+  const publicClient = usePublicClient({ chainId });
+  const currentWalletDomain = (deployment.WalletDomain || walletDomainAddress) as Address;
   const [primaryDomain, setPrimaryDomain] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -55,7 +58,7 @@ export function usePrimaryDomain(address?: Address) {
     setIsLoading(true);
     try {
       const primary = (await publicClient.readContract({
-        address: walletDomainAddress,
+        address: currentWalletDomain,
         abi: domainAbi,
         functionName: "primaryDomainOf",
         args: [address],
@@ -87,7 +90,7 @@ export function usePrimaryDomain(address?: Address) {
             ? earliestBlockInChunk
             : deploymentBlock;
         const logs = await publicClient.getLogs({
-          address: walletDomainAddress,
+          address: currentWalletDomain,
           event: domainMintedEvent,
           args: { owner: address },
           fromBlock,
