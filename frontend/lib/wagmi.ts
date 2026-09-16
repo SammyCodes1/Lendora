@@ -20,6 +20,12 @@ export const arcMainnet = defineChain({
   blockExplorers: {
     default: { name: 'ArcScan', url: 'https://arcscan.app' },
   },
+  contracts: {
+    multicall3: {
+      address: '0xcA11bde05977b3631167028862bE2a173976CA11',
+      blockCreated: 0,
+    },
+  },
 })
 
 const arcRpcUrls = [
@@ -70,7 +76,7 @@ export const wagmiConfig = createConfig({
   // Defer persisted wallet state until after React hydration so the server
   // and initial client markup remain identical.
   ssr: true,
-  chains: [arcMainnet, arcTestnet, sepolia, baseSepolia, polygonAmoy],
+  chains: [arcTestnet, arcMainnet, sepolia, baseSepolia, polygonAmoy],
   connectors: [
     injected(),
     walletConnect({
@@ -81,7 +87,7 @@ export const wagmiConfig = createConfig({
     }),
   ],
   transports: {
-    [arcMainnet.id]: http(process.env.NEXT_PUBLIC_ARC_MAINNET_RPC_URL || 'https://rpc.mainnet.arc.io', { retryCount: 1, timeout: 12_000 }),
+    [arcMainnet.id]: http(process.env.NEXT_PUBLIC_ARC_MAINNET_RPC_URL || 'https://rpc.mainnet.arc.io', { retryCount: 2, timeout: 15_000 }),
     [arcTestnet.id]: createArcTestnetTransport(),
     [sepolia.id]: http(),
     [baseSepolia.id]: http(),
