@@ -17,7 +17,6 @@ import type {
   AgentTransactionReceipt,
   ValidatedAgentAction,
 } from "@/lib/agentTypes";
-import type { MultiSendRecipientInput } from "@/lib/multiSend";
 import { ARC_DEX_TOKENS } from "@/lib/arcDex";
 import { marketDefinitions } from "@/lib/markets";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
@@ -133,14 +132,14 @@ export function useAgent() {
   const cirBtcWallet = useTokenBalance({
     address,
     token: cirBtc.address,
-    chainId: 5042002,
+    chainId: 5042,
     enabled: Boolean(address),
     refetchInterval: 8_000,
   });
   const usdtWallet = useTokenBalance({
     address,
     token: usdt.address,
-    chainId: 5042002,
+    chainId: 5042,
     enabled: Boolean(address),
     refetchInterval: 8_000,
   });
@@ -361,7 +360,6 @@ export function useAgent() {
 
     return {
       walletAddress: address ?? null,
-      timezoneOffsetMinutes: new Date().getTimezoneOffset(),
       positions: {
         totalCollateralUsd: rawBalance(
           accountData?.totalCollateralUSD,
@@ -440,16 +438,8 @@ export function useAgent() {
   ]);
 
   const sendMessage = useCallback(
-    async (
-      message: string,
-      extras?: { multiSendRecipients?: MultiSendRecipientInput[] },
-    ) => {
-      const attached = extras?.multiSendRecipients;
-      const content =
-        message.trim() ||
-        (attached?.length
-          ? `MultiSend the attached recipient list (${attached.length} wallets).`
-          : "");
+    async (message: string) => {
+      const content = message.trim();
       if (!content || isPending) {
         return null;
       }
@@ -542,14 +532,7 @@ export function useAgent() {
         const response = await fetch("/api/agent", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: content,
-            history,
-            context,
-            ...(attached?.length
-              ? { multiSendRecipients: attached }
-              : {}),
-          }),
+          body: JSON.stringify({ message: content, history, context }),
         });
         const result = (await response.json()) as AgentResponse;
 

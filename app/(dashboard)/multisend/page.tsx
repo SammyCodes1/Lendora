@@ -29,7 +29,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { cn } from "@/lib/utils";
 import { ARCSCAN_TX } from "@/components/modals/modalUtils";
-import { ARC_TESTNET_CONTRACTS } from "@/constants/contracts";
+import { ARC_MAINNET_CONTRACTS } from "@/constants/contracts";
 import erc20Abi from "@/constants/abis/ERC20.json";
 import multiSendAbi from "@/constants/abis/MultiSend.json";
 import deployments from "@/constants/deployments.json";
@@ -37,8 +37,8 @@ import deployments from "@/constants/deployments.json";
 // ─── Constants ──────────────────────────────────────────────────────────
 
 const MAX_RECIPIENTS = 200;
-const USDC_ADDRESS = ARC_TESTNET_CONTRACTS.USDC as `0x${string}`;
-const EURC_ADDRESS = ARC_TESTNET_CONTRACTS.EURC as `0x${string}`;
+const USDC_ADDRESS = ARC_MAINNET_CONTRACTS.USDC as `0x${string}`;
+const EURC_ADDRESS = ARC_MAINNET_CONTRACTS.EURC as `0x${string}`;
 const MULTISEND_ADDRESS = (
   deployments as Record<string, unknown>
 ).MultiSend as `0x${string}` | undefined;

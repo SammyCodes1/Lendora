@@ -42,7 +42,7 @@ const USDC = ARC_DEX_TOKENS.USDC;
 const EURC = ARC_DEX_TOKENS.EURC;
 
 function arcScanTx(hash: Hash) {
-  return `https://testnet.arcscan.app/tx/${hash}`;
+  return `https://arcscan.app/tx/${hash}`;
 }
 
 function errorMessage(error: unknown) {
@@ -52,7 +52,7 @@ function errorMessage(error: unknown) {
 export default function SwapPoolPage() {
   const { address, isConnected } = useArcLendAccount();
   const chainId = useChainId();
-  const publicClient = usePublicClient({ chainId: 5042002 });
+  const publicClient = usePublicClient({ chainId: 5042 });
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync } = useWriteContract();
 
@@ -72,13 +72,13 @@ export default function SwapPoolPage() {
   const usdcBalance = useTokenBalance({
     address,
     token: USDC.address as Address,
-    chainId: 5042002,
+    chainId: 5042,
     enabled: Boolean(address),
   });
   const eurcBalance = useTokenBalance({
     address,
     token: EURC.address as Address,
-    chainId: 5042002,
+    chainId: 5042,
     enabled: Boolean(address),
   });
 
@@ -171,8 +171,8 @@ export default function SwapPoolPage() {
   }, [lpBalance, reserveA, reserveB, totalSupply]);
 
   const ensureNetwork = async () => {
-    if (chainId !== 5042002) {
-      await switchChainAsync({ chainId: 5042002 });
+    if (chainId !== 5042) {
+      await switchChainAsync({ chainId: 5042 });
     }
   };
 
@@ -190,7 +190,7 @@ export default function SwapPoolPage() {
     });
     if (allowance >= amount) return;
     const hash = await writeContractAsync({
-      chainId: 5042002,
+      chainId: 5042,
       address: token,
       abi: erc20Abi,
       functionName: "approve",
@@ -214,7 +214,7 @@ export default function SwapPoolPage() {
       await approveIfNeeded(EURC.address as Address, address, b);
 
       const hash = await writeContractAsync({
-        chainId: 5042002,
+        chainId: 5042,
         address: POOL,
         abi: SWAP_POOL_ABI,
         functionName: "addLiquidity",
@@ -250,7 +250,7 @@ export default function SwapPoolPage() {
       }
 
       const hash = await writeContractAsync({
-        chainId: 5042002,
+        chainId: 5042,
         address: POOL,
         abi: SWAP_POOL_ABI,
         functionName: "removeLiquidity",

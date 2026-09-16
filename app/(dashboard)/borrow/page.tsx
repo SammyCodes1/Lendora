@@ -56,7 +56,7 @@ export default function BorrowPage() {
   const [assetFilter, setAssetFilter] = useState<LendoraAssetFilter>("ALL");
   const { address, isConnected, source } = useArcLendAccount();
   const chainId = useChainId();
-  const publicClient = usePublicClient({ chainId: 5042002 });
+  const publicClient = usePublicClient({ chainId: 5042 });
   const { switchChainAsync } = useSwitchChain();
   const contractWrite = useArcLendContractWrite();
   const repayAction = useRepayAction();
@@ -94,8 +94,8 @@ export default function BorrowPage() {
     if (!publicClient) {
       throw new Error("Arc client is unavailable.");
     }
-    if (source === "wallet" && chainId !== 5042002) {
-      await switchChainAsync({ chainId: 5042002 });
+    if (source === "wallet" && chainId !== 5042) {
+      await switchChainAsync({ chainId: 5042 });
     }
   }, [address, chainId, publicClient, source, switchChainAsync]);
 
@@ -126,7 +126,7 @@ export default function BorrowPage() {
       });
       if (allowance < amount) {
         const approvalResult = await contractWrite.writeContractAsync({
-          chainId: 5042002,
+          chainId: 5042,
           address: market.address,
           abi: erc20Abi,
           functionName: "approve",

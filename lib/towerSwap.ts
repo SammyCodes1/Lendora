@@ -7,7 +7,7 @@ import {
 } from "viem";
 import { ARC_DEX_ROUTERS, ARC_DEX_TOKENS, TOWER_ABI } from "@/lib/arcDex";
 
-export const TOWER_SWAP_CHAIN_ID = 5042002;
+export const TOWER_SWAP_CHAIN_ID = 5042;
 export const TOWER_SWAP_EXECUTOR = ARC_DEX_ROUTERS.tower;
 export const TOWER_QUOTE_DECIMALS = 18;
 export const TOWER_QUOTE_MAX_AGE_MS = 55_000;

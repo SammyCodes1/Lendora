@@ -34,14 +34,14 @@ import deployments from "@/constants/deployments.json";
 import { showToast } from "@/lib/toast";
 
 function nftExplorerUrl(tokenId: bigint) {
-  return `https://testnet.arcscan.app/token/${deployments.PositionNFT}?a=${tokenId}`;
+  return `https://arcscan.app/token/${deployments.PositionNFT}?a=${tokenId}`;
 }
 
 export default function PositionsPage() {
   const { address, isConnected, source } = useArcLendAccount();
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
-  const publicClient = usePublicClient({ chainId: 5042002 });
+  const publicClient = usePublicClient({ chainId: 5042 });
   const receipts = useUserPositionNFTs();
   const claimAction = useClaimExistingPosition();
   const closeAction = useClosePosition();
@@ -60,8 +60,8 @@ export default function PositionsPage() {
     const key = `${claimable.asset}-${claimable.positionType}`;
     setClaimingKey(key);
     try {
-      if (source !== "email" && chainId !== 5042002) {
-        await switchChainAsync({ chainId: 5042002 });
+      if (source !== "email" && chainId !== 5042) {
+        await switchChainAsync({ chainId: 5042 });
       }
       const hash = await claimAction.claimExistingPosition(
         claimable.asset,
@@ -105,8 +105,8 @@ export default function PositionsPage() {
     }
     setClosingTokenId(position.tokenId);
     try {
-      if (source !== "email" && chainId !== 5042002) {
-        await switchChainAsync({ chainId: 5042002 });
+      if (source !== "email" && chainId !== 5042) {
+        await switchChainAsync({ chainId: 5042 });
       }
       const hash = await closeAction.closePosition(
         position.asset,
@@ -145,11 +145,11 @@ export default function PositionsPage() {
       showToast("error", "No receipts ready to burn.");
       return;
     }
-    if (source !== "email" && chainId !== 5042002) {
+    if (source !== "email" && chainId !== 5042) {
       try {
-        await switchChainAsync({ chainId: 5042002 });
+        await switchChainAsync({ chainId: 5042 });
       } catch {
-        showToast("error", "Switch to Arc Testnet to continue.");
+        showToast("error", "Switch to Arc Mainnet to continue.");
         return;
       }
     }

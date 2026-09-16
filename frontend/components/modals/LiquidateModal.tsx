@@ -139,7 +139,7 @@ export function LiquidateModal({ open, target, onClose }: LiquidateModalProps) {
             type="button"
             variant="ghost"
             disabled={parsedAmount === 0n || approval.isPending}
-            onClick={() => approval.writeContract({ chainId: 5042002, address: target.debtMarket.address, abi: erc20Abi as Abi, functionName: "approve", args: [deployments.lendingPool, parsedAmount] })}
+            onClick={() => approval.writeContract({ chainId: 5042, address: target.debtMarket.address, abi: erc20Abi as Abi, functionName: "approve", args: [deployments.lendingPool, parsedAmount] })}
           >
             {approval.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             Approve Debt Asset

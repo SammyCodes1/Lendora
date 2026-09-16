@@ -35,9 +35,9 @@ import { announcePrimaryDomainChanged } from "@/lib/domainEvents";
 import { showToast } from "@/lib/toast";
 
 // ── Contract config ────────────────────────────────────────────────────────
-// Lendora WalletDomain contract on Arc Testnet
+// Lendora WalletDomain contract on Arc Mainnet
 const WALLET_DOMAIN_ADDRESS = deployments.WalletDomain as Address;
-const ARC_EXPLORER = "https://testnet.arcscan.app";
+const ARC_EXPLORER = "https://arcscan.app";
 const DISPLAY_DOMAIN_SUFFIX = ".lendora";
 const DOMAIN_SUFFIX_PATTERN = /\.(?:lendora|arclend|arc)$/;
 const DOMAIN_MARKETPLACE_ADDRESS = (

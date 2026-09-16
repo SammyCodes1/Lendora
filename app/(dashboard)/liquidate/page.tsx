@@ -21,7 +21,7 @@ type AtRiskPosition = LiquidationTarget & {
 };
 
 const borrowEvent = parseAbiItem("event Borrow(address indexed asset,address indexed user,address indexed onBehalfOf,uint256 amount)");
-const arcscanAddress = "https://testnet.arcscan.app/address/";
+const arcscanAddress = "https://arcscan.app/address/";
 const LOG_BLOCKS_PER_REQUEST = 9_500n;
 
 function usd8(value: bigint) {
@@ -41,7 +41,7 @@ function tokenUsd(amount: bigint, market: MarketAsset) {
 }
 
 function useAtRiskPositions(markets: MarketAsset[]) {
-  const publicClient = usePublicClient({ chainId: 5042002 });
+  const publicClient = usePublicClient({ chainId: 5042 });
   const [positions, setPositions] = useState<AtRiskPosition[]>([]);
 
   useEffect(() => {

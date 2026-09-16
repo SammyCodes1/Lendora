@@ -143,7 +143,7 @@ export function RepayModal({ open, market, onClose }: RepayModalProps) {
             type="button"
             variant="ghost"
             disabled={!address || parsedAmount === 0n || isApproving}
-            onClick={() => approve({ chainId: 5042002, address: market.address, abi: erc20Abi as Abi, functionName: "approve", args: [deployments.lendingPool, parsedAmount] })}
+            onClick={() => approve({ chainId: 5042, address: market.address, abi: erc20Abi as Abi, functionName: "approve", args: [deployments.lendingPool, parsedAmount] })}
           >
             {isApproving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             Approve

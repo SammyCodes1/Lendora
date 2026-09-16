@@ -69,11 +69,11 @@ function VaultCard({
   const { address, source } = useArcLendAccount();
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
-  const publicClient = usePublicClient({ chainId: 5042002 });
+  const publicClient = usePublicClient({ chainId: 5042 });
   const walletBalance = useUserBalance(vault.asset, vault.deployed);
   const depositSpender = vault.vault;
   const allowanceRead = useReadContract({
-    chainId: 5042002,
+    chainId: 5042,
     address: vault.asset,
     abi: erc20Abi,
     functionName: "allowance",
@@ -118,8 +118,8 @@ function VaultCard({
     if (!publicClient) {
       throw new Error("Arc client is unavailable.");
     }
-    if (source !== "email" && chainId !== 5042002) {
-      await switchChainAsync({ chainId: 5042002 });
+    if (source !== "email" && chainId !== 5042) {
+      await switchChainAsync({ chainId: 5042 });
     }
   }, [address, chainId, publicClient, source, switchChainAsync]);
 
@@ -129,7 +129,7 @@ function VaultCard({
     try {
       await ensureArc();
       const hash = resultHash(await approveWrite.writeContractAsync({
-        chainId: 5042002,
+        chainId: 5042,
         address: vault.asset,
         abi: erc20WriteAbi,
         functionName: "approve",

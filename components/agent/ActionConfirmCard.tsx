@@ -207,7 +207,7 @@ export function ActionConfirmCard({
   const action = validatedAction.action;
   const { address, source } = useArcLendAccount();
   const chainId = useChainId();
-  const publicClient = usePublicClient({ chainId: 5042002 });
+  const publicClient = usePublicClient({ chainId: 5042 });
   const { switchChainAsync } = useSwitchChain();
   const contractWrite = useArcLendContractWrite();
   const supplyAction = useSupplyWithReceipt();
@@ -770,8 +770,8 @@ export function ActionConfirmCard({
         return;
       }
 
-      if (source === "wallet" && chainId !== 5042002) {
-        await switchChainAsync({ chainId: 5042002 });
+      if (source === "wallet" && chainId !== 5042) {
+        await switchChainAsync({ chainId: 5042 });
       }
 
       if (action.tool === "swap") {
@@ -836,7 +836,7 @@ export function ActionConfirmCard({
         const recipient = String(params.recipient) as Address;
         const submittedAt = performance.now();
         const hash = await submitContract({
-          chainId: 5042002,
+          chainId: 5042,
           address: token.address,
           abi: erc20Abi,
           functionName: "transfer",
@@ -847,7 +847,7 @@ export function ActionConfirmCard({
           ...review,
           title: `${params.amount} ${asset} sent`,
           transactionHash: hash,
-          explorerUrl: hash ? `https://testnet.arcscan.app/tx/${hash}` : undefined,
+          explorerUrl: hash ? `https://arcscan.app/tx/${hash}` : undefined,
           finalityMs: Math.max(
             0,
             Math.round(performance.now() - submittedAt),

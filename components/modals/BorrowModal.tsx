@@ -49,7 +49,7 @@ export function BorrowModal({ open, market, onClose }: BorrowModalProps) {
   const [amount, setAmount] = useState("");
   const [isDelegating, setIsDelegating] = useState(false);
   const { address } = useArcLendAccount();
-  const publicClient = usePublicClient({ chainId: 5042002 });
+  const publicClient = usePublicClient({ chainId: 5042 });
   const { accountData } = useUserAccountData(address);
   const { markets } = useLiveMarkets();
   const borrowAction = useBorrowWithReceipt();
@@ -61,7 +61,7 @@ export function BorrowModal({ open, market, onClose }: BorrowModalProps) {
   const parsedAmount = useMemo(() => parseTokenAmount(amount), [amount]);
   const lendingPoolAddress = deployments.lendingPool as Address;
   const delegateApproval = useReadContract({
-    chainId: 5042002,
+    chainId: 5042,
     address: lendingPoolAddress,
     abi: lendingPoolAbi as Abi,
     functionName: "borrowDelegates",
@@ -146,7 +146,7 @@ export function BorrowModal({ open, market, onClose }: BorrowModalProps) {
       setIsDelegating(true);
       try {
         const result = await delegateWrite.writeContractAsync({
-          chainId: 5042002,
+          chainId: 5042,
           address: lendingPoolAddress,
           abi: lendingPoolAbi as Abi,
           functionName: "setBorrowDelegate",
@@ -252,7 +252,7 @@ export function BorrowModal({ open, market, onClose }: BorrowModalProps) {
                 disabled={delegateWrite.isPending}
                 onClick={async () => {
                   const result = await delegateWrite.writeContractAsync({
-                    chainId: 5042002,
+                    chainId: 5042,
                     address: lendingPoolAddress,
                     abi: lendingPoolAbi as Abi,
                     functionName: "setBorrowDelegate",

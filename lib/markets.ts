@@ -18,7 +18,7 @@ export function marketTokenFromBlock(chainId?: number) {
 }
 
 export function arcscanTokenUrl(address: string, chainId?: number) {
-  const base = chainId === 5042 ? "https://arcscan.app" : "https://testnet.arcscan.app";
+  const base = chainId === 5042002 ? "https://testnet.arcscan.app" : "https://arcscan.app";
   return `${base}/token/${address}`;
 }
 
@@ -39,7 +39,7 @@ export type MarketDefinition = {
 };
 
 export function getMarketDefinitions(chainId?: number): MarketDefinition[] {
-  const dep = getDeployment(chainId);
+  const dep = getDeployment(chainId ?? 5042);
   return [
     {
       name: "USD Coin",
@@ -58,7 +58,7 @@ export function getMarketDefinitions(chainId?: number): MarketDefinition[] {
   ];
 }
 
-export const marketDefinitions: MarketDefinition[] = getMarketDefinitions(5042002);
+export const marketDefinitions: MarketDefinition[] = getMarketDefinitions(5042);
 
 export function marketSymbolForAddress(asset: Address, chainId?: number) {
   const list = getMarketDefinitions(chainId);
