@@ -149,6 +149,7 @@ export function useSwap() {
 
       // Tower Exchange quote
       let towerQuote: SwapRouteQuote | null = null;
+      let towerApiError: string | null = null;
       try {
         const response = await fetch("/api/swap/quote", {
           method: "POST",
@@ -160,9 +161,11 @@ export function useSwap() {
             slippageBps,
           }),
         });
-        const payload = (await response.json()) as QuoteApiResponse;
+        const payload = (await response.json()) as QuoteApiResponse & { error?: string };
         if (response.ok && payload.quote) {
           towerQuote = toRouteQuote(parseTowerQuote(payload.quote));
+        } else if (payload.error) {
+          towerApiError = payload.error;
         }
       } catch {}
 
@@ -192,7 +195,7 @@ export function useSwap() {
       }
 
       if (!towerQuote) {
-        throw new Error("No executable Tower Exchange route is available");
+        throw new Error(towerApiError ?? "No executable Tower Exchange route is available");
       }
 
       return [towerQuote];
