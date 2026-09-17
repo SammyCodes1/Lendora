@@ -14,7 +14,6 @@ import {
 import { PageTransition } from "@/components/layout/PageTransition";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { SwapPriceTicker } from "@/components/features/SwapPriceTicker";
 
 const SwapWidget = dynamic(
   () =>
@@ -152,8 +151,6 @@ export default function SwapPage() {
           title="Swap"
           description="Exchange Arc assets through Tower Exchange with live quote execution and slippage protection."
         />
-
-        <SwapPriceTicker />
 
         <div className="grid gap-5 lg:grid-cols-[1.08fr_0.92fr]">
           <SwapWidget />
