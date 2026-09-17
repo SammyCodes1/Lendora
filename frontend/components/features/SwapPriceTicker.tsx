@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { type Address } from "viem";
 import { useReadContracts } from "wagmi";
 import { useActiveDeployment } from "@/hooks/useActiveDeployment";
+import { useLivePrices } from "@/hooks/useLivePrices";
 import { TokenMark, ChainlinkIcon } from "@/components/ui/TokenMark";
 import { cn } from "@/lib/utils";
 
@@ -48,19 +49,19 @@ export const TICKER_TOKENS: TickerTokenConfig[] = [
     priceDecimals: 2,
   },
   {
+    symbol: "USDT",
+    name: "Tether USD",
+    address: "0x175CdB1D338945f0D851A741ccF787D343E57952",
+    decimals: 18,
+    defaultPrice: 1.0,
+    priceDecimals: 2,
+  },
+  {
     symbol: "cirBTC",
     name: "Circle Wrapped Bitcoin",
     address: "0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF",
     decimals: 8,
-    defaultPrice: 76120.0,
-    priceDecimals: 2,
-  },
-  {
-    symbol: "CRCL",
-    name: "Circle Internet Group",
-    address: "0x4352434C00000000000000000000000000000000",
-    decimals: 18,
-    defaultPrice: 81.72,
+    defaultPrice: 76140.0,
     priceDecimals: 2,
   },
 ];
@@ -80,6 +81,7 @@ function formatTickerPrice(val: number, decimals: number): string {
 
 export function SwapPriceTicker({ className }: { className?: string }) {
   const { chainId, deployment } = useActiveDeployment();
+  const { prices: livePrices } = useLivePrices();
   const oracleAddress = (deployment?.priceOracle ||
     "0xbee561CF55b5976213325EdBa41839b6277908de") as Address;
 
@@ -144,9 +146,12 @@ export function SwapPriceTicker({ className }: { className?: string }) {
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-1 sm:items-center sm:justify-end sm:gap-3 overflow-x-auto no-scrollbar">
           {TICKER_TOKENS.map((token, index) => {
             const contractRes = data?.[index];
-            let priceNum = token.defaultPrice;
+            const liveInfo = livePrices[token.symbol];
 
-            if (
+            let priceNum = token.defaultPrice;
+            if (liveInfo && liveInfo.price > 0) {
+              priceNum = liveInfo.price;
+            } else if (
               contractRes?.status === "success" &&
               Array.isArray(contractRes.result)
             ) {
@@ -157,6 +162,7 @@ export function SwapPriceTicker({ className }: { className?: string }) {
               }
             }
 
+            const change24h = liveInfo?.change24h ?? 0;
             const formattedPrice = formatTickerPrice(
               priceNum,
               token.priceDecimals,
@@ -186,10 +192,20 @@ export function SwapPriceTicker({ className }: { className?: string }) {
                   </div>
                 </div>
 
-                <div className="text-right">
+                <div className="flex flex-col items-end">
                   <span className="font-mono text-xs font-semibold tracking-tight text-white">
                     {formattedPrice}
                   </span>
+                  {change24h !== 0 ? (
+                    <span
+                      className={cn(
+                        "font-mono text-[9px] font-medium leading-none mt-0.5",
+                        change24h > 0 ? "text-emerald-400" : "text-rose-400",
+                      )}
+                    >
+                      {change24h > 0 ? `+${change24h.toFixed(1)}%` : `${change24h.toFixed(1)}%`}
+                    </span>
+                  ) : null}
                 </div>
               </motion.div>
             );

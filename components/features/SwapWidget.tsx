@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
 import { useTokenBalance } from "@/hooks/useTokenBalance";
+import { useLivePrices } from "@/hooks/useLivePrices";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { TokenMark } from "@/components/ui/TokenMark";
@@ -170,6 +171,9 @@ export function SwapWidget() {
     useState<SwapProgressStep[]>(initialSwapProgress);
   const [finalityMs, setFinalityMs] = useState<number | null>(null);
   const [receivedAmount, setReceivedAmount] = useState("0.00");
+  const [rateInverted, setRateInverted] = useState(false);
+
+  const { getPrice, getUsdValue } = useLivePrices();
 
   const fromToken = ARC_DEX_TOKENS[fromSymbol];
   const toToken = ARC_DEX_TOKENS[toSymbol];
@@ -218,6 +222,47 @@ export function SwapWidget() {
     }
     return bestRoute;
   }, [selectedRoute, quotes, bestRoute]);
+
+  const fromPrice = getPrice(fromSymbol);
+  const toPrice = getPrice(toSymbol);
+
+  const fromUsd = getUsdValue(fromSymbol, amount);
+  const toAmountStr = activeRoute
+    ? formatUnits(activeRoute.output, toToken.decimals)
+    : "";
+  const toUsd = getUsdValue(toSymbol, toAmountStr);
+
+  const rawRate = useMemo(() => {
+    if (activeRoute && Number(amount) > 0) {
+      const outNum = Number(formatUnits(activeRoute.output, toToken.decimals));
+      const inNum = Number(amount);
+      if (inNum > 0 && outNum > 0) return outNum / inNum;
+    }
+    if (toPrice > 0) return fromPrice / toPrice;
+    return 1;
+  }, [activeRoute, amount, fromPrice, toPrice, toToken.decimals]);
+
+  const rawInvertedRate = rawRate > 0 ? 1 / rawRate : 0;
+
+  const formattedRate = useMemo(() => {
+    if (rawRate >= 1000) {
+      return rawRate.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
+    if (rawRate < 0.0001) {
+      return rawRate.toExponential(4);
+    }
+    return rawRate.toLocaleString(undefined, { maximumFractionDigits: 6 });
+  }, [rawRate]);
+
+  const formattedInvertedRate = useMemo(() => {
+    if (rawInvertedRate >= 1000) {
+      return rawInvertedRate.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    }
+    if (rawInvertedRate < 0.0001) {
+      return rawInvertedRate.toExponential(4);
+    }
+    return rawInvertedRate.toLocaleString(undefined, { maximumFractionDigits: 6 });
+  }, [rawInvertedRate]);
 
   const exceedsBalance =
     parsedAmount > 0n && fromBalance.data
@@ -386,7 +431,7 @@ export function SwapWidget() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase text-white/35">
-              Arc Testnet
+              Arc Mainnet
             </p>
             <h2 className="mt-1 text-xl font-semibold text-white">
               Swap assets
@@ -423,7 +468,15 @@ export function SwapWidget() {
             />
           </div>
           <div className="mt-4 flex items-center justify-between text-xs text-white/40">
-            <span>Available: {available}</span>
+            <span>
+              {fromUsd > 0 ? (
+                <span className="font-mono text-white/70">
+                  ~${fromUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              ) : (
+                `Available: ${available}`
+              )}
+            </span>
             <button
               type="button"
               disabled={!fromBalance.data || fromBalance.data.value <= 0n}
@@ -478,7 +531,59 @@ export function SwapWidget() {
               menuPosition="top"
             />
           </div>
+          <div className="mt-4 flex items-center justify-between text-xs text-white/40">
+            <span>
+              {toUsd > 0 ? (
+                <span className="font-mono text-white/70">
+                  ~${toUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              ) : null}
+            </span>
+            {activeRoute?.isIndicative ? (
+              <span className="inline-flex items-center gap-1 rounded bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                Indicative Benchmark
+              </span>
+            ) : null}
+          </div>
         </div>
+
+        {/* Live Exchange Rate */}
+        <div className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.025] px-3.5 py-2.5 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-white/40">Rate</span>
+            <span className="font-mono font-medium text-white/90">
+              {rateInverted
+                ? `1 ${toSymbol} ≈ ${formattedInvertedRate} ${fromSymbol}`
+                : `1 ${fromSymbol} ≈ ${formattedRate} ${toSymbol}`}
+            </span>
+            <button
+              type="button"
+              onClick={() => setRateInverted((v) => !v)}
+              className="rounded p-1 text-white/40 hover:bg-white/10 hover:text-white transition"
+              title="Invert rate"
+            >
+              <ArrowDownUp className="h-3 w-3" />
+            </button>
+          </div>
+          <span className="font-mono text-[11px] text-white/40">
+            {rateInverted
+              ? `~$${toPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              : `~$${fromPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          </span>
+        </div>
+
+        {/* Indicative Rate Warning Banner */}
+        {activeRoute?.isIndicative ? (
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-3 text-xs text-amber-200/90 flex items-start gap-2.5">
+            <div className="shrink-0 mt-0.5 h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-amber-200 text-xs">Tower DEX Migration Active</p>
+              <p className="mt-0.5 text-amber-300/70 text-[11px] leading-4">
+                Tower Exchange is verifying its new SwapExecutor on Arc Mainnet. Prices shown reflect real-time Chainlink oracle benchmark rates. Direct execution is temporarily paused until verification completes.
+              </p>
+            </div>
+          </div>
+        ) : null}
 
         <div>
           <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
@@ -587,7 +692,7 @@ export function SwapWidget() {
         ) : null}
         {txHash ? (
           <a
-            href={`https://testnet.arcscan.app/tx/${txHash}`}
+            href={`https://arcscan.app/tx/${txHash}`}
             target="_blank"
             rel="noreferrer"
             className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.05] p-3 text-sm text-white/75"
@@ -608,6 +713,7 @@ export function SwapWidget() {
             !connectorReady ||
             parsedAmount <= 0n ||
             !activeRoute ||
+            Boolean(activeRoute?.isIndicative) ||
             exceedsBalance ||
             quoteLoading ||
             swapLoading
@@ -625,9 +731,11 @@ export function SwapWidget() {
               ? "Use browser wallet"
             : chainId !== 5042
               ? "Switch to Arc and swap"
-              : swapLoading
-                ? "Confirming swap"
-                : `Swap via ${activeRoute?.label ?? "best route"}`}
+            : activeRoute?.isIndicative
+              ? "Tower DEX Migration in Progress"
+            : swapLoading
+              ? "Confirming swap"
+              : `Swap via ${activeRoute?.label ?? "best route"}`}
         </GlassButton>
       </div>
     </GlassCard>
