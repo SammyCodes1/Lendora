@@ -662,7 +662,6 @@ export function CinematicHome() {
               <a href="https://arcscan.app" target="_blank" rel="noreferrer" className="transition hover:text-white">ArcScan</a>
               <a href="https://www.circle.com" target="_blank" rel="noreferrer" className="transition hover:text-white">Circle</a>
             </div>
-            <div className="flex flex-wrap items-center gap-5"><span>Arc Network × Circle</span><span className="font-mono">© {new Date().getFullYear()} Lend<span className="text-[#86efac]">ora</span></span></div>
           </footer>
         </div>
       </section>
