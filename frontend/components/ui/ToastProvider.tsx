@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { CheckCircle2, X, XCircle } from "lucide-react";
+import { CheckCircle2, ExternalLink, X, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -9,6 +9,8 @@ type Toast = {
   id: number;
   type: "success" | "error";
   message: string;
+  txHash?: string;
+  explorerUrl?: string;
 };
 
 declare global {
@@ -26,7 +28,7 @@ export function ToastProvider() {
       setToasts((current) => [...current, { id, ...event.detail }]);
       window.setTimeout(() => {
         setToasts((current) => current.filter((toast) => toast.id !== id));
-      }, 4000);
+      }, 5000);
     }
 
     window.addEventListener("arclend:toast", handleToast);
@@ -47,6 +49,10 @@ export function ToastProvider() {
         {toasts.map((toast) => {
           const isSuccess = toast.type === "success";
           const Icon = isSuccess ? CheckCircle2 : XCircle;
+          const txUrl =
+            toast.explorerUrl ??
+            (toast.txHash ? `https://explorer.arc.io/tx/${toast.txHash}` : null);
+
           return (
             <motion.div
               key={toast.id}
@@ -72,6 +78,22 @@ export function ToastProvider() {
                   <p className="break-words text-xs font-medium leading-relaxed sm:text-sm text-white/95">
                     {toast.message}
                   </p>
+                  {txUrl ? (
+                    <a
+                      href={txUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-1.5 inline-flex items-center gap-1.5 rounded-md border border-emerald-400/25 bg-emerald-400/10 px-2 py-0.5 font-mono text-[11px] text-emerald-300 transition hover:border-emerald-400/50 hover:bg-emerald-400/20"
+                    >
+                      <span>
+                        On-chain:{" "}
+                        {toast.txHash
+                          ? `${toast.txHash.slice(0, 6)}...${toast.txHash.slice(-4)}`
+                          : "View on ArcScan"}
+                      </span>
+                      <ExternalLink className="h-3 w-3 opacity-80" />
+                    </a>
+                  ) : null}
                 </div>
                 <button
                   type="button"

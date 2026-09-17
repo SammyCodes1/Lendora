@@ -19,6 +19,7 @@ import type { MarketAsset } from "@/components/modals/types";
 import { errorMessage } from "@/components/modals/modalUtils";
 import { useWithdrawAction } from "@/hooks/useLendingPool";
 import { useLiveMarkets } from "@/hooks/useLiveMarkets";
+import { useOnchainYieldListener } from "@/hooks/useOnchainYieldListener";
 import { showToast } from "@/lib/toast";
 import {
   AssetFilterBar,
@@ -47,6 +48,7 @@ export default function LendPage() {
   const publicClient = usePublicClient({ chainId: 5042 });
   const withdrawAction = useWithdrawAction();
   const { markets, isLoading, isError, isPaused, refetch } = useLiveMarkets();
+  useOnchainYieldListener();
 
   useEffect(() => {
     const pending = readPendingSupply();
@@ -170,16 +172,28 @@ export default function LendPage() {
 
         const hash = await withdrawAction.withdraw(market.address, amount);
         if (hash) {
+          console.info(
+            `[ArcLend] On-chain yield claim submitted: https://explorer.arc.io/tx/${hash}`,
+          );
           await publicClient!.waitForTransactionReceipt({ hash });
+          console.info(
+            `[ArcLend] On-chain yield claim confirmed on Arc Mainnet: https://explorer.arc.io/tx/${hash}`,
+          );
           setClaimHashes((current) => ({
             ...current,
             [market.symbol]: hash,
           }));
+          showToast(
+            "success",
+            `${formatUnits(amount, 6)} ${market.symbol} yield claimed`,
+            { txHash: hash },
+          );
+        } else {
+          showToast(
+            "success",
+            `${formatUnits(amount, 6)} ${market.symbol} yield withdrawn`,
+          );
         }
-        showToast(
-          "success",
-          `${formatUnits(amount, 6)} ${market.symbol} yield withdrawn`,
-        );
         await refetch();
       } catch (error) {
         showToast(
@@ -195,6 +209,9 @@ export default function LendPage() {
 
   const claimAll = useCallback(async () => {
     if (claimableMarkets.length === 0) return;
+    console.info(
+      `[ArcLend] Claiming pending yield across ${claimableMarkets.length} markets...`,
+    );
     setIsClaimingAll(true);
     try {
       for (const market of claimableMarkets) {
