@@ -18,7 +18,7 @@ export const arcMainnet = defineChain({
     },
   },
   blockExplorers: {
-    default: { name: 'ArcScan', url: 'https://arcscan.app' },
+    default: { name: 'ArcScan', url: 'https://explorer.arc.io' },
   },
   contracts: {
     multicall3: {

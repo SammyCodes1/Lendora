@@ -36,7 +36,7 @@ export type ApiDrop = {
   claims?: DropClaim[];
 };
 
-export const ARCSCAN_ADDRESS_BASE = "https://arcscan.app/address/";
+export const ARCSCAN_ADDRESS_BASE = "https://explorer.arc.io/address/";
 
 export function truncateDropAddress(address: string) {
   if (address.length < 12) return address;
@@ -72,7 +72,7 @@ export function parseDropAmount(value: string): bigint | null {
   }
 }
 
-export const ARCSCAN_TX_BASE = "https://arcscan.app/tx/";
+export const ARCSCAN_TX_BASE = "https://explorer.arc.io/tx/";
 
 /** Hosts that serve the same Lendrop app and share Redis slugs. */
 export const DROP_SHARE_ORIGINS = [

@@ -21,7 +21,7 @@ type AtRiskPosition = LiquidationTarget & {
 };
 
 const borrowEvent = parseAbiItem("event Borrow(address indexed asset,address indexed user,address indexed onBehalfOf,uint256 amount)");
-const arcscanAddress = "https://arcscan.app/address/";
+const arcscanAddress = "https://explorer.arc.io/address/";
 const LOG_BLOCKS_PER_REQUEST = 9_500n;
 
 function usd8(value: bigint) {

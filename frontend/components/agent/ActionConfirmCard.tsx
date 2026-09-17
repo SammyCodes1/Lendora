@@ -788,7 +788,7 @@ export function ActionConfirmCard({
           transactionHash: completedStep.txHash,
           explorerUrl:
             completedStep.explorerUrl ??
-            `https://arcscan.app/tx/${completedStep.txHash}`,
+            `https://explorer.arc.io/tx/${completedStep.txHash}`,
           finalityMs: Math.max(
             0,
             Math.round(performance.now() - submittedAt),
@@ -874,7 +874,7 @@ export function ActionConfirmCard({
           ...review,
           title: `${params.amount} ${asset} sent`,
           transactionHash: hash,
-          explorerUrl: hash ? `https://arcscan.app/tx/${hash}` : undefined,
+          explorerUrl: hash ? `https://explorer.arc.io/tx/${hash}` : undefined,
           finalityMs: Math.max(
             0,
             Math.round(performance.now() - submittedAt),

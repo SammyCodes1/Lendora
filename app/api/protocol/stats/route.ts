@@ -34,8 +34,8 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const EXPLORER_API = process.env.NEXT_PUBLIC_EXPLORER_API || "https://arcscan.app/api";
-const EXPLORER_V2 = process.env.NEXT_PUBLIC_EXPLORER_V2 || "https://arcscan.app/api/v2";
+const EXPLORER_API = process.env.NEXT_PUBLIC_EXPLORER_API || "https://explorer.arc.io/api";
+const EXPLORER_V2 = process.env.NEXT_PUBLIC_EXPLORER_V2 || "https://explorer.arc.io/api/v2";
 const USD_SCALE = 1_000_000n;
 const MAX_LOG_RESULTS = 1_000;
 const MAX_PARTICIPANTS = 75;
@@ -182,12 +182,18 @@ async function explorerJson<T>(url: string): Promise<T> {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       const response = await fetch(url, {
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+          Referer: "https://explorer.arc.io/",
+          Origin: "https://explorer.arc.io",
+        },
         next: { revalidate: 60 },
-        signal: AbortSignal.timeout(20_000),
+        signal: AbortSignal.timeout(12_000),
       });
       if (!response.ok) {
-        throw new Error("ArcScan request failed with " + response.status);
+        throw new Error("Explorer request failed with " + response.status);
       }
       return response.json() as Promise<T>;
     } catch (error) {
@@ -199,7 +205,7 @@ async function explorerJson<T>(url: string): Promise<T> {
   }
   throw lastError instanceof Error
     ? lastError
-    : new Error("ArcScan request failed");
+    : new Error("Explorer request failed");
 }
 
 async function queryLogs(
