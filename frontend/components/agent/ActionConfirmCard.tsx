@@ -7,6 +7,7 @@ import {
   ArrowUpCircle,
   Coins,
   Loader2,
+  PiggyBank,
   RefreshCw,
   RotateCcw,
   SendHorizontal,
@@ -35,6 +36,7 @@ import {
   AgentTransactionFlow,
 } from "@/components/agent/AgentTransactionFlow";
 import { useBridge, type BridgeNetwork } from "@/hooks/useAppKit";
+import { useEarnVaultAction } from "@/hooks/useEarnVaults";
 import {
   useBorrowAction,
   useRepayAction,
@@ -162,6 +164,7 @@ function actionIcon(tool: AgentAction["tool"]) {
   if (tool === "mintDomain") return Sparkles;
   if (tool === "burnDomain") return RefreshCw;
   if (tool === "setPrimaryDomain") return Star;
+  if (tool === "depositEarnVault") return PiggyBank;
   if (tool === "listDomain" || tool === "delistDomain" || tool === "buyDomain") return ShoppingCart;
   return RefreshCw;
 }
@@ -219,6 +222,7 @@ export function ActionConfirmCard({
   const repayAction = useRepayAction();
   const swapAction = useSwap();
   const bridgeAction = useBridge();
+  const earnVaultAction = useEarnVaultAction();
   const [isPreparing, setIsPreparing] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
   const [review, setReview] = useState<AgentTransactionReview | null>(
@@ -365,7 +369,7 @@ export function ActionConfirmCard({
     if (approved) return true;
 
     const delegationHash = await submitContract({
-      chainId: 5_042_002,
+      chainId: 5042,
       address: lendingPool,
       abi: borrowDelegationAbi,
       functionName: "setBorrowDelegate",
@@ -549,6 +553,27 @@ export function ActionConfirmCard({
           ],
           detail:
             "Your wallet will call setPrimaryDomain on-chain. This sets your primary username across Lendora.",
+        });
+        return;
+      }
+
+      if (action.tool === "depositEarnVault") {
+        const asset = String(params.asset);
+        const amount = String(params.amount);
+        setReview({
+          eyebrow: "Earn Vault review",
+          title: `Deposit ${amount} ${asset} into Earn Vault`,
+          amountLabel: "Deposit amount",
+          amount: `${amount} ${asset}`,
+          receiveLabel: "Vault shares",
+          receiveAmount: `Auto-compounding ${asset} shares`,
+          route: [
+            `${asset} wallet`,
+            `Lendora ${asset} Earn Vault`,
+            "Auto-compounding yield",
+          ],
+          detail:
+            `Your wallet approves and deposits ${amount} ${asset} into the Lendora Earn Vault to earn auto-compounding interest.`,
         });
         return;
       }
@@ -858,6 +883,47 @@ export function ActionConfirmCard({
         return;
       }
 
+      if (action.tool === "depositEarnVault") {
+        if (!publicClient) {
+          throw new Error("Arc client unavailable");
+        }
+        const asset = params.asset as "USDC" | "EURC";
+        const earnVaultsRecord = (
+          deployments as typeof deployments & { earnVaults?: Record<string, string> }
+        ).earnVaults ?? {};
+        const vaultAddress = earnVaultsRecord[asset] as Address | undefined;
+        if (!vaultAddress || vaultAddress === ZERO_ADDRESS) {
+          throw new Error(`The ${asset} Earn Vault is not deployed`);
+        }
+        const market = marketDefinitions.find(
+          (definition) => definition.symbol === asset,
+        );
+        if (!market) {
+          throw new Error("Unsupported market definition");
+        }
+        const amount = parseUnits(String(params.amount), 6);
+        await ensureAllowance(market.address, amount, vaultAddress);
+        const submittedAt = performance.now();
+        const hash = await earnVaultAction.deposit(
+          vaultAddress,
+          amount,
+          address,
+          0n,
+        );
+        await waitForSubmitted(hash);
+        setReceipt({
+          ...review,
+          title: `${params.amount} ${asset} deposited to Earn Vault`,
+          transactionHash: hash,
+          explorerUrl: hash ? `https://explorer.arc.io/tx/${hash}` : undefined,
+          finalityMs: Math.max(
+            0,
+            Math.round(performance.now() - submittedAt),
+          ),
+        });
+        return;
+      }
+
       if (action.tool === "mintDomain") {
         if (!publicClient) {
           throw new Error("Arc client unavailable");
@@ -879,7 +945,7 @@ export function ActionConfirmCard({
           args: [params.domain, address, secret],
         });
         const commitmentHash = await submitContract({
-          chainId: 5_042_002,
+          chainId: 5042,
           address: WALLET_DOMAIN_ADDRESS,
           abi: walletDomainAbi,
           functionName: "commitDomain",
@@ -917,7 +983,7 @@ export function ActionConfirmCard({
           }
         }
         const hash = await submitContract({
-          chainId: 5_042_002,
+          chainId: 5042,
           address: WALLET_DOMAIN_ADDRESS,
           abi: walletDomainAbi,
           functionName: "mintDomain",
@@ -949,7 +1015,7 @@ export function ActionConfirmCard({
         );
         const submittedAt = performance.now();
         const hash = await submitContract({
-          chainId: 5_042_002,
+          chainId: 5042,
           address: WALLET_DOMAIN_ADDRESS,
           abi: walletDomainAbi,
           functionName: "burnDomain",
@@ -981,7 +1047,7 @@ export function ActionConfirmCard({
         );
         const submittedAt = performance.now();
         const hash = await submitContract({
-          chainId: 5_042_002,
+          chainId: 5042,
           address: WALLET_DOMAIN_ADDRESS,
           abi: walletDomainAbi,
           functionName: "setPrimaryDomain",
@@ -1021,7 +1087,7 @@ export function ActionConfirmCard({
         );
         const submittedAt = performance.now();
         const approvalHash = await submitContract({
-          chainId: 5_042_002,
+          chainId: 5042,
           address: WALLET_DOMAIN_ADDRESS,
           abi: walletDomainAbi,
           functionName: "approve",
@@ -1029,7 +1095,7 @@ export function ActionConfirmCard({
         });
         await waitForSubmitted(approvalHash);
         const hash = await submitContract({
-          chainId: 5_042_002,
+          chainId: 5042,
           address: DOMAIN_MARKETPLACE_ADDRESS,
           abi: domainMarketplaceAbi,
           functionName: "list",
@@ -1085,7 +1151,7 @@ export function ActionConfirmCard({
         );
         const submittedAt = performance.now();
         const hash = await submitContract({
-          chainId: 5_042_002,
+          chainId: 5042,
           address: DOMAIN_MARKETPLACE_ADDRESS,
           abi: domainMarketplaceAbi,
           functionName: "cancelListing",
@@ -1150,7 +1216,7 @@ export function ActionConfirmCard({
         );
         const submittedAt = performance.now();
         const hash = await submitContract({
-          chainId: 5_042_002,
+          chainId: 5042,
           address: DOMAIN_MARKETPLACE_ADDRESS,
           abi: domainMarketplaceAbi,
           functionName: "buy",

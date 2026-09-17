@@ -38,7 +38,7 @@ import {
   type Address,
   type PublicClient,
 } from "viem";
-import { arcTestnet } from "viem/chains";
+import { arcMainnet } from "@/lib/wagmi";
 import lendingPoolAbi from "@/constants/abis/LendingPool.json";
 import priceOracleAbi from "@/constants/abis/MockPriceOracle.json";
 import deployments from "@/constants/deployments.json";
@@ -104,39 +104,37 @@ const BPS = 10_000n;
 const MIN_HEALTH_FACTOR = 1_100_000_000_000_000_000n;
 
 const externalChains = {
-  Ethereum_Sepolia: defineChain({
-    id: 11_155_111,
-    name: "Ethereum Sepolia",
-    nativeCurrency: { name: "Sepolia Ether", symbol: "ETH", decimals: 18 },
-    rpcUrls: {
-      default: { http: ["https://11155111.rpc.thirdweb.com"] },
-    },
-    testnet: true,
+  Ethereum: defineChain({
+    id: 1,
+    name: "Ethereum",
+    nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+    rpcUrls: { default: { http: ["https://cloudflare-eth.com"] } },
   }),
-  Base_Sepolia: defineChain({
-    id: 84_532,
-    name: "Base Sepolia",
-    nativeCurrency: { name: "Sepolia Ether", symbol: "ETH", decimals: 18 },
-    rpcUrls: { default: { http: ["https://sepolia.base.org"] } },
-    testnet: true,
+  Base: defineChain({
+    id: 8453,
+    name: "Base",
+    nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+    rpcUrls: { default: { http: ["https://mainnet.base.org"] } },
   }),
-  Polygon_Amoy_Testnet: defineChain({
-    id: 80_002,
-    name: "Polygon Amoy",
+  Polygon: defineChain({
+    id: 137,
+    name: "Polygon",
     nativeCurrency: { name: "POL", symbol: "POL", decimals: 18 },
-    rpcUrls: {
-      default: { http: ["https://rpc-amoy.polygon.technology"] },
-    },
-    testnet: true,
+    rpcUrls: { default: { http: ["https://polygon-rpc.com"] } },
+  }),
+  Arbitrum: defineChain({
+    id: 42161,
+    name: "Arbitrum One",
+    nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+    rpcUrls: { default: { http: ["https://arb1.arbitrum.io/rpc"] } },
   }),
 } as const;
 
 const bridgeUsdc = {
-  Ethereum_Sepolia:
-    "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
-  Base_Sepolia: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-  Polygon_Amoy_Testnet:
-    "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582",
+  Ethereum: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+  Base: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  Polygon: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+  Arbitrum: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
 } as const satisfies Record<keyof typeof externalChains, Address>;
 
 const configuredReserves = {
@@ -172,6 +170,10 @@ const multiSendAddress = (
 const domainMarketplaceAddress = (
   deployments as typeof deployments & { DomainMarketplace?: Address }
 ).DomainMarketplace;
+const earnVaults = (
+  (deployments as typeof deployments & { earnVaults?: Record<string, string> })
+    .earnVaults ?? {}
+) as Record<string, Address>;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const walletDomainAbi = parseAbi([
   "function isRegistered(string name) view returns (bool)",
@@ -191,22 +193,19 @@ const rateModelAbi = parseAbi([
 const arcRpcUrls = Array.from(
   new Set(
     [
-      process.env.ARC_TESTNET_RPC_URL,
-      process.env.NEXT_PUBLIC_RPC_URL,
-      ...arcTestnet.rpcUrls.default.http,
-      "https://rpc.drpc.testnet.arc.network",
-      "https://rpc.quicknode.testnet.arc.network",
-      "https://rpc.blockdaemon.testnet.arc.network",
+      process.env.NEXT_PUBLIC_ARC_MAINNET_RPC_URL,
+      process.env.ARC_MAINNET_RPC_URL,
+      "https://rpc.mainnet.arc.io",
     ].filter((url): url is string => Boolean(url)),
   ),
 );
 
 const arcClient = createPublicClient({
-  chain: arcTestnet,
+  chain: arcMainnet,
   transport: fallback(
     arcRpcUrls.map((url) =>
       http(url, {
-        retryCount: 0,
+        retryCount: 2,
         timeout: 12_000,
       }),
     ),
@@ -525,12 +524,25 @@ function normalizeBridgeSource(value: unknown) {
     return null;
   }
   const source = value.trim().toLowerCase();
-  if (source.includes("base")) return "Base_Sepolia" as const;
-  if (source.includes("polygon") || source.includes("amoy")) {
-    return "Polygon_Amoy_Testnet" as const;
+  if (source.includes("base")) return "Base" as const;
+  if (
+    source.includes("polygon") ||
+    source.includes("amoy") ||
+    source.includes("matic") ||
+    source.includes("pol")
+  ) {
+    return "Polygon" as const;
   }
-  if (source.includes("ethereum") || source === "sepolia") {
-    return "Ethereum_Sepolia" as const;
+  if (source.includes("arbitrum") || source.includes("arb")) {
+    return "Arbitrum" as const;
+  }
+  if (
+    source.includes("ethereum") ||
+    source.includes("eth") ||
+    source.includes("mainnet") ||
+    source === "sepolia"
+  ) {
+    return "Ethereum" as const;
   }
   return null;
 }
@@ -539,16 +551,20 @@ async function liveBridgeBalance(
   wallet: Address,
   source: keyof typeof externalChains,
 ) {
-  const client = createPublicClient({
-    chain: externalChains[source],
-    transport: http(undefined, { retryCount: 2, timeout: 12_000 }),
-  });
-  return client.readContract({
-    address: bridgeUsdc[source],
-    abi: erc20Abi,
-    functionName: "balanceOf",
-    args: [wallet],
-  });
+  try {
+    const client = createPublicClient({
+      chain: externalChains[source],
+      transport: http(undefined, { retryCount: 2, timeout: 8_000 }),
+    });
+    return await client.readContract({
+      address: bridgeUsdc[source],
+      abi: erc20Abi,
+      functionName: "balanceOf",
+      args: [wallet],
+    });
+  } catch {
+    return null;
+  }
 }
 
 function supportedName(value: unknown) {
@@ -730,6 +746,59 @@ export async function validateAgentAction(
             domain,
             displayDomain: displayDomainName(domain),
             tokenId: tokenId.toString(),
+          },
+        },
+        walletAddress: wallet,
+        validatedAt: Date.now(),
+      };
+    }
+
+    if (action.tool === "depositEarnVault") {
+      const asset = params.asset;
+      if (asset !== "USDC" && asset !== "EURC") {
+        return hardBlock(walletKey, "Only USDC and EURC Earn Vaults are currently supported.");
+      }
+      const parsedAmount = parseAmount(params.amount);
+      if (!parsedAmount || parsedAmount <= 0n) {
+        return hardBlock(walletKey, "Specify a positive amount to deposit into the Earn Vault.");
+      }
+
+      const vaultAddress = earnVaults[asset];
+      if (!vaultAddress || vaultAddress === ZERO_ADDRESS) {
+        return hardBlock(walletKey, `The ${asset} Earn Vault is not currently deployed.`);
+      }
+
+      const reserve = configuredReserves[asset];
+      if (!reserve) {
+        return hardBlock(walletKey, `The ${asset} market is unavailable.`);
+      }
+
+      let walletBalance = 0n;
+      try {
+        walletBalance = await arcClient.readContract({
+          address: reserve.asset,
+          abi: erc20Abi,
+          functionName: "balanceOf",
+          args: [getAddress(wallet)],
+        });
+      } catch {
+        return invalidContext(walletKey);
+      }
+
+      if (parsedAmount > walletBalance) {
+        return hardBlock(
+          walletKey,
+          `You only have ${formatUnits(walletBalance, 6)} ${asset} available in your wallet.`,
+        );
+      }
+
+      return {
+        valid: true,
+        action: {
+          ...action,
+          params: {
+            asset,
+            amount: formatUnits(parsedAmount, 6),
           },
         },
         walletAddress: wallet,
@@ -977,13 +1046,13 @@ export async function validateAgentAction(
       if (!source) {
         return invalidContext(walletKey);
       }
-      let sourceBalance: bigint;
+      let sourceBalance: bigint | null = null;
       try {
         sourceBalance = await liveBridgeBalance(wallet, source);
       } catch {
-        return invalidContext(walletKey);
+        sourceBalance = null;
       }
-      if (amount > sourceBalance) {
+      if (sourceBalance !== null && amount > sourceBalance) {
         return hardBlock(
           walletKey,
           `Insufficient balance on ${String(params.sourceChain)} to bridge that amount.`,
