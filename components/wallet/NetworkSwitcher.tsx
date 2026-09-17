@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 
 const networkNames: Record<number, string> = {
   5042: "Arc Mainnet",
-  5042002: "Arc Testnet",
+  5042002: "Arc Mainnet",
   11155111: "Ethereum Sepolia",
   84532: "Base Sepolia",
   80002: "Polygon Amoy",

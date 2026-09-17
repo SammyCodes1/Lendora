@@ -18,7 +18,7 @@ export function marketTokenFromBlock(chainId?: number) {
 }
 
 export function arcscanTokenUrl(address: string, chainId?: number) {
-  const base = chainId === 5042002 ? "https://testnet.arcscan.app" : "https://arcscan.app";
+  const base = chainId === 5042002 ? "https://testnet.arcscan.app" : "https://explorer.arc.io";
   return `${base}/token/${address}`;
 }
 

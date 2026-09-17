@@ -317,7 +317,7 @@ export function FeaturedDepositBoard({
                         </span>
                       </div>
                       <p className="mt-0.5 truncate text-xs text-white/40">
-                        Arc Testnet Core Spoke
+                        Arc Mainnet Core Spoke
                       </p>
                     </div>
                   </div>
@@ -491,7 +491,7 @@ export function DepositMarketsTable({
             Deposit USDC and EURC
           </h2>
         </div>
-        <p className="hidden text-xs text-white/35 sm:block">Arc Testnet</p>
+        <p className="hidden text-xs text-white/35 sm:block">Arc Mainnet</p>
       </div>
 
       <div className="divide-y divide-white/[0.06] md:hidden">
@@ -875,7 +875,7 @@ export function YourDepositsTable({
                     ) : null}
                     {claimHash ? (
                       <a
-                        href={`https://testnet.arcscan.app/tx/${claimHash}`}
+                        href={`https://explorer.arc.io/tx/${claimHash}`}
                         target="_blank"
                         rel="noreferrer"
                         className="mt-1 inline-flex items-center gap-1 text-[11px] text-white/55 hover:text-white"
@@ -981,7 +981,7 @@ export function YourBorrowsTable({
                     ) : null}
                     {hash ? (
                       <a
-                        href={`https://testnet.arcscan.app/tx/${hash}`}
+                        href={`https://explorer.arc.io/tx/${hash}`}
                         target="_blank"
                         rel="noreferrer"
                         className="mt-1 inline-flex items-center gap-1 text-[11px] text-white/55 hover:text-white"

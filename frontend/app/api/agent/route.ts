@@ -122,7 +122,7 @@ const functionDeclarations = [
   {
     name: "sendToken",
     description:
-      "Send a supported Arc Testnet ERC-20 token to an explicit wallet address, a registered .lendora domain, or an address resolved from the user's saved contacts",
+      "Send a supported Arc Mainnet ERC-20 token to an explicit wallet address, a registered .lendora domain, or an address resolved from the user's saved contacts",
     parametersJsonSchema: {
       type: "object",
       properties: {

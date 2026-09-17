@@ -506,7 +506,7 @@ export default function SwapPoolPage() {
         <p className="text-xs text-white/30">
           Pool contract{" "}
           <a
-            href={`https://testnet.arcscan.app/address/${POOL}`}
+            href={`https://explorer.arc.io/address/${POOL}`}
             target="_blank"
             rel="noopener noreferrer"
             className="font-mono text-white/45 underline-offset-2 hover:underline"

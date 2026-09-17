@@ -102,7 +102,7 @@ export function CircleEmailWalletDialog({
       setWallets(nextWallets);
       if (nextWallets[0]) {
         onWalletReady(nextWallets[0], nextAuth);
-        setStatus("Wallet ready on Arc Testnet.");
+        setStatus("Wallet ready on Arc Mainnet.");
       } else {
         setStatus("No Arc wallet found yet. Create or load your wallet.");
       }
@@ -386,7 +386,7 @@ export function CircleEmailWalletDialog({
               Sign in
             </h2>
             <p className="mt-2 text-sm leading-6 text-white/50">
-              Continue with Google to create or load an Arc Testnet wallet.
+              Continue with Google to create or load an Arc Mainnet wallet.
             </p>
           </div>
           <button
@@ -487,7 +487,7 @@ export function CircleEmailWalletDialog({
                   {shortAddress(wallet.address)}
                 </span>
                 <span className="mt-1 block text-xs text-white/40">
-                  {wallet.blockchain || "ARC-TESTNET"} {wallet.accountType ? `· ${wallet.accountType}` : ""}
+                  {wallet.blockchain || "ARC-MAINNET"} {wallet.accountType ? `· ${wallet.accountType}` : ""}
                 </span>
               </button>
             ))}

@@ -489,7 +489,7 @@ export default function MultiSendPage() {
           // Dual asset — approve both USDC and EURC
           if (totalUsdc > 0n) {
             await writeContractAsync({
-              chainId: 5042002,
+              chainId: 5042,
               address: USDC_ADDRESS,
               abi: erc20Abi as Abi,
               functionName: "approve",
@@ -500,7 +500,7 @@ export default function MultiSendPage() {
           }
           if (totalEurc > 0n) {
             await writeContractAsync({
-              chainId: 5042002,
+              chainId: 5042,
               address: EURC_ADDRESS,
               abi: erc20Abi as Abi,
               functionName: "approve",
@@ -513,7 +513,7 @@ export default function MultiSendPage() {
           const tokenAddr = tokenForSingle;
           const total = hasUsdc ? totalUsdc : totalEurc;
           await writeContractAsync({
-            chainId: 5042002,
+            chainId: 5042,
             address: tokenAddr as `0x${string}`,
             abi: erc20Abi as Abi,
             functionName: "approve",
@@ -528,7 +528,7 @@ export default function MultiSendPage() {
         let result;
         if (isDual) {
           result = await writeContractAsync({
-            chainId: 5042002,
+            chainId: 5042,
             address: MULTISEND_ADDRESS,
             abi: multiSendAbi as Abi,
             functionName: "multiSendDual",
@@ -542,7 +542,7 @@ export default function MultiSendPage() {
           });
         } else {
           result = await writeContractAsync({
-            chainId: 5042002,
+            chainId: 5042,
             address: MULTISEND_ADDRESS,
             abi: multiSendAbi as Abi,
             functionName: "multiSend",

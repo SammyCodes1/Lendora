@@ -185,7 +185,7 @@ export function ConnectWalletButton({
                 {copied ? "Copied" : "Copy wallet address"}
               </button>
               <a
-                href={`https://testnet.arcscan.app/address/${activeAddress}`}
+                href={`https://explorer.arc.io/address/${activeAddress}`}
                 target="_blank"
                 rel="noreferrer"
                 className="flex w-full touch-manipulation items-center gap-2 rounded-md px-3 py-2.5 text-left text-sm text-white/70 transition hover:bg-white/[0.07] hover:text-white"

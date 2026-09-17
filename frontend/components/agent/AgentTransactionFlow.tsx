@@ -392,7 +392,7 @@ export function AgentTransactionFlow({
                   {review.receiveLabel ?? "Network"}
                 </p>
                 <p className="mt-2 break-words font-mono text-lg text-white">
-                  {review.receiveAmount ?? "Arc Testnet"}
+                  {review.receiveAmount ?? "Arc Mainnet"}
                 </p>
               </div>
               {receipt ? (

@@ -448,7 +448,7 @@ export default function ProfilePage() {
                 Copy address
               </button>
               <a
-                href={`https://testnet.arcscan.app/address/${address}`}
+                href={`https://explorer.arc.io/address/${address}`}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-2 rounded-xl border border-white/[0.09] bg-white/[0.04] px-3.5 py-2.5 text-xs text-white/55 transition hover:border-white/20 hover:text-white"
@@ -776,7 +776,7 @@ export default function ProfilePage() {
             <p className="text-[10px] font-semibold uppercase text-white/35">
               Network
             </p>
-            <p className="mt-3 text-lg text-white">Arc Testnet</p>
+            <p className="mt-3 text-lg text-white">Arc Mainnet</p>
           </GlassCard>
           <GlassCard className="p-5">
             <div className="flex items-center gap-2 text-white/60">

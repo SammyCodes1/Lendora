@@ -75,7 +75,7 @@ function assetForToken(token: Address): "USDC" | "EURC" {
 export function useSpokenPayPlans() {
   const { address, isConnected } = useArcLendAccount();
   const idsRead = useReadContract({
-    chainId: 5042002,
+    chainId: 5042,
     address: spokenPayAddress,
     abi: spokenPayAbi,
     functionName: "planIdsOf",
@@ -90,21 +90,21 @@ export function useSpokenPayPlans() {
   const detailsRead = useReadContracts({
     contracts: ids.flatMap((id) => [
       {
-        chainId: 5042002 as const,
+        chainId: 5042 as const,
         address: spokenPayAddress,
         abi: spokenPayAbi,
         functionName: "plans" as const,
         args: [id],
       },
       {
-        chainId: 5042002 as const,
+        chainId: 5042 as const,
         address: spokenPayAddress,
         abi: spokenPayAbi,
         functionName: "previewPlan" as const,
         args: [id],
       },
       {
-        chainId: 5042002 as const,
+        chainId: 5042 as const,
         address: spokenPayAddress,
         abi: spokenPayAbi,
         functionName: "lastOutcome" as const,
@@ -181,7 +181,7 @@ export function useSpokenPayActions() {
   const { address } = useArcLendAccount();
   const write = useArcLendContractWrite();
   const withdraw = useWithdrawAction();
-  const publicClient = usePublicClient({ chainId: 5042002 });
+  const publicClient = usePublicClient({ chainId: 5042 });
   const liveMarkets = useLiveMarkets();
 
   const createPlan = useCallback(
@@ -209,7 +209,7 @@ export function useSpokenPayActions() {
       if ((allowance ?? 0n) < amount * 104n) {
         const approveHash = resultHash(
           await write.writeContractAsync({
-            chainId: 5042002,
+            chainId: 5042,
             address: token.address,
             abi: erc20Abi,
             functionName: "approve",
@@ -222,7 +222,7 @@ export function useSpokenPayActions() {
       }
       const hash = resultHash(
         await write.writeContractAsync({
-          chainId: 5042002,
+          chainId: 5042,
           address: spokenPayAddress,
           abi: spokenPayAbi,
           functionName: "createPlan",
@@ -252,7 +252,7 @@ export function useSpokenPayActions() {
       if (!spokenPayAddress) throw new Error("SpokenPay is not deployed.");
       const hash = resultHash(
         await write.writeContractAsync({
-          chainId: 5042002,
+          chainId: 5042,
           address: spokenPayAddress,
           abi: spokenPayAbi,
           functionName: "cancelPlan",
@@ -286,7 +286,7 @@ export function useSpokenPayActions() {
       }
       const hash = resultHash(
         await write.writeContractAsync({
-          chainId: 5042002,
+          chainId: 5042,
           address: spokenPayAddress,
           abi: spokenPayAbi,
           functionName: "executePlan",
