@@ -57,6 +57,7 @@ export type SwapRouteQuote = {
   priceImpact?: number;
   routeLabel?: string;
   quote?: TowerQuoteData;
+  isIndicative?: boolean;
 };
 
 export type SwapExecutionStep = "switch" | "approve" | "swap";
@@ -89,6 +90,20 @@ type PrepareApiResponse = {
 function apiError(payload: { error?: string }, fallback: string) {
   return payload.error?.trim() || fallback;
 }
+
+const ORACLE_ADDRESS: Address = "0xbee561CF55b5976213325EdBa41839b6277908de";
+const ORACLE_ABI = [
+  {
+    name: "getPrice",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "token", type: "address" }],
+    outputs: [
+      { name: "price", type: "uint256" },
+      { name: "decimals", type: "uint8" },
+    ],
+  },
+] as const;
 
 function toRouteQuote(quote: TowerQuoteData): SwapRouteQuote {
   const outputToken = tokenByAddress(quote.outputToken);
@@ -194,6 +209,56 @@ export function useSwap() {
         } catch {}
       }
 
+      // If Tower API or onchain pool is paused (e.g. migration verification), provide an accurate indicative quote
+      if (!towerQuote && publicClient && parsedAmount > 0n) {
+        try {
+          const [inRes, outRes] = await Promise.all([
+            publicClient.readContract({
+              address: ORACLE_ADDRESS,
+              abi: ORACLE_ABI,
+              functionName: "getPrice",
+              args: [fromToken.address],
+            }),
+            publicClient.readContract({
+              address: ORACLE_ADDRESS,
+              abi: ORACLE_ABI,
+              functionName: "getPrice",
+              args: [toToken.address],
+            }),
+          ]);
+
+          const priceIn = (inRes as [bigint, number])[0];
+          const priceOut = (outRes as [bigint, number])[0];
+
+          if (priceIn > 0n && priceOut > 0n) {
+            let baseOut: bigint;
+            if (toToken.decimals >= fromToken.decimals) {
+              const scale = 10n ** BigInt(toToken.decimals - fromToken.decimals);
+              baseOut = (parsedAmount * priceIn * scale) / priceOut;
+            } else {
+              const scale = 10n ** BigInt(fromToken.decimals - toToken.decimals);
+              baseOut = (parsedAmount * priceIn) / (priceOut * scale);
+            }
+
+            const outAfterFee = (baseOut * 9975n) / 10_000n;
+            const minOut = (outAfterFee * BigInt(10_000 - slippageBps)) / 10_000n;
+
+            towerQuote = {
+              key: "tower",
+              output: outAfterFee,
+              minOut,
+              router: ARC_DEX_ROUTERS.tower,
+              label: "Tower Exchange",
+              detail: "Indicative benchmark rate from Chainlink Price Oracle. Live execution paused for Tower migration.",
+              feeBps: 25,
+              priceImpact: 0,
+              routeLabel: "Tower (Indicative Rate)",
+              isIndicative: true,
+            };
+          }
+        } catch {}
+      }
+
       if (!towerQuote) {
         throw new Error(towerApiError ?? "No executable Tower Exchange route is available");
       }
@@ -263,6 +328,12 @@ export function useSwap() {
         const best =
           confirmedQuote ??
           (await quoteSwap(tokenIn, tokenOut, amountIn, slippageBps));
+
+        if (best.isIndicative) {
+          throw new Error(
+            "Tower DEX swaps are temporarily paused while the TowerSwapExecutor migration is verified on Arc Mainnet. Indicative benchmark pricing is active.",
+          );
+        }
 
         let approvalHash: Hash | undefined;
         let hash: Hash;
