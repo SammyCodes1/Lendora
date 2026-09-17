@@ -13,7 +13,7 @@ import type {
 export const runtime = "nodejs";
 
 const SYSTEM_PROMPT =
-  "You are Lendora's transaction assistant. Only call one of the defined tools - never invent new ones. Saved wallet contacts are supplied in context; resolve nicknames only to the exact saved address and never guess an address. For .lendora domain recipients, pass the exact .lendora name as the sendToken recipient and let server validation resolve it on-chain; never invent a domain. For domain minting or registration requests, call mintDomain only when the exact domain is provided; never invent a domain. For domain NFT burn requests, call burnDomain only when the exact domain is provided; burning is permanent and must be prepared for user confirmation. For setting a domain as primary / on-chain username, call setPrimaryDomain when the domain is provided; do not call mintDomain or listDomain for setting primary domain. For domain marketplace listing requests, call listDomain only when the exact domain and USDC price are provided; never invent ownership or price. For domain marketplace delisting, cancel listing, unlist, or remove-from-sale requests, call delistDomain only when the exact domain is provided; do not call burnDomain for marketplace removal. For domain marketplace purchase requests, call buyDomain only when the exact domain is provided; if the user gives a maximum USDC price, pass it as maxPrice. For pending supply interest, yield, rewards, or accrued interest claims, call claimYield with asset USDC, EURC, or ALL for both pools; do not use withdraw unless the user asks to withdraw principal or gives an explicit withdrawal amount. If amount, asset, recipient, domain, or price is ambiguous, ask for clarification in plain text instead of guessing. Never claim a transaction has been executed - your job is only to prepare the action for user confirmation. If a requested action would exceed the user's available balance or borrow capacity (provided in context), respond with a plain text warning instead of calling a tool. Validation is enforced server-side and is final - do not suggest workarounds, do not ask the user to confirm overrides, and do not imply blocked actions can be retried with different framing of the same request. Treat all financial amounts conservatively; never round up.";
+  "You are Lendora's transaction assistant. Only call one of the defined tools - never invent new ones. For supplying or depositing into Lendora Earn Vaults (vaults, earn vaults, vault yield), call depositEarnVault with asset USDC or EURC and the amount; do not use supply for Earn Vault deposits. Saved wallet contacts are supplied in context; resolve nicknames only to the exact saved address and never guess an address. For .lendora domain recipients, pass the exact .lendora name as the sendToken recipient and let server validation resolve it on-chain; never invent a domain. For domain minting or registration requests, call mintDomain only when the exact domain is provided; never invent a domain. For domain NFT burn requests, call burnDomain only when the exact domain is provided; burning is permanent and must be prepared for user confirmation. For setting a domain as primary / on-chain username, call setPrimaryDomain when the domain is provided; do not call mintDomain or listDomain for setting primary domain. For domain marketplace listing requests, call listDomain only when the exact domain and USDC price are provided; never invent ownership or price. For domain marketplace delisting, cancel listing, unlist, or remove-from-sale requests, call delistDomain only when the exact domain is provided; do not call burnDomain for marketplace removal. For domain marketplace purchase requests, call buyDomain only when the exact domain is provided; if the user gives a maximum USDC price, pass it as maxPrice. For pending supply interest, yield, rewards, or accrued interest claims, call claimYield with asset USDC, EURC, or ALL for both pools; do not use withdraw unless the user asks to withdraw principal or gives an explicit withdrawal amount. If amount, asset, recipient, domain, or price is ambiguous, ask for clarification in plain text instead of guessing. Never claim a transaction has been executed - your job is only to prepare the action for user confirmation. If a requested action would exceed the user's available balance or borrow capacity (provided in context), respond with a plain text warning instead of calling a tool. Validation is enforced server-side and is final - do not suggest workarounds, do not ask the user to confirm overrides, and do not imply blocked actions can be retried with different framing of the same request. Treat all financial amounts conservatively; never round up.";
 
 const OPENAI_MODEL = process.env.OPENAI_AGENT_MODEL ?? "gpt-5-nano";
 
@@ -230,6 +230,23 @@ const functionDeclarations = [
     },
   },
   {
+    name: "depositEarnVault",
+    description:
+      "Deposit USDC or EURC into the Lendora Earn Vault to earn auto-compounding yield",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        asset: { type: "string", enum: ["USDC", "EURC"] },
+        amount: {
+          type: "string",
+          description:
+            "The amount to deposit into the Earn Vault, as a decimal string",
+        },
+      },
+      required: ["asset", "amount"],
+    },
+  },
+  {
     name: "checkHealthFactor",
     description: "Read the current health factor from the supplied wallet context",
     parametersJsonSchema: {
@@ -426,22 +443,75 @@ function parseDeterministicDomainBurn(
 function parseDeterministicSetPrimaryDomain(
   message: string,
 ): DeterministicResult | null {
+  const normalized = message.trim();
+  if (!/\bprimary\b/i.test(normalized)) {
+    return null;
+  }
   if (
-    !/\b(?:set|make|use|choose|select|change)\b/i.test(message) &&
-    !/\bprimary\b/i.test(message)
+    !/\b(?:set|make|use|choose|select|change|put|assign|pick|as)\b/i.test(normalized) &&
+    !/\bprimary\s+(?:domain|name|username)\b/i.test(normalized)
   ) {
     return null;
   }
-  if (!/\b(?:primary)\b/i.test(message)) {
-    return null;
+
+  const STOPWORDS = new Set([
+    "a", "an", "the", "my", "your", "our", "this", "that", "it",
+    "domain", "domains", "name", "names", "primary", "username",
+    "as", "to", "for", "in", "on", "into", "of", "with",
+    "set", "make", "change", "use", "choose", "select", "new",
+    "me", "one", "please", "can", "you", "i", "want", "like",
+  ]);
+
+  let candidate: string | null = null;
+
+  // 1. Explicit domain with extension (.lendora, .arclend, .arc)
+  const extMatch = normalized.match(/\b([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?)\.(?:lendora|arclend|arc)\b/i);
+  if (extMatch) {
+    candidate = extMatch[1];
   }
 
-  const domainMatch =
-    message.match(/\b([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?\.(?:lendora|arclend|arc))\b/i) ??
-    message.match(/\bdomain\s+([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?)\b/i) ??
-    message.match(/\b(?:set|make|use|as)\s+(?:the\s+)?(?:primary\s+)?(?:domain\s+|name\s+)?([a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?)\b/i);
-  const domain = domainMatch ? normalizeDomainForListing(domainMatch[1]) : null;
-  if (!domain) {
+  // 2. "primary [domain] to/as/= <name>"
+  if (!candidate) {
+    const toMatch = normalized.match(/\bprimary(?:\s+domain)?\s+(?:to|as|=|is)\s+([a-z0-9-]+)\b/i);
+    if (toMatch && !STOPWORDS.has(toMatch[1].toLowerCase())) {
+      candidate = toMatch[1];
+    }
+  }
+
+  // 3. "set/make/change [my] primary [domain] to <name>"
+  if (!candidate) {
+    const setToMatch = normalized.match(/\b(?:set|make|change|select|choose)\s+(?:(?:my|the)\s+)?primary(?:\s+domain)?\s+(?:to|as)\s+([a-z0-9-]+)\b/i);
+    if (setToMatch && !STOPWORDS.has(setToMatch[1].toLowerCase())) {
+      candidate = setToMatch[1];
+    }
+  }
+
+  // 4. "set/make/use/choose <name> as [my] primary [domain]"
+  if (!candidate) {
+    const asMatch = normalized.match(/\b(?:set|make|use|choose|select|put)\s+([a-z0-9-]+)\s+(?:as\s+)?(?:(?:my|the)\s+)?primary(?:\s+domain)?\b/i);
+    if (asMatch && !STOPWORDS.has(asMatch[1].toLowerCase())) {
+      candidate = asMatch[1];
+    }
+  }
+
+  // 5. "<name> as [my] primary [domain]"
+  if (!candidate) {
+    const standaloneMatch = normalized.match(/\b([a-z0-9-]+)\s+as\s+(?:(?:my|the)\s+)?primary(?:\s+domain)?\b/i);
+    if (standaloneMatch && !STOPWORDS.has(standaloneMatch[1].toLowerCase())) {
+      candidate = standaloneMatch[1];
+    }
+  }
+
+  // 6. "domain <name> as primary"
+  if (!candidate) {
+    const domainAsMatch = normalized.match(/\bdomain\s+([a-z0-9-]+)\s+(?:as|to|=|is)\s+(?:(?:my|the)\s+)?primary\b/i);
+    if (domainAsMatch && !STOPWORDS.has(domainAsMatch[1].toLowerCase())) {
+      candidate = domainAsMatch[1];
+    }
+  }
+
+  const domain = candidate ? normalizeDomainForListing(candidate) : null;
+  if (!domain || STOPWORDS.has(domain.toLowerCase())) {
     return {
       type: "message",
       text: "Which owned .lendora domain do you want to set as your primary domain?",
@@ -459,6 +529,150 @@ function parseDeterministicSetPrimaryDomain(
       tool: "setPrimaryDomain",
       params,
       explanation: summarizeAction("setPrimaryDomain", params),
+    },
+  };
+}
+
+function parseDeterministicEarnVault(
+  message: string,
+): DeterministicResult | null {
+  if (!/\b(?:earn|vault)\b/i.test(message)) {
+    return null;
+  }
+  if (!/\b(?:deposit|supply|put|invest|add)\b/i.test(message)) {
+    return null;
+  }
+
+  const amountMatch = message.match(/\b(\d+(?:\.\d+)?)\s*(USDC|EURC)\b/i);
+  if (!amountMatch) {
+    return {
+      type: "message",
+      text: "How much would you like to deposit into the Earn Vault, and in USDC or EURC?",
+    };
+  }
+
+  const amount = amountMatch[1];
+  const asset = amountMatch[2].toUpperCase() as "USDC" | "EURC";
+  const params = { asset, amount };
+
+  return {
+    type: "action",
+    action: {
+      type: "action",
+      tool: "depositEarnVault",
+      params,
+      explanation: summarizeAction("depositEarnVault", params),
+    },
+  };
+}
+
+function parseDeterministicSupply(
+  message: string,
+): DeterministicResult | null {
+  if (/\b(?:earn|vault)\b/i.test(message)) {
+    return null;
+  }
+  if (!/\b(?:supply|deposit|lend)\b/i.test(message)) {
+    return null;
+  }
+
+  const amountMatch = message.match(/\b(\d+(?:\.\d+)?)\s*(USDC|EURC)\b/i);
+  if (!amountMatch) {
+    if (/\b(?:pool|market|lending)\b/i.test(message)) {
+      return {
+        type: "message",
+        text: "How much would you like to supply to the lending pool, and in USDC or EURC?",
+      };
+    }
+    return null;
+  }
+
+  const amount = amountMatch[1];
+  const asset = amountMatch[2].toUpperCase() as "USDC" | "EURC";
+  const params = { asset, amount };
+
+  return {
+    type: "action",
+    action: {
+      type: "action",
+      tool: "supply",
+      params,
+      explanation: summarizeAction("supply", params),
+    },
+  };
+}
+
+function parseDeterministicBorrow(
+  message: string,
+): DeterministicResult | null {
+  if (!/\b(?:borrow|loan)\b/i.test(message)) {
+    return null;
+  }
+
+  const amountMatch = message.match(/\b(\d+(?:\.\d+)?)\s*(USDC|EURC)\b/i);
+  if (!amountMatch) {
+    return {
+      type: "message",
+      text: "How much would you like to borrow from the lending pool, and in USDC or EURC?",
+    };
+  }
+
+  const amount = amountMatch[1];
+  const asset = amountMatch[2].toUpperCase() as "USDC" | "EURC";
+  const params = { asset, amount };
+
+  return {
+    type: "action",
+    action: {
+      type: "action",
+      tool: "borrow",
+      params,
+      explanation: summarizeAction("borrow", params),
+    },
+  };
+}
+
+function parseDeterministicBridge(
+  message: string,
+): DeterministicResult | null {
+  if (!/\b(?:bridge)\b/i.test(message)) {
+    return null;
+  }
+
+  const amountMatch = message.match(/\b(\d+(?:\.\d+)?)\s*(?:USDC)?\b/i);
+  let sourceChain: string | null = null;
+  if (/\b(?:base)\b/i.test(message)) sourceChain = "Base";
+  else if (/\b(?:eth|ethereum|mainnet|sepolia)\b/i.test(message)) sourceChain = "Ethereum";
+  else if (/\b(?:polygon|amoy|matic)\b/i.test(message)) sourceChain = "Polygon";
+  else if (/\b(?:arbitrum|arb)\b/i.test(message)) sourceChain = "Arbitrum";
+
+  if (!amountMatch || !amountMatch[1]) {
+    return {
+      type: "message",
+      text: "How much USDC would you like to bridge, and from which chain (Ethereum, Base, Arbitrum, or Polygon)?",
+    };
+  }
+
+  if (!sourceChain) {
+    return {
+      type: "message",
+      text: "Which chain would you like to bridge from? (Ethereum, Base, Arbitrum, or Polygon)",
+    };
+  }
+
+  const params = {
+    asset: "USDC" as const,
+    amount: amountMatch[1],
+    sourceChain,
+  };
+
+  return {
+    type: "action",
+    action: {
+      type: "action",
+      tool: "bridge",
+      params,
+      explanation: summarizeAction("bridge", params),
     },
   };
 }
@@ -901,6 +1115,7 @@ function isAgentTool(value: string): value is AgentTool {
     value === "listDomain" ||
     value === "delistDomain" ||
     value === "buyDomain" ||
+    value === "depositEarnVault" ||
     value === "checkHealthFactor" ||
     value === "checkBalance" ||
     value === "getMarketRates"
@@ -944,6 +1159,8 @@ function summarizeAction(tool: AgentTool, params: Record<string, unknown>): stri
       return `I'll prepare a marketplace delisting for ${String(params.displayDomain ?? params.domain ?? "the domain")}.`;
     case "buyDomain":
       return `I'll prepare a marketplace purchase for ${String(params.displayDomain ?? params.domain ?? "the domain")}${params.maxPrice ? ` with a max price of ${String(params.maxPrice)} USDC` : ""}.`;
+    case "depositEarnVault":
+      return `I'll prepare a deposit of ${String(params.amount ?? "the requested amount")} ${String(params.asset ?? "asset")} into the Lendora ${String(params.asset ?? "")} Earn Vault.`;
     case "checkHealthFactor":
       return "I'll check your current health factor.";
     case "checkBalance":
@@ -1309,6 +1526,98 @@ export async function POST(request: Request) {
       const validation = await validateAgentAction(deterministicSend.action, {
         walletAddress: body.context.walletAddress,
       });
+      if (!validation.valid) {
+        return NextResponse.json({
+          type: "message",
+          text: validation.reason,
+        } satisfies AgentResponse);
+      }
+      return NextResponse.json({
+        type: "action",
+        validated: validation,
+      } satisfies AgentResponse);
+    }
+
+    const deterministicEarnVault = parseDeterministicEarnVault(
+      body.message.trim(),
+    );
+    if (deterministicEarnVault?.type === "message") {
+      return NextResponse.json(deterministicEarnVault satisfies AgentResponse);
+    }
+    if (deterministicEarnVault?.type === "action") {
+      const validation = await validateAgentAction(
+        deterministicEarnVault.action,
+        { walletAddress: body.context.walletAddress },
+      );
+      if (!validation.valid) {
+        return NextResponse.json({
+          type: "message",
+          text: validation.reason,
+        } satisfies AgentResponse);
+      }
+      return NextResponse.json({
+        type: "action",
+        validated: validation,
+      } satisfies AgentResponse);
+    }
+
+    const deterministicSupply = parseDeterministicSupply(
+      body.message.trim(),
+    );
+    if (deterministicSupply?.type === "message") {
+      return NextResponse.json(deterministicSupply satisfies AgentResponse);
+    }
+    if (deterministicSupply?.type === "action") {
+      const validation = await validateAgentAction(
+        deterministicSupply.action,
+        { walletAddress: body.context.walletAddress },
+      );
+      if (!validation.valid) {
+        return NextResponse.json({
+          type: "message",
+          text: validation.reason,
+        } satisfies AgentResponse);
+      }
+      return NextResponse.json({
+        type: "action",
+        validated: validation,
+      } satisfies AgentResponse);
+    }
+
+    const deterministicBorrow = parseDeterministicBorrow(
+      body.message.trim(),
+    );
+    if (deterministicBorrow?.type === "message") {
+      return NextResponse.json(deterministicBorrow satisfies AgentResponse);
+    }
+    if (deterministicBorrow?.type === "action") {
+      const validation = await validateAgentAction(
+        deterministicBorrow.action,
+        { walletAddress: body.context.walletAddress },
+      );
+      if (!validation.valid) {
+        return NextResponse.json({
+          type: "message",
+          text: validation.reason,
+        } satisfies AgentResponse);
+      }
+      return NextResponse.json({
+        type: "action",
+        validated: validation,
+      } satisfies AgentResponse);
+    }
+
+    const deterministicBridge = parseDeterministicBridge(
+      body.message.trim(),
+    );
+    if (deterministicBridge?.type === "message") {
+      return NextResponse.json(deterministicBridge satisfies AgentResponse);
+    }
+    if (deterministicBridge?.type === "action") {
+      const validation = await validateAgentAction(
+        deterministicBridge.action,
+        { walletAddress: body.context.walletAddress },
+      );
       if (!validation.valid) {
         return NextResponse.json({
           type: "message",

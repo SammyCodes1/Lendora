@@ -16,6 +16,7 @@ export type AgentTool =
   | "listDomain"
   | "delistDomain"
   | "buyDomain"
+  | "depositEarnVault"
   | "checkHealthFactor"
   | "checkBalance"
   | "getMarketRates";
