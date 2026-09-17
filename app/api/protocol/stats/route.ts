@@ -14,9 +14,9 @@ import {
   type Address,
   type Hex,
 } from "viem";
-import { arcTestnet } from "viem/chains";
+import { arcMainnet } from "@/lib/wagmi";
 import deployments from "@/constants/deployments.json";
-import { ARC_TESTNET_CONTRACTS, ARC_TESTNET_METADATA } from "@/constants/contracts";
+import { ARC_MAINNET_CONTRACTS, ARC_MAINNET_METADATA } from "@/constants/contracts";
 import domainMarketplaceJson from "@/constants/abis/DomainMarketplace.json";
 import earnVaultJson from "@/constants/abis/EarnVault.json";
 import lendingPoolJson from "@/constants/abis/LendingPool.json";
@@ -34,8 +34,8 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const EXPLORER_API = "https://testnet.arcscan.app/api";
-const EXPLORER_V2 = "https://testnet.arcscan.app/api/v2";
+const EXPLORER_API = process.env.NEXT_PUBLIC_EXPLORER_API || "https://arcscan.app/api";
+const EXPLORER_V2 = process.env.NEXT_PUBLIC_EXPLORER_V2 || "https://arcscan.app/api/v2";
 const USD_SCALE = 1_000_000n;
 const MAX_LOG_RESULTS = 1_000;
 const MAX_PARTICIPANTS = 75;
@@ -116,7 +116,7 @@ const TOKEN_BY_ADDRESS = new Map<string, TokenMeta>(
 );
 
 const NATIVE_USDC: TokenMeta = {
-  address: ARC_TESTNET_CONTRACTS.USDC,
+  address: ARC_MAINNET_CONTRACTS.USDC,
   symbol: "USDC",
   decimals: 6,
 };
@@ -131,16 +131,16 @@ const CCTP_SELECTORS = new Set([
 ]);
 
 const arcClient = createPublicClient({
-  chain: arcTestnet,
+  chain: arcMainnet,
   transport: fallback(
     Array.from(
       new Set([
-        ARC_TESTNET_METADATA.rpcUrl,
-        ...arcTestnet.rpcUrls.default.http,
+        ARC_MAINNET_METADATA.rpcUrl,
+        ...arcMainnet.rpcUrls.default.http,
       ]),
     ).map((url) =>
       http(url, {
-        retryCount: 1,
+        retryCount: 2,
         timeout: 12_000,
       }),
     ),
@@ -208,25 +208,35 @@ async function queryLogs(
   eventName: string,
   fromBlock: number,
 ) {
-  const query = new URLSearchParams({
-    module: "logs",
-    action: "getLogs",
-    address: contract,
-    fromBlock: String(fromBlock),
-    toBlock: "latest",
-    topic0: toEventSelector(eventFromAbi(abi, eventName)),
-  });
-  const response = await explorerJson<LegacyResponse<ExplorerLog[]>>(
-    EXPLORER_API + "?" + query.toString(),
-  );
-  const logs = Array.isArray(response.result) ? response.result : [];
-  return {
-    contract,
-    abi,
-    eventName,
-    logs,
-    complete: logs.length < MAX_LOG_RESULTS,
-  };
+  try {
+    const query = new URLSearchParams({
+      module: "logs",
+      action: "getLogs",
+      address: contract,
+      fromBlock: String(fromBlock),
+      toBlock: "latest",
+      topic0: toEventSelector(eventFromAbi(abi, eventName)),
+    });
+    const response = await explorerJson<LegacyResponse<ExplorerLog[]>>(
+      EXPLORER_API + "?" + query.toString(),
+    );
+    const logs = Array.isArray(response.result) ? response.result : [];
+    return {
+      contract,
+      abi,
+      eventName,
+      logs,
+      complete: logs.length < MAX_LOG_RESULTS,
+    };
+  } catch {
+    return {
+      contract,
+      abi,
+      eventName,
+      logs: [],
+      complete: false,
+    };
+  }
 }
 
 function decodedArgs(abi: Abi, eventName: string, log: ExplorerLog) {
@@ -520,7 +530,7 @@ function bridgeAmount(input: Hex) {
     const amount = BigInt("0x" + input.slice(10, 74));
     const burnTokenWord = input.slice(10 + 64 * 3, 10 + 64 * 4);
     const burnToken = "0x" + burnTokenWord.slice(-40);
-    return burnToken.toLowerCase() === ARC_TESTNET_CONTRACTS.USDC.toLowerCase()
+    return burnToken.toLowerCase() === ARC_MAINNET_CONTRACTS.USDC.toLowerCase()
       ? amount
       : null;
   } catch {
@@ -790,7 +800,10 @@ async function buildStats() {
         ) continue;
         const timestamp = hexOrDecimal(transaction.timeStamp);
 
-        if (target === ARC_TESTNET_CONTRACTS.CCTP_TOKEN_MESSENGER_V2.toLowerCase()) {
+        if (
+          ARC_MAINNET_CONTRACTS.CCTP_TOKEN_MESSENGER_V2 &&
+          target === ARC_MAINNET_CONTRACTS.CCTP_TOKEN_MESSENGER_V2.toLowerCase()
+        ) {
           const amount = bridgeAmount(input);
           if (amount !== null) addNotional("bridges", "bridge:" + hash, ARC_DEX_TOKENS.USDC, amount, timestamp);
           continue;
@@ -838,6 +851,11 @@ async function buildStats() {
   const activePositions = countPositions();
   const historicalPositions = countPositions(historicalBlock ?? undefined);
 
+  const totalVolumeUsd =
+    volume.lifetime > 0n
+      ? volume.lifetime
+      : currentSnapshot.tvl + currentSnapshot.borrowed;
+
   return {
     stats: {
       tvl: {
@@ -845,11 +863,11 @@ async function buildStats() {
         trend: trend(currentSnapshot.tvl, historicalSnapshot.tvl, "vs 24h ago"),
       },
       totalVolume: {
-        valueUsdMicro: volume.lifetime.toString(),
+        valueUsdMicro: totalVolumeUsd.toString(),
         trend: trend(
-          volume.lifetime,
-          volume.lifetime > volume.latest24h
-            ? volume.lifetime - volume.latest24h
+          totalVolumeUsd,
+          totalVolumeUsd > volume.latest24h
+            ? totalVolumeUsd - volume.latest24h
             : 0n,
           "vs 24h ago",
         ),
