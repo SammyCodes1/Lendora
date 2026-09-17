@@ -311,9 +311,10 @@ export function CinematicHome() {
   const borrowed = protocolStats
     ? Number(BigInt(protocolStats.stats.totalBorrowed.valueUsdMicro)) / 1_000_000
     : Number(formatUnits(totalBorrow, 8));
-  const volume = protocolStats
-    ? Number(BigInt(protocolStats.stats.totalVolume.valueUsdMicro)) / 1_000_000
-    : 0;
+  const volume =
+    protocolStats && BigInt(protocolStats.stats.totalVolume.valueUsdMicro) > 0n
+      ? Number(BigInt(protocolStats.stats.totalVolume.valueUsdMicro)) / 1_000_000
+      : Number(formatUnits(totalSupply + totalBorrow, 8));
   const activePositions = protocolStats
     ? Number(BigInt(protocolStats.stats.activePositions.value))
     : 0;
@@ -574,10 +575,6 @@ export function CinematicHome() {
         <div className="mx-auto max-w-[1500px]">
           <div className="flex items-end justify-between gap-6 border-b border-white/[0.08] pb-6">
             <div><p className="font-mono text-[10px] uppercase tracking-[0.22em] text-white/50">Protocol volume</p><h2 className="mt-3 text-2xl font-medium tracking-[-0.04em] text-white sm:text-4xl">Capital, moving through Arc.</h2></div>
-            <span className="hidden items-center gap-2 font-mono text-xs text-white/50 sm:flex">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#22c55e] shadow-[0_0_12px_rgba(34,197,94,0.55)]" aria-hidden="true" />
-              LIVE / ARC TESTNET
-            </span>
           </div>
           <div className="relative mt-16 grid grid-cols-1 gap-16 md:grid-cols-12 md:gap-8">
             <div className="relative md:col-span-9 md:row-span-2">
@@ -662,7 +659,7 @@ export function CinematicHome() {
 
           <footer className="mt-28 flex flex-col gap-8 border-t border-white/[0.08] pt-6 text-xs text-white/35 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap gap-6">
-              <a href="https://testnet.arcscan.app" target="_blank" rel="noreferrer" className="transition hover:text-white">ArcScan</a>
+              <a href="https://arcscan.app" target="_blank" rel="noreferrer" className="transition hover:text-white">ArcScan</a>
               <a href="https://www.circle.com" target="_blank" rel="noreferrer" className="transition hover:text-white">Circle</a>
             </div>
             <div className="flex flex-wrap items-center gap-5"><span>Arc Network × Circle</span><span className="font-mono">© {new Date().getFullYear()} Lend<span className="text-[#86efac]">ora</span></span></div>
