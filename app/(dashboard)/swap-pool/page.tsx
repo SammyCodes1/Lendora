@@ -42,7 +42,7 @@ const USDC = ARC_DEX_TOKENS.USDC;
 const EURC = ARC_DEX_TOKENS.EURC;
 
 function arcScanTx(hash: Hash) {
-  return `https://arcscan.app/tx/${hash}`;
+  return `https://explorer.arc.io/tx/${hash}`;
 }
 
 function errorMessage(error: unknown) {

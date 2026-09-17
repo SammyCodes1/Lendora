@@ -34,7 +34,7 @@ import deployments from "@/constants/deployments.json";
 import { showToast } from "@/lib/toast";
 
 function nftExplorerUrl(tokenId: bigint) {
-  return `https://arcscan.app/token/${deployments.PositionNFT}?a=${tokenId}`;
+  return `https://explorer.arc.io/token/${deployments.PositionNFT}?a=${tokenId}`;
 }
 
 export default function PositionsPage() {

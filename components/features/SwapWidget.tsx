@@ -55,7 +55,7 @@ const initialSwapProgress: SwapProgressStep[] = [
 ];
 
 function arcScanTransaction(hash: Hash) {
-  return `https://arcscan.app/tx/${hash}`;
+  return `https://explorer.arc.io/tx/${hash}`;
 }
 
 function errorMessage(error: unknown) {
@@ -692,7 +692,7 @@ export function SwapWidget() {
         ) : null}
         {txHash ? (
           <a
-            href={`https://arcscan.app/tx/${txHash}`}
+            href={`https://explorer.arc.io/tx/${txHash}`}
             target="_blank"
             rel="noreferrer"
             className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.05] p-3 text-sm text-white/75"

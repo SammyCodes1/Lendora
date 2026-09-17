@@ -17,7 +17,7 @@ export const ArcMainnet = {
   nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
   chainId: 5042,
   isTestnet: false,
-  explorerUrl: "https://arcscan.app/tx/{hash}",
+  explorerUrl: "https://explorer.arc.io/tx/{hash}",
   rpcEndpoints: [
     process.env.NEXT_PUBLIC_ARC_MAINNET_RPC_URL || "https://rpc.mainnet.arc.io",
   ],

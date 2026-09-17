@@ -20,7 +20,8 @@ import { enforceRateLimit } from "@/lib/server/rateLimit";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const EXPLORER_LEGACY_API = "https://testnet.arcscan.app/api";
+const EXPLORER_LEGACY_API =
+  process.env.NEXT_PUBLIC_EXPLORER_API || "https://explorer.arc.io/api";
 const MAX_LOG_RESULTS = 1_000;
 const USD_SCALE = 1_000_000n;
 
@@ -136,13 +137,19 @@ function paddedAddressTopic(address: Address): Hex {
 
 async function explorerJson<T>(url: string): Promise<T> {
   const response = await fetch(url, {
-    headers: { Accept: "application/json" },
-    // Always re-query ArcScan so profile volume updates after new txs.
+    headers: {
+      Accept: "application/json",
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+      Referer: "https://explorer.arc.io/",
+      Origin: "https://explorer.arc.io",
+    },
+    // Always re-query explorer so profile volume updates after new txs.
     cache: "no-store",
     signal: AbortSignal.timeout(12_000),
   });
   if (!response.ok) {
-    throw new Error("ArcScan request failed with " + response.status);
+    throw new Error("Explorer request failed with " + response.status);
   }
   return response.json() as Promise<T>;
 }

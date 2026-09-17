@@ -190,33 +190,49 @@ type ProtocolStatsResponse = {
   updatedAt: string;
 };
 
-type StatValueProps = {
-  label: string;
-  value: number;
-  prefix?: string;
-  primary?: boolean;
-  className?: string;
-  trend?: StatTrend;
-};
+function formatStatNumber(val: number): string {
+  if (!Number.isFinite(val) || val <= 0) return "0";
+  if (val >= 1000) {
+    return Math.round(val).toLocaleString();
+  }
+  if (val >= 1) {
+    return val.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  }
+  return val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+}
 
 function StatValue({
   label,
   value,
   prefix = "",
+  trend,
   primary = false,
   className,
-  trend,
-}: StatValueProps) {
+}: {
+  label: string;
+  value: number;
+  prefix?: string;
+  trend?: {
+    direction: "up" | "down" | "flat";
+    percentage: number | null;
+    comparison: string;
+  };
+  primary?: boolean;
+  className?: string;
+}) {
   const TrendIcon =
     trend?.direction === "up"
       ? ArrowUpRight
       : trend?.direction === "down"
         ? ArrowDownRight
         : null;
+
   const trendValue =
-    trend?.percentage === null
-      ? "New"
-      : `${trend?.direction === "up" ? "+" : trend?.direction === "down" ? "−" : ""}${(trend?.percentage ?? 0).toFixed(1)}%`;
+    trend?.percentage !== null && trend?.percentage !== undefined
+      ? `${trend.percentage}%`
+      : trend?.direction === "flat"
+        ? "0%"
+        : "Active";
 
   return (
     <div className={className}>
@@ -248,7 +264,7 @@ function StatValue({
               : "text-4xl sm:text-6xl",
           )}
         >
-          {prefix}0
+          {prefix}{formatStatNumber(value)}
         </p>
       </div>
       {trend ? (
@@ -276,14 +292,16 @@ function animateCounters(counters: NodeListOf<HTMLElement>) {
   counters.forEach((counter, index) => {
     const target = Number(counter.dataset.target ?? 0);
     const prefix = counter.dataset.prefix ?? "";
-    const state = { value: 0 };
+    const rawText = counter.textContent?.replace(prefix, "").replace(/,/g, "").trim() ?? "0";
+    const startValue = Number(rawText) || 0;
+    const state = { value: startValue };
     gsap.to(state, {
       value: target,
       duration: 1.15,
       delay: index * 0.08,
       ease: "power3.out",
       onUpdate: () => {
-        counter.textContent = `${prefix}${Math.round(state.value).toLocaleString()}`;
+        counter.textContent = `${prefix}${formatStatNumber(state.value)}`;
       },
     });
   });

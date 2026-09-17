@@ -42,7 +42,7 @@ export const ARC_TESTNET_METADATA = {
 export const ARC_MAINNET_METADATA = {
   chainId: 5042,
   rpcUrl: "https://rpc.mainnet.arc.io",
-  explorerUrl: "https://arcscan.app",
+  explorerUrl: "https://explorer.arc.io",
 } as const;
 
 export function getArcContracts(chainId?: number) {
