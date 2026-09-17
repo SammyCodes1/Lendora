@@ -37,7 +37,7 @@ import { showToast } from "@/lib/toast";
 // ── Contract config ────────────────────────────────────────────────────────
 // Lendora WalletDomain contract on Arc Mainnet
 const WALLET_DOMAIN_ADDRESS = deployments.WalletDomain as Address;
-const ARC_EXPLORER = "https://arcscan.app";
+const ARC_EXPLORER = "https://explorer.arc.io";
 const DISPLAY_DOMAIN_SUFFIX = ".lendora";
 const DOMAIN_SUFFIX_PATTERN = /\.(?:lendora|arclend|arc)$/;
 const DOMAIN_MARKETPLACE_ADDRESS = (
@@ -615,7 +615,7 @@ function MarketplacePurchaseReceiptModal({
 
 // ── Forward lookup (domain → owner) ─────────────────────────────────────────
 function ForwardLookup() {
-  const publicClient = usePublicClient({ chainId: 5042002 });
+  const publicClient = usePublicClient({ chainId: 5042 });
   const [input, setInput] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "found" | "notfound" | "error">(
     "idle"
@@ -734,7 +734,7 @@ function ForwardLookup() {
 
 // ── Reverse lookup (wallet → domains) ───────────────────────────────────────
 function ReverseLookup() {
-  const publicClient = usePublicClient({ chainId: 5042002 });
+  const publicClient = usePublicClient({ chainId: 5042 });
   const { address: connectedAddress } = useArcLendAccount();
   const [input, setInput] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "found" | "notfound">("idle");
@@ -849,7 +849,7 @@ function ReverseLookup() {
 
 // ── Registry directory ───────────────────────────────────────────────────────
 function Registry() {
-  const publicClient = usePublicClient({ chainId: 5042002 });
+  const publicClient = usePublicClient({ chainId: 5042 });
   const [domains, setDomains] = useState<DomainEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -1146,7 +1146,7 @@ async function fetchMarketplaceListings(
 }
 
 function DomainMarketplace() {
-  const publicClient = usePublicClient({ chainId: 5042002 });
+  const publicClient = usePublicClient({ chainId: 5042 });
   const { address, isConnected } = useArcLendAccount();
   const contractWrite = useArcLendContractWrite();
   const writeContractAsync = async (request: ArcLendContractWriteRequest) =>
@@ -1514,7 +1514,7 @@ async function waitForOnChainCommitment(
 }
 
 function MintDomain({ onMinted }: { onMinted?: () => void }) {
-  const publicClient = usePublicClient({ chainId: 5042002 });
+  const publicClient = usePublicClient({ chainId: 5042 });
   const { address, isConnected } = useArcLendAccount();
   const [input, setInput] = useState("");
   const [available, setAvailable] = useState<boolean | null>(null);
@@ -1685,7 +1685,7 @@ function MintDomain({ onMinted }: { onMinted?: () => void }) {
 
       <div className="flex flex-col gap-5">
         <p className="text-xs text-white/40">
-          Register a <span className="text-blue-300 font-medium">.lendora</span> domain on Arc Testnet.
+          Register a <span className="text-blue-300 font-medium">.lendora</span> domain on Arc Mainnet.
           <span className="ml-1 text-white/30">
             Gas is paid in <span className="text-white/60 font-medium">USDC</span>.
           </span>
@@ -1769,7 +1769,7 @@ function MintDomain({ onMinted }: { onMinted?: () => void }) {
 
 // ── My Domains ───────────────────────────────────────────────────────────────
 function MyDomains({ refreshKey }: { refreshKey: number }) {
-  const publicClient = usePublicClient({ chainId: 5042002 });
+  const publicClient = usePublicClient({ chainId: 5042 });
   const { address, isConnected } = useArcLendAccount();
   const { writeContractAsync } = useArcLendContractWrite();
   const [owned, setOwned] = useState<DomainEntry[]>([]);
@@ -2024,7 +2024,7 @@ export function DomainMinting() {
         </div>
         <div>
           <h2 className="text-white font-semibold text-base leading-tight">Lendora Domain Names</h2>
-          <p className="text-xs text-white/40 mt-0.5">WalletDomain · Arc Testnet</p>
+          <p className="text-xs text-white/40 mt-0.5">WalletDomain · Arc Mainnet</p>
         </div>
         <div className="ml-auto flex items-center gap-3">
           <button

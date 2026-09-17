@@ -285,7 +285,7 @@ export default function ArcDropPage() {
 
       // Step 1: ERC-20 approve for exactly totalAmount
       await writeContractAsync({
-        chainId: 5042002,
+        chainId: 5042,
         address: assetAddress,
         abi: ERC20_ABI,
         functionName: "approve",
@@ -296,7 +296,7 @@ export default function ArcDropPage() {
       // Step 2: createDrop()
       setStep("creating");
       const result = await writeContractAsync({
-        chainId: 5042002,
+        chainId: 5042,
         address: ARCDROP_ADDRESS,
         abi: ARCDROP_ABI,
         functionName: allowed.length
@@ -338,10 +338,10 @@ export default function ArcDropPage() {
         // Poll for receipt then parse DropCreated log
         try {
           const { createPublicClient, http, parseEventLogs } = await import("viem");
-          const { arcTestnet } = await import("viem/chains");
+          const { arcMainnet } = await import("@/lib/wagmi");
           const client = createPublicClient({
-            chain: arcTestnet,
-            transport: http("https://rpc.testnet.arc.network"),
+            chain: arcMainnet,
+            transport: http("https://rpc.mainnet.arc.io"),
           });
 
           for (let i = 0; i < 30; i++) {
@@ -481,7 +481,7 @@ export default function ArcDropPage() {
     setCancellingId(drop.dropId);
     try {
       await writeContractAsync({
-        chainId: 5042002,
+        chainId: 5042,
         address: contract,
         abi: ARCDROP_ABI,
         functionName: "cancelDrop",
@@ -509,7 +509,7 @@ export default function ArcDropPage() {
     setReclaimingId(drop.dropId);
     try {
       await writeContractAsync({
-        chainId: 5042002,
+        chainId: 5042,
         address: contract,
         abi: ARCDROP_ABI,
         functionName: "reclaimExpired",

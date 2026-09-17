@@ -256,6 +256,8 @@ async function explorerJson<T>(url: string): Promise<T> {
       Accept: "application/json",
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+      Referer: "https://explorer.arc.io/",
+      Origin: "https://explorer.arc.io",
     },
     next: { revalidate: 15 },
     signal: AbortSignal.timeout(10_000),
@@ -380,13 +382,20 @@ export async function GET(
   const seenHashes = new Set<string>();
   let nextUrl: string | null = `${EXPLORER_API}/addresses/${address}/transactions`;
   let pagesRead = 0;
+  let historyComplete = true;
 
   while (
     nextUrl &&
     pagesRead < MAX_TRANSACTION_PAGES &&
     transactions.length < MAX_TRANSACTIONS
   ) {
-    const page = await explorerJson<ExplorerTransactionsPage>(nextUrl);
+    let page: ExplorerTransactionsPage;
+    try {
+      page = await explorerJson<ExplorerTransactionsPage>(nextUrl);
+    } catch {
+      historyComplete = false;
+      break;
+    }
     pagesRead += 1;
 
     for (const transaction of page.items) {
@@ -564,7 +573,7 @@ export async function GET(
   return NextResponse.json({
     address,
     transactions,
-    historyComplete: nextUrl === null,
+    historyComplete: historyComplete && nextUrl === null,
     pagesRead,
   });
 }

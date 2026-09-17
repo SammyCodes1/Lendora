@@ -282,7 +282,7 @@ export function BorrowModal({ open, market, onClose }: BorrowModalProps) {
         {borrowAction.isSuccess && positionReceipt ? (
           <a
             className="flex items-center gap-2 rounded-2xl border border-emerald-200/15 bg-emerald-200/[0.06] p-3 text-sm text-emerald-100"
-            href={`https://testnet.arcscan.app/token/${deployments.PositionNFT}?a=${positionReceipt.tokenId}`}
+            href={`https://explorer.arc.io/token/${deployments.PositionNFT}?a=${positionReceipt.tokenId}`}
             target="_blank"
             rel="noreferrer"
           >

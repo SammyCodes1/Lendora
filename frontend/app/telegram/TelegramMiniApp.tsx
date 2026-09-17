@@ -359,7 +359,7 @@ export function TelegramMiniApp() {
               <a
                 href={
                   receipt.explorerUrl ??
-                  `https://testnet.arcscan.app/tx/${receipt.transactionHash}`
+                  `https://explorer.arc.io/tx/${receipt.transactionHash}`
                 }
                 target="_blank"
                 rel="noreferrer"
@@ -481,7 +481,7 @@ export function TelegramMiniApp() {
 
         <p className="mt-4 px-4 text-center text-[11px] leading-4 text-white/35">
           The bot never holds your private keys. Every transaction is signed by
-          your own wallet and broadcast directly on Arc Testnet.
+          your own wallet and broadcast directly on Arc Mainnet.
         </p>
       </div>
     </div>

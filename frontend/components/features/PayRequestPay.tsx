@@ -68,7 +68,7 @@ export function PayRequestPay({
   const { address, isConnected } = useArcLendAccount();
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
-  const publicClient = usePublicClient({ chainId: 5042002 });
+  const publicClient = usePublicClient({ chainId: 5042 });
   const contractWrite = useArcLendContractWrite();
   const [request, setRequest] = useState<PayRequest | null>(null);
   const [editableAmount, setEditableAmount] = useState("");
@@ -230,7 +230,7 @@ export function PayRequestPay({
   const balance = useTokenBalance({
     address,
     token: token.address,
-    chainId: 5042002,
+    chainId: 5042,
     enabled: Boolean(address),
   });
   const walletBalance = balance.data?.value ?? 0n;
@@ -257,13 +257,13 @@ export function PayRequestPay({
     setError(null);
     setState("paying");
     try {
-      if (chainId !== 5042002) {
-        await switchChainAsync({ chainId: 5042002 });
+      if (chainId !== 5042) {
+        await switchChainAsync({ chainId: 5042 });
       }
       const submittedAt = performance.now();
       const hash = resultHash(
         await contractWrite.writeContractAsync({
-          chainId: 5042002,
+          chainId: 5042,
           address: token.address,
           abi: erc20Abi,
           functionName: "transfer",
@@ -347,7 +347,7 @@ export function PayRequestPay({
             </h1>
             <p className="mt-3 max-w-lg text-sm leading-6 text-white/50">
               Confirm once. Funds go to the wallet behind this name on Arc
-              Testnet. Gas is USDC.
+              Mainnet. Gas is USDC.
             </p>
           </div>
           <HandCoins className="h-7 w-7 text-emerald-200/85" />

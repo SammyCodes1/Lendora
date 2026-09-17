@@ -276,7 +276,7 @@ export function ActionConfirmCard({
     });
     if (allowance < amount) {
       const approvalHash = await submitContract({
-        chainId: 5042002,
+        chainId: 5042,
         address: asset,
         abi: erc20Abi,
         functionName: "approve",
@@ -482,7 +482,7 @@ export function ActionConfirmCard({
             recipientName ?? recipient,
           ],
           detail:
-            "The connected wallet will send this exact token amount directly to the displayed Arc Testnet address. Verify the full address before signing.",
+            "The connected wallet will send this exact token amount directly to the displayed Arc Mainnet address. Verify the full address before signing.",
         });
         return;
       }
@@ -822,7 +822,7 @@ export function ActionConfirmCard({
               : "Quoted output",
           receiveAmount: `${received} ${tokenOut}`,
           transactionHash: result.hash,
-          explorerUrl: `https://testnet.arcscan.app/tx/${result.hash}`,
+          explorerUrl: `https://explorer.arc.io/tx/${result.hash}`,
           finalityMs: result.finalityMs,
         });
         return;
@@ -928,7 +928,7 @@ export function ActionConfirmCard({
           ...review,
           title: `${displayDomain} minted`,
           transactionHash: hash,
-          explorerUrl: hash ? `https://testnet.arcscan.app/tx/${hash}` : undefined,
+          explorerUrl: hash ? `https://explorer.arc.io/tx/${hash}` : undefined,
           finalityMs: Math.max(
             0,
             Math.round(performance.now() - submittedAt),
@@ -960,7 +960,7 @@ export function ActionConfirmCard({
           ...review,
           title: `${displayDomain} burned`,
           transactionHash: hash,
-          explorerUrl: hash ? `https://testnet.arcscan.app/tx/${hash}` : undefined,
+          explorerUrl: hash ? `https://explorer.arc.io/tx/${hash}` : undefined,
           finalityMs: Math.max(
             0,
             Math.round(performance.now() - submittedAt),
@@ -995,7 +995,7 @@ export function ActionConfirmCard({
           ...review,
           title: `${displayDomain} set as primary`,
           transactionHash: hash,
-          explorerUrl: hash ? `https://testnet.arcscan.app/tx/${hash}` : undefined,
+          explorerUrl: hash ? `https://explorer.arc.io/tx/${hash}` : undefined,
           finalityMs: Math.max(
             0,
             Math.round(performance.now() - submittedAt),
@@ -1060,7 +1060,7 @@ export function ActionConfirmCard({
           ...review,
           title: `${displayDomain} listed`,
           transactionHash: hash,
-          explorerUrl: hash ? `https://testnet.arcscan.app/tx/${hash}` : undefined,
+          explorerUrl: hash ? `https://explorer.arc.io/tx/${hash}` : undefined,
           finalityMs: Math.max(
             0,
             Math.round(performance.now() - submittedAt),
@@ -1116,7 +1116,7 @@ export function ActionConfirmCard({
           ...review,
           title: `${displayDomain} delisted`,
           transactionHash: hash,
-          explorerUrl: hash ? `https://testnet.arcscan.app/tx/${hash}` : undefined,
+          explorerUrl: hash ? `https://explorer.arc.io/tx/${hash}` : undefined,
           finalityMs: Math.max(
             0,
             Math.round(performance.now() - submittedAt),
@@ -1161,7 +1161,7 @@ export function ActionConfirmCard({
           ...review,
           title: `${displayDomain} purchased`,
           transactionHash: hash,
-          explorerUrl: hash ? `https://testnet.arcscan.app/tx/${hash}` : undefined,
+          explorerUrl: hash ? `https://explorer.arc.io/tx/${hash}` : undefined,
           finalityMs: Math.max(
             0,
             Math.round(performance.now() - submittedAt),
@@ -1206,7 +1206,7 @@ export function ActionConfirmCard({
               : `${claims.length} yield claims completed`,
           transactionHash: lastHash ?? undefined,
           explorerUrl: lastHash
-            ? `https://testnet.arcscan.app/tx/${lastHash}`
+            ? `https://explorer.arc.io/tx/${lastHash}`
             : undefined,
           finalityMs: Math.max(
             0,
@@ -1268,7 +1268,7 @@ export function ActionConfirmCard({
         ...review,
         title: completedTitles[action.tool],
         transactionHash: hash,
-        explorerUrl: hash ? `https://testnet.arcscan.app/tx/${hash}` : undefined,
+        explorerUrl: hash ? `https://explorer.arc.io/tx/${hash}` : undefined,
         finalityMs: Math.max(
           0,
           Math.round(performance.now() - submittedAt),

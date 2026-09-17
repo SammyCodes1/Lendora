@@ -38,7 +38,7 @@ export async function generateMetadata({
         title,
         description: request.memo
           ? `${request.memo} — confirm once on Lendora.`
-          : `Confirm once. Pays ${payee} on Arc Testnet.`,
+          : `Confirm once. Pays ${payee} on Arc Mainnet.`,
         openGraph: {
           title,
           siteName: "Lendora",
@@ -56,7 +56,7 @@ export async function generateMetadata({
     : `Pay ${payee} on Lendora`;
   return {
     title,
-    description: `Confirm once. Pays ${payee} on Arc Testnet with USDC gas.`,
+    description: `Confirm once. Pays ${payee} on Arc Mainnet with USDC gas.`,
     openGraph: { title, siteName: "Lendora" },
   };
 }

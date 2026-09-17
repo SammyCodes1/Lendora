@@ -153,7 +153,7 @@ export function WrongNetworkPrompt() {
 
               {/* Subtle hint */}
               <p className="text-[11px] text-white/30">
-                Chain ID: {ARC_TESTNET_CHAIN_ID}
+                Chain ID: {ARC_MAINNET_CHAIN_ID}
               </p>
             </div>
           </motion.div>
