@@ -878,11 +878,11 @@ export function YourDepositsTable({
                         href={`https://explorer.arc.io/tx/${claimHash}`}
                         target="_blank"
                         rel="noreferrer"
-                        className="mt-1 inline-flex items-center gap-1 text-[11px] text-white/55 hover:text-white"
+                        className="mt-1.5 inline-flex items-center gap-1.5 rounded-md border border-emerald-400/25 bg-emerald-400/10 px-2 py-0.5 font-mono text-[11px] text-emerald-300 transition hover:border-emerald-400/50 hover:bg-emerald-400/20"
                       >
-                        <CheckCircle2 className="h-3 w-3" />
-                        Yield confirmed
-                        <ExternalLink className="h-3 w-3" />
+                        <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                        <span>On-chain: {claimHash.slice(0, 6)}...{claimHash.slice(-4)}</span>
+                        <ExternalLink className="h-3 w-3 opacity-70" />
                       </a>
                     ) : null}
                   </div>

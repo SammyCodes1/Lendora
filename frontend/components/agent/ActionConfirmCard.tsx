@@ -1260,7 +1260,13 @@ export function ActionConfirmCard({
             amount,
           );
           if (hash) {
+            console.info(
+              `[ArcLend Agent] On-chain yield claim submitted: https://explorer.arc.io/tx/${hash}`,
+            );
             await publicClient.waitForTransactionReceipt({ hash });
+            console.info(
+              `[ArcLend Agent] On-chain yield claim confirmed on Arc Mainnet: https://explorer.arc.io/tx/${hash}`,
+            );
             lastHash = hash;
           }
         }
