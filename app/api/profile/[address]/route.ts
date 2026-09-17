@@ -33,7 +33,8 @@ type TransfersPage = {
   next_page_params: Record<string, string | number> | null;
 };
 
-const EXPLORER_API = "https://testnet.arcscan.app/api/v2";
+const EXPLORER_API =
+  process.env.NEXT_PUBLIC_EXPLORER_API_V2 || "https://explorer.arc.io/api/v2";
 const MAX_TRANSFER_PAGES = 10;
 const trackedTokens = new Map(
   Object.values(ARC_DEX_TOKENS).map((token) => [
@@ -44,12 +45,16 @@ const trackedTokens = new Map(
 
 async function explorerJson<T>(url: string): Promise<T> {
   const response = await fetch(url, {
-    headers: { Accept: "application/json" },
+    headers: {
+      Accept: "application/json",
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+    },
     next: { revalidate: 30 },
     signal: AbortSignal.timeout(10_000),
   });
   if (!response.ok) {
-    throw new Error(`ArcScan request failed with ${response.status}`);
+    throw new Error(`Explorer request failed with ${response.status}`);
   }
   return response.json() as Promise<T>;
 }

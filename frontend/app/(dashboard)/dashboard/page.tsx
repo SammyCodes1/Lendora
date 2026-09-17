@@ -1084,7 +1084,7 @@ function MyTransactions() {
             >
               <div className="flex min-w-0 items-center gap-3">
                 <a
-                  href={`https://testnet.arcscan.app/tx/${event.hash}`}
+                  href={`https://explorer.arc.io/tx/${event.hash}`}
                   target="_blank"
                   rel="noreferrer"
                   className="shrink-0 rounded-md border border-white/10 bg-black/20 px-2 py-1 font-mono text-[11px] text-white/60 transition hover:border-white/20 hover:text-white"
