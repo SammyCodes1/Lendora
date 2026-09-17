@@ -1,7 +1,7 @@
 import { formatUnits, parseUnits, type Address } from "viem";
 
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
-export const ARCSCAN_TX = "https://arcscan.app/tx/";
+export const ARCSCAN_TX = "https://explorer.arc.io/tx/";
 
 export function parseTokenAmount(value: string) {
   const normalized = value.trim().replace(/,/g, "");

@@ -659,7 +659,7 @@ export function CinematicHome() {
 
           <footer className="mt-28 flex flex-col gap-8 border-t border-white/[0.08] pt-6 text-xs text-white/35 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap gap-6">
-              <a href="https://arcscan.app" target="_blank" rel="noreferrer" className="transition hover:text-white">ArcScan</a>
+              <a href="https://explorer.arc.io" target="_blank" rel="noreferrer" className="transition hover:text-white">ArcScan</a>
               <a href="https://www.circle.com" target="_blank" rel="noreferrer" className="transition hover:text-white">Circle</a>
             </div>
           </footer>

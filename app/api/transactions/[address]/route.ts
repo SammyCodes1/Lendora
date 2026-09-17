@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { formatUnits, getAddress, isAddress } from "viem";
 import deployments from "@/constants/deployments.json";
 import { enforceRateLimit } from "@/lib/server/rateLimit";
-import { ARC_TESTNET_CONTRACTS } from "@/constants/contracts";
+import { ARC_MAINNET_CONTRACTS } from "@/constants/contracts";
 import { ARC_DEX_ROUTERS, ARC_DEX_TOKENS } from "@/lib/arcDex";
 import { getRedis } from "@/lib/server/redis";
 
@@ -63,28 +63,26 @@ type ExplorerTokenTransfer = {
   } | null;
 };
 
-const EXPLORER_API = "https://testnet.arcscan.app/api/v2";
+const EXPLORER_API = process.env.NEXT_PUBLIC_EXPLORER_API_V2 || "https://explorer.arc.io/api/v2";
 const MAX_TRANSACTION_PAGES = 10;
 const MAX_TRANSACTIONS = 250;
 
 const KNOWN_TOKENS: Record<string, { symbol: string; decimals: number }> = {
   "0x3600000000000000000000000000000000000000": { symbol: "USDC", decimals: 6 },
-  "0x89b50855aa3be2f677cd6303cec089b5f319d72a": { symbol: "EURC", decimals: 6 },
-  "0xe9185f0c5f296ed1797aae4238d26ccabeadb86c": { symbol: "USYC", decimals: 6 },
+  "0xbef5f6d51cb62b58e6a8f77868681825c6fe21c1": { symbol: "EURC", decimals: 6 },
   "0x175cdb1d338945f0d851a741ccf787d343e57952": { symbol: "USDT", decimals: 18 },
   "0xf0c4a4ce82a5746abaad9425360ab04fbba432bf": { symbol: "cirBTC", decimals: 8 },
+  "0xd709d29d35d99370f75770fc48dbea3ae6277eb4": { symbol: "aUSDC", decimals: 6 },
+  "0xcc4606ad0f663f5f8316511416b349cf49204be6": { symbol: "dUSDC", decimals: 6 },
+  "0x4d7f912075ef21a400125821f1da303df7e1444a": { symbol: "aEURC", decimals: 6 },
+  "0x0dbdb60d7068e7957bbef669d9ee93a9b68cab75": { symbol: "dEURC", decimals: 6 },
+  "0x208af80035a2009ec0373264623e417c2c26c6eb": { symbol: "evUSDC", decimals: 6 },
+  "0x819068a43ec7f7367b025b7df0fabeadf70f173f": { symbol: "evEURC", decimals: 6 },
+  "0x89b50855aa3be2f677cd6303cec089b5f319d72a": { symbol: "EURC", decimals: 6 },
   "0x6bad029528233595d856f03d31f19f9dc10b68d1": { symbol: "aUSDC", decimals: 6 },
   "0xfd9bb99809ea2d6d8f06381ea90a5b195ec93cf9": { symbol: "dUSDC", decimals: 6 },
   "0xa97374a23f9d18422446c9cbf53d06c986091b61": { symbol: "aEURC", decimals: 6 },
   "0xa45792794d8cfb8dcf8ee78713596513155ba51f": { symbol: "dEURC", decimals: 6 },
-  "0x848b0c56bad3177fa1b9613c5dd2550e7f500da9": { symbol: "aUSDC", decimals: 6 },
-  "0x4afda16d11ef44658356f6912b613a2423a6a868": { symbol: "dUSDC", decimals: 6 },
-  "0xfd60f777558053601e315d578ab0efcbd0d4c5b9": { symbol: "aEURC", decimals: 6 },
-  "0xb0b81b427be53d396ca323edbfcaaf225f2af3af": { symbol: "dEURC", decimals: 6 },
-  "0x0d36d23f06db999a58f17484307504a1a5703f39": { symbol: "evUSDC", decimals: 6 },
-  "0xca770509bbe31a4f55ac6c7a8bda97e8727b8d73": { symbol: "evEURC", decimals: 6 },
-  "0xaa127deb9c3f72f8d5364b49458f6b14f0540d5b": { symbol: "USDC", decimals: 6 },
-  "0x57fa5403192657ed5b950c1cd4f06f361f38b14a": { symbol: "EURC", decimals: 6 },
 };
 
 function formatTokenAmount(rawAmount: string | bigint | number, decimals: number = 6): string {
@@ -244,7 +242,7 @@ function collectAddresses(value: unknown, addresses: Set<string>) {
 function appAddresses() {
   const addresses = new Set<string>();
   collectAddresses(deployments, addresses);
-  collectAddresses(ARC_TESTNET_CONTRACTS, addresses);
+  collectAddresses(ARC_MAINNET_CONTRACTS, addresses);
   collectAddresses(ARC_DEX_TOKENS, addresses);
   collectAddresses(ARC_DEX_ROUTERS, addresses);
   return addresses;
@@ -254,12 +252,16 @@ const APP_ADDRESSES = appAddresses();
 
 async function explorerJson<T>(url: string): Promise<T> {
   const response = await fetch(url, {
-    headers: { Accept: "application/json" },
-    next: { revalidate: 30 },
+    headers: {
+      Accept: "application/json",
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+    },
+    next: { revalidate: 15 },
     signal: AbortSignal.timeout(10_000),
   });
   if (!response.ok) {
-    throw new Error(`ArcScan request failed with ${response.status}`);
+    throw new Error(`Explorer request failed with ${response.status}`);
   }
   return response.json() as Promise<T>;
 }
