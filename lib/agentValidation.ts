@@ -12,7 +12,7 @@
  * 10. Block sends to invalid/self addresses or above live token balance.
  * 11. Block when wallet/context/RPC/reserve/pause state cannot be verified.
  * 12. Block all actions after 3 validator rejections within 5 minutes.
- * 13. Block domain mints for invalid or already registered names.
+ * 13. Block domain mints for invalid, already registered names, or 3-char names with < 0.1 USDC.
  * 14. Block domain burns unless the connected wallet owns the unlisted domain.
  * 15. Block yield claims unless live reserve indexes show positive pending supply interest.
  *
@@ -549,8 +549,9 @@ export async function validateAgentAction(
 
       let tokenId: bigint;
       let registered: boolean;
+      let walletUsdcBalance = 0n;
       try {
-        [tokenId, registered] = await Promise.all([
+        [tokenId, registered, walletUsdcBalance] = await Promise.all([
           arcClient.readContract({
             address: walletDomainAddress,
             abi: walletDomainAbi,
@@ -563,6 +564,12 @@ export async function validateAgentAction(
             functionName: "isRegistered",
             args: [domain],
           }),
+          arcClient.readContract({
+            address: configuredReserves.USDC.asset,
+            abi: erc20Abi,
+            functionName: "balanceOf",
+            args: [wallet],
+          }),
         ]);
       } catch {
         return invalidContext(walletKey);
@@ -570,6 +577,15 @@ export async function validateAgentAction(
 
       if (registered) {
         return hardBlock(walletKey, `${displayDomainName(domain)} is already registered.`);
+      }
+
+      const isThreeChar = domain.length === 3;
+      const THREE_CHAR_FEE = 100_000n; // 0.1 USDC
+      if (isThreeChar && walletUsdcBalance < THREE_CHAR_FEE) {
+        return hardBlock(
+          walletKey,
+          `3-character domains cost 0.1 USDC (deposited to Treasury). You have ${formatUnits(walletUsdcBalance, 6)} USDC available.`,
+        );
       }
 
       return {
@@ -580,6 +596,8 @@ export async function validateAgentAction(
             domain,
             displayDomain: displayDomainName(domain),
             tokenId: tokenId.toString(),
+            isThreeChar,
+            price: isThreeChar ? "0.1" : "0",
           },
         },
         walletAddress: wallet,

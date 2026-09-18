@@ -3,12 +3,21 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
-contract WalletDomain is ERC721Enumerable {
+contract WalletDomain is ERC721Enumerable, Ownable {
+    using SafeERC20 for IERC20;
+
     uint256 public constant MIN_COMMITMENT_AGE_BLOCKS = 1;
     uint256 public constant MAX_COMMITMENT_AGE_BLOCKS = 256;
+
+    IERC20 public immutable usdc;
+    address public treasury;
+    uint256 public threeCharPrice = 100_000; // 0.1 USDC (6 decimals)
 
     struct DomainCommitment {
         address committer;
@@ -23,14 +32,32 @@ contract WalletDomain is ERC721Enumerable {
     event PrimaryDomainSet(address indexed owner, string domainName, uint256 indexed tokenId);
     event DomainBurned(address indexed owner, string domainName, uint256 indexed tokenId);
     event DomainCommitmentSubmitted(bytes32 indexed commitment, address indexed committer, uint256 blockNumber);
+    event TreasuryUpdated(address indexed newTreasury);
+    event ThreeCharPriceUpdated(uint256 newPrice);
+    event DomainFeePaid(address indexed payer, string domainName, uint256 amount);
 
     error InvalidDomainName();
     error DomainNotOwned();
     error InvalidCommitment();
     error CommitmentTooNew();
     error CommitmentExpired();
+    error InvalidAddress();
 
-    constructor() ERC721("Lendora Wallet Domains", "LNDR") {}
+    constructor(address usdc_, address treasury_) ERC721("Lendora Wallet Domains", "LNDR") Ownable(msg.sender) {
+        usdc = IERC20(usdc_);
+        treasury = treasury_;
+    }
+
+    function setTreasury(address newTreasury) external onlyOwner {
+        if (newTreasury == address(0)) revert InvalidAddress();
+        treasury = newTreasury;
+        emit TreasuryUpdated(newTreasury);
+    }
+
+    function setThreeCharPrice(uint256 newPrice) external onlyOwner {
+        threeCharPrice = newPrice;
+        emit ThreeCharPriceUpdated(newPrice);
+    }
 
     function makeCommitment(
         string memory domainName,
@@ -65,11 +92,31 @@ contract WalletDomain is ERC721Enumerable {
         if (age > MAX_COMMITMENT_AGE_BLOCKS) revert CommitmentExpired();
 
         delete domainCommitments[commitment];
+
+        // 3-character domains require 0.1 USDC sent to treasury; longer characters are free
+        if (bytes(domainName).length == 3 && threeCharPrice > 0 && address(usdc) != address(0) && treasury != address(0)) {
+            usdc.safeTransferFrom(msg.sender, treasury, threeCharPrice);
+            emit DomainFeePaid(msg.sender, domainName, threeCharPrice);
+        }
+
         tokenId = tokenIdOf(domainName);
         _safeMint(msg.sender, tokenId);
         domainNames[tokenId] = domainName;
 
         emit DomainMinted(msg.sender, domainName, tokenId);
+    }
+
+    function batchMintLegacy(string[] calldata names, address[] calldata recipients) external onlyOwner {
+        require(names.length == recipients.length, "Mismatched arrays");
+        for (uint256 i = 0; i < names.length; i++) {
+            string memory name_ = names[i];
+            address to_ = recipients[i];
+            _validateDomainName(name_);
+            uint256 id = tokenIdOf(name_);
+            _safeMint(to_, id);
+            domainNames[id] = name_;
+            emit DomainMinted(to_, name_, id);
+        }
     }
 
     function setPrimaryDomain(string memory domainName) public {
@@ -117,9 +164,9 @@ contract WalletDomain is ERC721Enumerable {
             string.concat(
                 "{\"name\":\"",
                 name_,
-                ".lendora\",\"description\":\"Lendora wallet domain on Arc Testnet\",\"attributes\":[{\"trait_type\":\"Domain\",\"value\":\"",
+                ".lendora\",\"description\":\"Lendora wallet domain on Arc Network\",\"attributes\":[{\"trait_type\":\"Domain\",\"value\":\"",
                 name_,
-                ".lendora\"}],\"external_url\":\"https://testnet.arcscan.app/token/",
+                ".lendora\"}],\"external_url\":\"https://explorer.arc.io/token/",
                 Strings.toHexString(address(this)),
                 "?a=",
                 Strings.toString(tokenId),
@@ -152,7 +199,7 @@ contract WalletDomain is ERC721Enumerable {
     function _increaseBalance(address account, uint128 value)
         internal
         override(ERC721Enumerable)
-    {
+        {
         super._increaseBalance(account, value);
     }
 

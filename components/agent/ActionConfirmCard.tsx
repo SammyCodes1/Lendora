@@ -495,20 +495,32 @@ export function ActionConfirmCard({
         const displayDomain = String(
           params.displayDomain ?? params.domain ?? "domain",
         );
+        const domainStr = String(params.domain ?? "")
+          .trim()
+          .toLowerCase()
+          .replace(/\.(?:lendora|arclend|arc)$/, "");
+        const isThreeChar = domainStr.length === 3;
         setReview({
           eyebrow: "Domain mint review",
           title: `Mint ${displayDomain}`,
-          amountLabel: "Domain",
-          amount: displayDomain,
+          amountLabel: isThreeChar ? "Mint price" : "Domain",
+          amount: isThreeChar ? "0.1 USDC" : displayDomain,
           receiveLabel: "Recipient wallet",
           receiveAmount: validatedAction.walletAddress,
-          route: [
-            "Lendora domain registry",
-            displayDomain,
-            "Wallet domain NFT",
-          ],
-          detail:
-            "Your wallet will mint this available Lendora domain NFT to the connected address. The transaction only executes after you sign.",
+          route: isThreeChar
+            ? [
+                "0.1 USDC Treasury fee",
+                "Lendora domain registry",
+                displayDomain,
+              ]
+            : [
+                "Lendora domain registry",
+                displayDomain,
+                "Wallet domain NFT",
+              ],
+          detail: isThreeChar
+            ? `3-character domains cost 0.1 USDC which is transferred directly to the Lendora Treasury. Your wallet will approve 0.1 USDC and mint this domain NFT to ${validatedAction.walletAddress}.`
+            : "Your wallet will mint this available Lendora domain NFT to the connected address. Domains with 4+ characters are free (gas only). The transaction only executes after you sign.",
         });
         return;
       }
@@ -931,6 +943,19 @@ export function ActionConfirmCard({
         if (typeof params.domain !== "string") {
           throw new Error("Domain mint is missing a domain name");
         }
+        const domainStr = String(params.domain)
+          .trim()
+          .toLowerCase()
+          .replace(/\.(?:lendora|arclend|arc)$/, "");
+        const isThreeChar = domainStr.length === 3;
+        if (isThreeChar) {
+          const THREE_CHAR_FEE = 100_000n; // 0.1 USDC
+          await ensureAllowance(
+            MARKET_USDC_ADDRESS,
+            THREE_CHAR_FEE,
+            WALLET_DOMAIN_ADDRESS,
+          );
+        }
         const displayDomain = String(
           params.displayDomain ?? params.domain ?? "Domain",
         );
@@ -942,7 +967,7 @@ export function ActionConfirmCard({
           address: WALLET_DOMAIN_ADDRESS,
           abi: walletDomainAbi,
           functionName: "makeCommitment",
-          args: [params.domain, address, secret],
+          args: [domainStr, address, secret],
         });
         const commitmentHash = await submitContract({
           chainId: 5042,
@@ -987,7 +1012,7 @@ export function ActionConfirmCard({
           address: WALLET_DOMAIN_ADDRESS,
           abi: walletDomainAbi,
           functionName: "mintDomain",
-          args: [params.domain, secret],
+          args: [domainStr, secret],
         });
         await waitForSubmitted(hash);
         setReceipt({

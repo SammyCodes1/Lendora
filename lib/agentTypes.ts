@@ -49,6 +49,7 @@ export type AgentActionParams =
       displayDomain?: string;
       tokenId?: string;
       seller?: string;
+      isThreeChar?: boolean;
     }
   | Record<string, never>
   | { asset: AgentAsset };

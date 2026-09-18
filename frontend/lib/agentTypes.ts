@@ -87,6 +87,7 @@ export type AgentActionParams =
       displayDomain?: string;
       tokenId?: string;
       seller?: string;
+      isThreeChar?: boolean;
     }
   | SchedulePaymentParams
   | CreateLendropParams

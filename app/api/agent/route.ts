@@ -13,7 +13,7 @@ import type {
 export const runtime = "nodejs";
 
 const SYSTEM_PROMPT =
-  "You are Lendora's transaction assistant. Only call one of the defined tools - never invent new ones. For supplying or depositing into Lendora Earn Vaults (vaults, earn vaults, vault yield), call depositEarnVault with asset USDC or EURC and the amount; do not use supply for Earn Vault deposits. Saved wallet contacts are supplied in context; resolve nicknames only to the exact saved address and never guess an address. For .lendora domain recipients, pass the exact .lendora name as the sendToken recipient and let server validation resolve it on-chain; never invent a domain. For domain minting or registration requests, call mintDomain only when the exact domain is provided; never invent a domain. For domain NFT burn requests, call burnDomain only when the exact domain is provided; burning is permanent and must be prepared for user confirmation. For setting a domain as primary / on-chain username, call setPrimaryDomain when the domain is provided; do not call mintDomain or listDomain for setting primary domain. For domain marketplace listing requests, call listDomain only when the exact domain and USDC price are provided; never invent ownership or price. For domain marketplace delisting, cancel listing, unlist, or remove-from-sale requests, call delistDomain only when the exact domain is provided; do not call burnDomain for marketplace removal. For domain marketplace purchase requests, call buyDomain only when the exact domain is provided; if the user gives a maximum USDC price, pass it as maxPrice. For pending supply interest, yield, rewards, or accrued interest claims, call claimYield with asset USDC, EURC, or ALL for both pools; do not use withdraw unless the user asks to withdraw principal or gives an explicit withdrawal amount. If amount, asset, recipient, domain, or price is ambiguous, ask for clarification in plain text instead of guessing. Never claim a transaction has been executed - your job is only to prepare the action for user confirmation. If a requested action would exceed the user's available balance or borrow capacity (provided in context), respond with a plain text warning instead of calling a tool. Validation is enforced server-side and is final - do not suggest workarounds, do not ask the user to confirm overrides, and do not imply blocked actions can be retried with different framing of the same request. Treat all financial amounts conservatively; never round up.";
+  "You are Lendora's transaction assistant. Only call one of the defined tools - never invent new ones. For supplying or depositing into Lendora Earn Vaults (vaults, earn vaults, vault yield), call depositEarnVault with asset USDC or EURC and the amount; do not use supply for Earn Vault deposits. Saved wallet contacts are supplied in context; resolve nicknames only to the exact saved address and never guess an address. For .lendora domain recipients, pass the exact .lendora name as the sendToken recipient and let server validation resolve it on-chain; never invent a domain. For domain minting or registration requests, call mintDomain only when the exact domain is provided; 3-character domains cost 0.1 USDC paid to the treasury while 4+ characters are free; never invent a domain. For domain NFT burn requests, call burnDomain only when the exact domain is provided; burning is permanent and must be prepared for user confirmation. For setting a domain as primary / on-chain username, call setPrimaryDomain when the domain is provided; do not call mintDomain or listDomain for setting primary domain. For domain marketplace listing requests, call listDomain only when the exact domain and USDC price are provided; never invent ownership or price. For domain marketplace delisting, cancel listing, unlist, or remove-from-sale requests, call delistDomain only when the exact domain is provided; do not call burnDomain for marketplace removal. For domain marketplace purchase requests, call buyDomain only when the exact domain is provided; if the user gives a maximum USDC price, pass it as maxPrice. For pending supply interest, yield, rewards, or accrued interest claims, call claimYield with asset USDC, EURC, or ALL for both pools; do not use withdraw unless the user asks to withdraw principal or gives an explicit withdrawal amount. If amount, asset, recipient, domain, or price is ambiguous, ask for clarification in plain text instead of guessing. Never claim a transaction has been executed - your job is only to prepare the action for user confirmation. If a requested action would exceed the user's available balance or borrow capacity (provided in context), respond with a plain text warning instead of calling a tool. Validation is enforced server-side and is final - do not suggest workarounds, do not ask the user to confirm overrides, and do not imply blocked actions can be retried with different framing of the same request. Treat all financial amounts conservatively; never round up.";
 
 const OPENAI_MODEL = process.env.OPENAI_AGENT_MODEL ?? "gpt-5-nano";
 
@@ -32,7 +32,7 @@ const functionDeclarations = [
   },
   {
     name: "withdraw",
-    description: "Withdraw a supplied asset from the Lendora lending pool",
+    description: "Withdraw an asset from the Lendora lending pool back to your wallet",
     parametersJsonSchema: {
       type: "object",
       properties: {
@@ -45,18 +45,23 @@ const functionDeclarations = [
   {
     name: "claimYield",
     description:
-      "Claim the pending supply interest estimate from one or both Lendora pools. Use ALL when the user asks for both pools, all pending interest, all yield, or does not specify a single asset.",
+      "Claim accrued interest and supply yield from Lendora lending positions",
     parametersJsonSchema: {
       type: "object",
       properties: {
-        asset: { type: "string", enum: ["USDC", "EURC", "ALL"] },
+        asset: {
+          type: "string",
+          enum: ["USDC", "EURC", "ALL"],
+          description:
+            "Which pool's accrued yield to claim, or ALL to claim every pool with pending yield",
+        },
       },
       required: ["asset"],
     },
   },
   {
     name: "borrow",
-    description: "Borrow an asset from the Lendora lending pool",
+    description: "Borrow an asset from the Lendora lending pool against deposited collateral",
     parametersJsonSchema: {
       type: "object",
       properties: {
@@ -68,7 +73,7 @@ const functionDeclarations = [
   },
   {
     name: "repay",
-    description: "Repay an outstanding debt position on Lendora",
+    description: "Repay borrowed assets to the Lendora lending pool",
     parametersJsonSchema: {
       type: "object",
       properties: {
@@ -80,40 +85,45 @@ const functionDeclarations = [
   },
   {
     name: "swap",
-    description: "Swap one supported token for another through the Tower Exchange router on Arc",
+    description: "Swap one token for another on Arc via DEX aggregator",
     parametersJsonSchema: {
       type: "object",
       properties: {
-        tokenIn: { type: "string", enum: ["USDC", "EURC", "USDT", "cirBTC"] },
-        tokenOut: { type: "string", enum: ["USDC", "EURC", "USDT", "cirBTC"] },
+        tokenIn: { type: "string", description: "The token to sell (e.g. USDC)" },
+        tokenOut: { type: "string", description: "The token to buy (e.g. EURC)" },
         amountIn: { type: "string", description: "The amount to swap, as a decimal string" },
-        slippageBps: { type: "number", description: "Maximum acceptable slippage in basis points" },
+        slippageBps: { type: "number", description: "Max slippage in basis points (e.g. 50 for 0.5%)" },
       },
-      required: ["tokenIn", "tokenOut", "amountIn", "slippageBps"],
+      required: ["tokenIn", "tokenOut", "amountIn"],
     },
   },
   {
     name: "sendToken",
     description:
-      "Send a supported Arc Mainnet ERC-20 token to an explicit wallet address, a registered .lendora domain, or an address resolved from the user's saved contacts",
+      "Send tokens from your connected wallet to another address on Arc Mainnet",
     parametersJsonSchema: {
       type: "object",
       properties: {
-        asset: { type: "string", enum: ["USDC", "EURC", "USDT", "cirBTC"] },
+        asset: { type: "string", description: "The token symbol to send (e.g. USDC, EURC)" },
         amount: { type: "string", description: "The amount to send, as a decimal string" },
-        recipient: {
+        recipient: { type: "string", description: "The recipient wallet address (0x...) or registered .lendora domain" },
+        recipientDomain: {
           type: "string",
           description:
-            "The resolved 0x EVM recipient address, or the exact registered .lendora domain to resolve server-side",
+            "The registered .lendora domain for the recipient, if provided",
         },
-        recipientName: { type: "string", description: "Optional saved contact nickname or .lendora domain" },
+        recipientName: {
+          type: "string",
+          description:
+            "A human-readable label or contact nickname for the recipient",
+        },
       },
       required: ["asset", "amount", "recipient"],
     },
   },
   {
     name: "bridge",
-    description: "Bridge USDC from a supported source chain into Arc",
+    description: "Bridge USDC from another blockchain to Arc Mainnet using Circle CCTP",
     parametersJsonSchema: {
       type: "object",
       properties: {
@@ -127,7 +137,7 @@ const functionDeclarations = [
   {
     name: "mintDomain",
     description:
-      "Mint or register an available .lendora wallet domain for the connected wallet",
+      "Mint or register an available .lendora wallet domain for the connected wallet (3-character domains cost 0.1 USDC deposited to treasury, 4+ characters are free)",
     parametersJsonSchema: {
       type: "object",
       properties: {
@@ -1147,8 +1157,12 @@ function summarizeAction(tool: AgentTool, params: Record<string, unknown>): stri
       return `I'll prepare a transfer of ${String(params.amount ?? "the requested amount")} ${String(params.asset ?? "token")} to ${String(params.recipientName ?? params.recipient ?? "the recipient")}.`;
     case "bridge":
       return `I'll prepare a USDC bridge from ${String(params.sourceChain ?? "the source chain")} for ${String(params.amount ?? "the requested amount")}.`;
-    case "mintDomain":
-      return `I'll prepare a domain mint for ${String(params.displayDomain ?? params.domain ?? "the domain")}.`;
+    case "mintDomain": {
+      const rawDomain = String(params.domain ?? "");
+      const clean = rawDomain.trim().toLowerCase().replace(/\.(?:lendora|arclend|arc)$/, "");
+      const feeNote = clean.length === 3 ? " (0.1 USDC Treasury fee)" : " (Free)";
+      return `I'll prepare a domain mint for ${String(params.displayDomain ?? params.domain ?? "the domain")}${feeNote}.`;
+    }
     case "burnDomain":
       return `I'll prepare a permanent burn for ${String(params.displayDomain ?? params.domain ?? "the domain")} after wallet confirmation.`;
     case "setPrimaryDomain":
