@@ -436,22 +436,6 @@ function MintSuccessModal({
               </div>
             </div>
 
-            {normalizeDomainInput(name).length === 3 ? (
-              <div className="border-b border-emerald-400/15 p-3">
-                <p className="text-xs font-semibold uppercase tracking-widest text-emerald-300/70">
-                  Mint Fee
-                </p>
-                <div className="mt-2 flex items-center justify-between">
-                  <span className="font-mono text-xs font-semibold text-white">
-                    0.1 USDC
-                  </span>
-                  <span className="font-mono text-[11px] text-emerald-300/70">
-                    Lendora Treasury
-                  </span>
-                </div>
-              </div>
-            ) : null}
-
             {hash ? <div className="p-3">
               <p className="text-xs font-semibold uppercase tracking-widest text-emerald-300/70">
                 Transaction
