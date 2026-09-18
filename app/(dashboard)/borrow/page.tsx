@@ -37,7 +37,7 @@ import {
   FeaturedBorrowBoard,
   YourBorrowsTable,
 } from "@/components/markets/ExploreMarkets";
-import type { LendoraAssetFilter } from "@/lib/markets";
+import { formatUsdDisplay, type LendoraAssetFilter } from "@/lib/markets";
 
 type ModalState = {
   type: "borrow" | "repay";
@@ -217,11 +217,11 @@ export default function BorrowPage() {
           stats={[
             {
               label: "Total borrowed",
-              value: `$${Number(formatUnits(totalBorrowUsd, 8)).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+              value: formatUsdDisplay(Number(formatUnits(totalBorrowUsd, 8))),
             },
             {
               label: "Liquidity",
-              value: `$${Number(formatUnits(totalLiquidityUsd, 8)).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+              value: formatUsdDisplay(Number(formatUnits(totalLiquidityUsd, 8))),
               tone: "positive",
             },
             {

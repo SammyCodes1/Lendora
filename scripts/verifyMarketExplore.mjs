@@ -1,6 +1,6 @@
 function capacityFilledPercent(used, cap, isCapped, fallbackUtilization) {
   if (isCapped && cap > 0n) {
-    const percent = Number((used * 10_000n) / cap) / 100;
+    const percent = (Number(used) / Number(cap)) * 100;
     return Math.max(0, Math.min(100, percent));
   }
   return Math.max(0, Math.min(100, fallbackUtilization));
@@ -67,6 +67,8 @@ try {
   if (uncapped !== 37.2) throw new Error(uncapped);
   const zeroCap = capacityFilledPercent(10n, 0n, true, 8);
   if (zeroCap !== 8) throw new Error(zeroCap);
+  const smallDeposit = capacityFilledPercent(400_001n, 1_000_000_000_000n, true, 0);
+  if (smallDeposit <= 0 || smallDeposit >= 0.01) throw new Error(smallDeposit);
   ok("capacity filled percent");
 } catch (error) {
   bad("capacity filled percent", error);
