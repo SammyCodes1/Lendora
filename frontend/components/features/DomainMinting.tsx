@@ -436,6 +436,22 @@ function MintSuccessModal({
               </div>
             </div>
 
+            {normalizeDomainInput(name).length === 3 ? (
+              <div className="border-b border-emerald-400/15 p-3">
+                <p className="text-xs font-semibold uppercase tracking-widest text-emerald-300/70">
+                  Mint Fee
+                </p>
+                <div className="mt-2 flex items-center justify-between">
+                  <span className="font-mono text-xs font-semibold text-white">
+                    0.1 USDC
+                  </span>
+                  <span className="font-mono text-[11px] text-emerald-300/70">
+                    Lendora Treasury
+                  </span>
+                </div>
+              </div>
+            ) : null}
+
             {hash ? <div className="p-3">
               <p className="text-xs font-semibold uppercase tracking-widest text-emerald-300/70">
                 Transaction
@@ -1472,8 +1488,12 @@ function describeMintError(error: unknown) {
   if (lower.includes("already") || lower.includes("erc721invalidsender")) {
     return "Domain already registered. Try another name.";
   }
-  if (lower.includes("insufficient") || lower.includes("exceeds the balance")) {
-    return "Mint failed — not enough USDC for gas.";
+  if (
+    lower.includes("insufficient") ||
+    lower.includes("exceeds the balance") ||
+    lower.includes("allowance")
+  ) {
+    return "Mint failed — check your USDC balance and allowance for gas / 3-character domain fee (0.1 USDC).";
   }
   if (lower.includes("browser wallet") || lower.includes("commit did not confirm")) {
     return "The mint commit did not confirm on Arc. Sign both steps and try again.";
@@ -1536,7 +1556,7 @@ function MintDomain({ onMinted }: { onMinted?: () => void }) {
   // Debounced availability check using resolveDomain
   useEffect(() => {
     const name = normalizeDomainInput(input);
-    if (!name || !publicClient) {
+    if (!name || name.length < 3 || !publicClient) {
       setAvailable(null);
       return;
     }
@@ -1564,10 +1584,53 @@ function MintDomain({ onMinted }: { onMinted?: () => void }) {
   const handleMint = async () => {
     if (!address || !input.trim() || !available || !publicClient) return;
     const name = normalizeDomainInput(input);
+    if (name.length < 3) {
+      setMintError("Domain name must be at least 3 characters.");
+      return;
+    }
     setMintedName(name);
     setMintError(null);
     setIsWorking(true);
     try {
+      // 3-character domains cost 0.1 USDC (100_000 units), transferred to Lendora Treasury
+      if (name.length === 3) {
+        const THREE_CHAR_FEE = 100_000n; // 0.1 USDC
+        const userBalance = (await publicClient.readContract({
+          address: USDC_ADDRESS,
+          abi: erc20Abi,
+          functionName: "balanceOf",
+          args: [address],
+        })) as bigint;
+
+        if (userBalance < THREE_CHAR_FEE) {
+          setMintError(
+            `Insufficient USDC balance. 3-character domains cost 0.1 USDC (deposited to Treasury). You have ${formatUnits(userBalance, 6)} USDC.`,
+          );
+          setIsWorking(false);
+          return;
+        }
+
+        const currentAllowance = (await publicClient.readContract({
+          address: USDC_ADDRESS,
+          abi: erc20Abi,
+          functionName: "allowance",
+          args: [address, WALLET_DOMAIN_ADDRESS],
+        })) as bigint;
+
+        if (currentAllowance < THREE_CHAR_FEE) {
+          const approveResult = await writeContractAsync({
+            address: USDC_ADDRESS,
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [WALLET_DOMAIN_ADDRESS, THREE_CHAR_FEE],
+          });
+          const approveHash = resultHash(approveResult);
+          if (approveHash) {
+            await publicClient.waitForTransactionReceipt({ hash: approveHash });
+          }
+        }
+      }
+
       const secretBytes = new Uint8Array(32);
       crypto.getRandomValues(secretBytes);
       const secret = toHex(secretBytes, { size: 32 });
@@ -1712,20 +1775,51 @@ function MintDomain({ onMinted }: { onMinted?: () => void }) {
 
         </div>
         <div className="min-h-5 text-xs">
-          {name.length > 0 && checking ? (
+          {name.length > 0 && name.length < 3 ? (
+            <span className="flex items-center gap-1 text-amber-400">
+              <AlertCircle className="h-3 w-3" /> Minimum 3 characters required
+            </span>
+          ) : name.length >= 3 && checking ? (
             <span className="flex items-center gap-1 text-white/30">
               <Loader2 className="h-3 w-3 animate-spin" /> Checking…
             </span>
-          ) : name.length > 0 && available === true ? (
+          ) : name.length >= 3 && available === true ? (
             <span className="flex items-center gap-1 text-emerald-400">
               <Check className="h-3 w-3" /> Available
             </span>
-          ) : name.length > 0 && available === false ? (
+          ) : name.length >= 3 && available === false ? (
             <span className="flex items-center gap-1 text-red-400">
               <XCircle className="h-3 w-3" /> Already taken
             </span>
           ) : null}
         </div>
+
+        {/* Pricing badge */}
+        {name.length === 3 ? (
+          <div className="flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
+              <div>
+                <span className="font-semibold text-amber-300">
+                  3-Character Premium Domain
+                </span>
+                <p className="text-[11px] text-amber-200/70">
+                  Mint price: 0.1 USDC (deposited directly into Lendora Treasury)
+                </p>
+              </div>
+            </div>
+            <span className="rounded-md bg-amber-400/20 px-2.5 py-1 font-mono font-bold text-amber-300">
+              0.1 USDC
+            </span>
+          </div>
+        ) : name.length >= 4 ? (
+          <div className="flex items-center justify-between rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-2 text-xs text-emerald-300">
+            <span className="text-emerald-200/80">Standard Domain (4+ chars)</span>
+            <span className="font-mono font-semibold text-emerald-400">
+              FREE (Gas only)
+            </span>
+          </div>
+        ) : null}
 
         {/* Mint button */}
         {!isConnected ? (
@@ -1738,7 +1832,7 @@ function MintDomain({ onMinted }: { onMinted?: () => void }) {
         ) : (
           <button
             onClick={handleMint}
-            disabled={!name || !available || isMinting || checking}
+            disabled={!name || name.length < 3 || !available || isMinting || checking}
             className="w-full rounded-lg bg-blue-600 hover:bg-blue-500 active:bg-blue-700 py-3 text-sm font-medium text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(59,130,246,0.25)]"
           >
             {isMinting ? (
@@ -1750,6 +1844,7 @@ function MintDomain({ onMinted }: { onMinted?: () => void }) {
               <>
                 <Sparkles className="h-4 w-4" />
                 Mint {name ? displayDomainName(name) : "Domain"}
+                {name.length === 3 ? " (0.1 USDC)" : name.length >= 4 ? " (Free)" : ""}
               </>
             )}
           </button>

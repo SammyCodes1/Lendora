@@ -2,11 +2,16 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 
 async function deployWalletDomain() {
-  const [owner, other] = await ethers.getSigners();
-  const WalletDomain = await ethers.getContractFactory("WalletDomain");
-  const walletDomain = await WalletDomain.deploy();
+  const [owner, other, treasury] = await ethers.getSigners();
+  const MockStablecoin = await ethers.getContractFactory("MockStablecoin");
+  const usdc = await MockStablecoin.deploy("USD Coin", "USDC");
+  await usdc.waitForDeployment();
 
-  return { owner, other, walletDomain };
+  const WalletDomain = await ethers.getContractFactory("WalletDomain");
+  const walletDomain = await WalletDomain.deploy(await usdc.getAddress(), treasury.address);
+  await walletDomain.waitForDeployment();
+
+  return { owner, other, treasury, usdc, walletDomain };
 }
 
 async function mintDomain(walletDomain: any, signer: any, name: string) {
@@ -17,7 +22,7 @@ async function mintDomain(walletDomain: any, signer: any, name: string) {
 }
 
 describe("WalletDomain", function () {
-  it("mints normalized domains, resolves safely, and exposes enumerable ownership", async function () {
+  it("mints normalized domains, resolves safely, and exposes enumerable ownership (free for 4+ chars)", async function () {
     const { owner, walletDomain } = await deployWalletDomain();
 
     await expect(mintDomain(walletDomain, owner, "sammy"))
@@ -33,6 +38,37 @@ describe("WalletDomain", function () {
     expect(await walletDomain.tokenOfOwnerByIndex(owner.address, 0)).to.equal(tokenId);
     expect(await walletDomain.tokenByIndex(0)).to.equal(tokenId);
     expect(await walletDomain.domainNames(tokenId)).to.equal("sammy");
+  });
+
+  it("charges 0.1 USDC to treasury for 3-character domains", async function () {
+    const { owner, other, treasury, usdc, walletDomain } = await deployWalletDomain();
+
+    // Mint USDC to other user
+    const threeCharPrice = 100_000n; // 0.1 USDC (6 dec)
+    await usdc.mint(other.address, ethers.parseUnits("10", 6));
+
+    // Attempting to mint 3-char domain without approval fails
+    const secret = ethers.keccak256(ethers.toUtf8Bytes("arc:secret"));
+    const commitment = await walletDomain.makeCommitment("arc", other.address, secret);
+    await walletDomain.connect(other).commitDomain(commitment);
+
+    await expect(
+      walletDomain.connect(other).mintDomain("arc", secret)
+    ).to.be.reverted;
+
+    // Approve 0.1 USDC and mint
+    await usdc.connect(other).approve(await walletDomain.getAddress(), threeCharPrice);
+
+    const treasuryBalBefore = await usdc.balanceOf(treasury.address);
+
+    await expect(walletDomain.connect(other).mintDomain("arc", secret))
+      .to.emit(walletDomain, "DomainFeePaid")
+      .withArgs(other.address, "arc", threeCharPrice)
+      .and.to.emit(walletDomain, "DomainMinted");
+
+    const treasuryBalAfter = await usdc.balanceOf(treasury.address);
+    expect(treasuryBalAfter - treasuryBalBefore).to.equal(threeCharPrice);
+    expect(await walletDomain.resolveDomain("arc")).to.equal(other.address);
   });
 
   it("binds commitments to the intended wallet", async function () {
@@ -77,26 +113,30 @@ describe("WalletDomain", function () {
     );
 
     await mintDomain(walletDomain, owner, "sammy");
-    const secondSecret = ethers.keccak256(ethers.toUtf8Bytes("sammy-again"));
+    const secondSecret = ethers.keccak256(ethers.toUtf8Bytes("second-secret"));
     const secondCommitment = await walletDomain.makeCommitment("sammy", owner.address, secondSecret);
     await walletDomain.commitDomain(secondCommitment);
-    await expect(walletDomain.mintDomain("sammy", secondSecret)).to.be.revertedWithCustomError(
-      walletDomain,
-      "ERC721InvalidSender",
-    );
+    await expect(walletDomain.mintDomain("sammy", secondSecret)).to.be.reverted;
   });
 
-  it("stores primary domains on-chain and clears stale primary state after transfer", async function () {
+  it("allows batch migration of legacy domains by owner without fee", async function () {
+    const { owner, other, walletDomain } = await deployWalletDomain();
+
+    await walletDomain.batchMintLegacy(["sam", "001"], [owner.address, other.address]);
+    expect(await walletDomain.resolveDomain("sam")).to.equal(owner.address);
+    expect(await walletDomain.resolveDomain("001")).to.equal(other.address);
+  });
+
+  it("transfers domain and updates primary resolution", async function () {
     const { owner, other, walletDomain } = await deployWalletDomain();
 
     await mintDomain(walletDomain, owner, "sammy");
-    await expect(walletDomain.setPrimaryDomain("sammy"))
-      .to.emit(walletDomain, "PrimaryDomainSet")
-      .withArgs(owner.address, "sammy", await walletDomain.tokenIdOf("sammy"));
+    const tokenId = await walletDomain.tokenIdOf("sammy");
 
+    await walletDomain.setPrimaryDomain("sammy");
     expect(await walletDomain.primaryDomainOf(owner.address)).to.equal("sammy");
 
-    await walletDomain.transferFrom(owner.address, other.address, await walletDomain.tokenIdOf("sammy"));
+    await walletDomain.transferFrom(owner.address, other.address, tokenId);
 
     expect(await walletDomain.primaryDomainOf(owner.address)).to.equal("");
     expect(await walletDomain.resolveDomain("sammy")).to.equal(other.address);

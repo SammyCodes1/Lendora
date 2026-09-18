@@ -39,10 +39,10 @@
   },
   "PositionNFT": "0x28a5Abec1791A468930c762f995Fbd6Bd9787594",
   "PositionManager": "0xEc72b8D63109B3926D6ACaD833b9caDF71DF31dc",
-  "WalletDomain": "0xCfc3116D6Fe956d3329b0BB1CF9e564b3EE6ff29",
-  "walletDomainDeploymentBlock": 21146217,
-  "DomainMarketplace": "0x9AC8c1Da3501f73C8ec7f2356a0Fda44C405559E",
-  "domainMarketplaceDeploymentBlock": 21146224,
+  "WalletDomain": "0x3f9853a94302897087f154209A720f134F5D4423",
+  "walletDomainDeploymentBlock": 21457250,
+  "DomainMarketplace": "0xaBA462B951a685C08C2f251ef6180a200933457C",
+  "domainMarketplaceDeploymentBlock": 21457257,
   "earnVaults": {
     "USDC": "0x208Af80035A2009Ec0373264623E417C2c26c6eB",
     "EURC": "0x819068a43Ec7f7367B025B7dF0FAbeAdf70F173f"

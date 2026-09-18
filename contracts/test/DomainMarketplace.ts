@@ -4,13 +4,16 @@ import { ethers } from "hardhat";
 async function deployFixture() {
   const [seller, buyer] = await ethers.getSigners();
 
-  const WalletDomain = await ethers.getContractFactory("WalletDomain");
-  const walletDomain = await WalletDomain.deploy();
-  await walletDomain.waitForDeployment();
-
   const MockStablecoin = await ethers.getContractFactory("MockStablecoin");
   const usdc = await MockStablecoin.deploy("USD Coin", "USDC");
   await usdc.waitForDeployment();
+
+  const WalletDomain = await ethers.getContractFactory("WalletDomain");
+  const walletDomain = await WalletDomain.deploy(
+    await usdc.getAddress(),
+    seller.address,
+  );
+  await walletDomain.waitForDeployment();
 
   const DomainMarketplace = await ethers.getContractFactory("DomainMarketplace");
   const marketplace = await DomainMarketplace.deploy(
