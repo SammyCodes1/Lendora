@@ -1018,6 +1018,14 @@ export function ActionConfirmCard({
         setReceipt({
           ...review,
           title: `${displayDomain} minted`,
+          amountLabel: "Domain",
+          amount: displayDomain,
+          route: [
+            "Lendora domain registry",
+            displayDomain,
+            "Wallet domain NFT",
+          ],
+          detail: `Your domain ${displayDomain} was successfully minted to ${validatedAction.walletAddress}.`,
           transactionHash: hash,
           explorerUrl: hash ? `https://explorer.arc.io/tx/${hash}` : undefined,
           finalityMs: Math.max(
