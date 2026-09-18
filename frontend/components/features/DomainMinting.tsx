@@ -1788,7 +1788,7 @@ function MintDomain({ onMinted }: { onMinted?: () => void }) {
                   3-Character Premium Domain
                 </span>
                 <p className="text-[11px] text-amber-200/70">
-                  Mint price: 0.1 USDC (deposited directly into Lendora Treasury)
+                  Mint price: 0.1 USDC
                 </p>
               </div>
             </div>

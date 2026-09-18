@@ -27,7 +27,7 @@ import {
   FeaturedDepositBoard,
   YourDepositsTable,
 } from "@/components/markets/ExploreMarkets";
-import type { LendoraAssetFilter } from "@/lib/markets";
+import { formatUsdDisplay, type LendoraAssetFilter } from "@/lib/markets";
 import {
   clearPendingSupply,
   readPendingSupply,
@@ -232,11 +232,11 @@ export default function LendPage() {
           stats={[
             {
               label: "Total deposits",
-              value: `$${Number(formatUnits(totalDepositsUsd, 8)).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+              value: formatUsdDisplay(Number(formatUnits(totalDepositsUsd, 8))),
             },
             {
               label: "Available liquidity",
-              value: `$${Number(formatUnits(totalLiquidityUsd, 8)).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+              value: formatUsdDisplay(Number(formatUnits(totalLiquidityUsd, 8))),
               tone: "positive",
             },
           ]}

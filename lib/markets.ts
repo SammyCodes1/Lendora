@@ -103,10 +103,25 @@ export function formatRemainingCap(
   }
 
   const amount = Number(formatUnits(remaining, 6));
+  const hasDecimals = amount % 1 !== 0;
   const formatted = amount.toLocaleString(undefined, {
-    maximumFractionDigits: amount >= 100 ? 0 : 2,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: hasDecimals ? 2 : 0,
   });
   return symbol ? `${formatted} ${symbol}` : formatted;
+}
+
+/** Format USD value for stats and metric displays, preserving cents for small amounts. */
+export function formatUsdDisplay(val: number): string {
+  if (!Number.isFinite(val) || val === 0) return "$0";
+  const abs = Math.abs(val);
+  if (abs > 0 && abs < 0.01) return "<$0.01";
+  const hasDecimals = abs % 1 !== 0;
+  const formatted = abs.toLocaleString(undefined, {
+    minimumFractionDigits: abs < 100 || hasDecimals ? 2 : 0,
+    maximumFractionDigits: 2,
+  });
+  return val < 0 ? `-$${formatted}` : `$${formatted}`;
 }
 
 export type LendoraAssetFilter = "ALL" | "USDC" | "EURC";
@@ -127,7 +142,7 @@ export function capacityFilledPercent(
   fallbackUtilization: number,
 ) {
   if (isCapped && cap > 0n) {
-    const percent = Number((used * 10_000n) / cap) / 100;
+    const percent = (Number(used) / Number(cap)) * 100;
     return Math.max(0, Math.min(100, percent));
   }
   return Math.max(0, Math.min(100, fallbackUtilization));

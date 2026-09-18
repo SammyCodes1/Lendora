@@ -20,6 +20,7 @@ import {
   filterLendoraMarkets,
   formatRemainingCap,
   formatReserveCap,
+  formatUsdDisplay,
   maxBorrowableAmount,
   type LendoraAssetFilter,
 } from "@/lib/markets";
@@ -388,9 +389,7 @@ export function FeaturedDepositBoard({
                       {isBorrow ? "Total Borrowed" : "Total Deposits"}
                     </div>
                     <div className="mt-1 truncate font-mono text-xs sm:text-sm font-medium text-white">
-                      ${usd(isBorrow ? market.totalBorrowUsd : market.totalSupplyUsd).toLocaleString(undefined, {
-                        maximumFractionDigits: 0,
-                      })}
+                      {formatUsdDisplay(usd(isBorrow ? market.totalBorrowUsd : market.totalSupplyUsd))}
                     </div>
                   </div>
                   <div className="min-w-0">
@@ -398,10 +397,7 @@ export function FeaturedDepositBoard({
                       Available
                     </div>
                     <div className="mt-1 truncate font-mono text-xs sm:text-sm font-medium text-white">
-                      ${usd(market.availableLiquidityUsd).toLocaleString(
-                        undefined,
-                        { maximumFractionDigits: 0 },
-                      )}
+                      {formatUsdDisplay(usd(market.availableLiquidityUsd))}
                     </div>
                   </div>
                   <div
@@ -518,13 +514,13 @@ export function DepositMarketsTable({
                 <div>
                   <dt className="text-[11px] text-white/40">Total deposits</dt>
                   <dd className="mt-1 font-mono text-sm text-white">
-                    ${usd(market.totalSupplyUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    {formatUsdDisplay(usd(market.totalSupplyUsd))}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-[11px] text-white/40">Available liquidity</dt>
                   <dd className="mt-1 font-mono text-sm text-white">
-                    ${usd(market.availableLiquidityUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    {formatUsdDisplay(usd(market.availableLiquidityUsd))}
                   </dd>
                 </div>
                 <div className="col-span-2 rounded-lg border border-white/[0.05] bg-white/[0.02] p-2.5">
@@ -694,13 +690,13 @@ export function BorrowMarketsTable({
                 <div>
                   <dt>Total borrowed</dt>
                   <dd className="mt-1 font-mono text-white">
-                    ${usd(market.totalBorrowUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    {formatUsdDisplay(usd(market.totalBorrowUsd))}
                   </dd>
                 </div>
                 <div>
                   <dt>Liquidity</dt>
                   <dd className="mt-1 font-mono text-white">
-                    ${usd(market.availableLiquidityUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    {formatUsdDisplay(usd(market.availableLiquidityUsd))}
                   </dd>
                 </div>
                 <div>
