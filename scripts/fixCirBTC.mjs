@@ -12,6 +12,9 @@ const MAX_BPS = 10000n + SPREAD_BPS / 2n;
 const minBound = PRICE * MIN_BPS / 10000n;
 const maxBound = PRICE * MAX_BPS / 10000n;
 
+const PK = process.env.PRIVATE_KEY;
+if (!PK) throw new Error("PRIVATE_KEY env var required");
+
 console.log(`\ncirBTC bounds: min=$${Number(minBound)/1e8}  max=$${Number(maxBound)/1e8}  spread=${SPREAD_BPS}bps`);
 console.log(`Copy the line below and run it in your terminal:\n`);
 console.log(
@@ -19,12 +22,12 @@ console.log(
   `"setPriceBounds(address,uint256,uint256)" ` +
   `0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF ` +
   `${minBound} ${maxBound} ` +
-  `--private-key REDACTED ` +
+  `--private-key ${PK} ` +
   `--rpc-url https://rpc.testnet.arc.network && ` +
   `cast send 0x5D401B38686245B57Efb682828877a3124d36653 ` +
   `"setPrice(address,uint256)" ` +
   `0xf0C4a4CE82A5746AbAAd9425360Ab04fbBA432BF ` +
   `${PRICE} ` +
-  `--private-key REDACTED ` +
+  `--private-key ${PK} ` +
   `--rpc-url https://rpc.testnet.arc.network`
 );

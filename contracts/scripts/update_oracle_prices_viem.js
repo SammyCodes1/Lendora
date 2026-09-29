@@ -10,7 +10,8 @@ const arcMainnet = {
   },
 };
 
-const PK = "REDACTED";
+const PK = process.env.PRIVATE_KEY;
+if (!PK) throw new Error("PRIVATE_KEY env var required");
 const account = privateKeyToAccount(PK);
 
 const publicClient = createPublicClient({
