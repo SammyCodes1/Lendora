@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { formatUnits } from "viem";
 import { ConnectSolanaWalletButton } from "@/components/wallet/ConnectSolanaWalletButton";
+import { ConnectSuiWalletButton } from "@/components/wallet/ConnectSuiWalletButton";
 import { ConnectWalletButton } from "@/components/wallet/ConnectWalletButton";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -33,6 +34,7 @@ import {
   useSolanaUsdcBalance,
   useSolanaWallet,
 } from "@/hooks/useSolanaWallet";
+import { useSuiUsdcBalance, useSuiWallet } from "@/hooks/useSuiWallet";
 import { useTokenBalance } from "@/hooks/useTokenBalance";
 import { useDismissibleDropdown } from "@/hooks/useDismissibleDropdown";
 import { showToast } from "@/lib/toast";
@@ -47,6 +49,7 @@ const BRIDGE_NETWORKS: BridgeEndpoint[] = [
   { chain: "Polygon", chainId: 137, label: "Polygon" },
   { chain: "Arbitrum", chainId: 42161, label: "Arbitrum" },
   { chain: "Solana", chainId: null, label: "Solana" },
+  { chain: "Sui", chainId: null, label: "Sui" },
 ];
 
 const USDC_BY_CHAIN = {
@@ -123,6 +126,25 @@ function NetworkLogo({
           <path fill="#9DCCED" d="M1250 155c6 0 12 2 17 5l918 530c11 6 17 18 17 30v1060c0 12-7 24-17 30l-918 530c-5 3-11 5-17 5s-12-2-17-5l-918-530c-11-6-17-18-17-30V719c0-12 7-24 17-30l918-530c5-3 11-5 17-5V155zm0-155c-33 0-65 8-95 25L237 555c-59 34-95 96-95 164v1060c0 68 36 130 95 164l918 530c29 17 62 25 95 25s65-8 95-25l918-530c59-34 95-96 95-164V719c0-68-36-130-95-164L1344 25c-29-17-62-25-95-25h-94z" />
           <path fill="#FFFFFF" d="M1172 644H939c-17 0-33 11-39 27L401 2039l241 139 550-1507c5-14-5-28-19-28h-1z" />
           <path fill="#FFFFFF" d="M1580 644h-233c-17 0-33 11-39 27L738 2233l241 139 620-1701c5-14-5-28-19-28v-99z" />
+        </svg>
+      </span>
+    );
+  }
+
+  if (chain === "Sui") {
+    return (
+      <span className={cn("inline-flex items-center justify-center rounded-full bg-[#4DA2FF]/15 p-0.5 shrink-0", className)}>
+        <svg className="h-full w-full" viewBox="0 0 24 24" fill="none" aria-label="Sui">
+          <path
+            d="M6.2 16.8c2.4 2.2 6.3 2.2 8.7 0 1.4-1.3 2.1-3 2.1-4.8 0-1.2-.4-2.4-1.1-3.4.8-.5 1.3-1.4 1.3-2.4 0-1.6-1.3-2.9-2.9-2.9-1 0-1.9.5-2.4 1.3-1.2-.8-2.7-1.2-4.2-.8-2.2.6-3.8 2.6-3.8 5 0 .4 0 .8.1 1.1-1.5.7-2.5 2.2-2.5 3.9 0 1.1.4 2.1 1.1 2.9l.6.1Z"
+            fill="#4DA2FF"
+          />
+          <path
+            d="M14.8 7.2c.4-.6 1.1-.9 1.8-.9 1.2 0 2.2 1 2.2 2.2 0 .7-.3 1.3-.9 1.7"
+            stroke="#9ED0FF"
+            strokeWidth="1.2"
+            strokeLinecap="round"
+          />
         </svg>
       </span>
     );
@@ -217,6 +239,8 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
   const { address, isConnected, source: accountSource } = useArcLendAccount();
   const { publicKey, isAvailable: solanaWalletAvailable } = useSolanaWallet();
   const solanaBalance = useSolanaUsdcBalance(publicKey);
+  const { address: suiAddress, isAvailable: suiWalletAvailable } = useSuiWallet();
+  const suiBalance = useSuiUsdcBalance(suiAddress);
   const arcBalance = useTokenBalance({
     address,
     token: USDC_BY_CHAIN.Arc,
@@ -272,12 +296,13 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
     Polygon: polygonBalance,
     Arbitrum: arbitrumBalance,
   };
+  const sourceIsSolana = sourceNetwork.chain === "Solana";
+  const sourceIsSui = sourceNetwork.chain === "Sui";
   const selectedEvmBalance =
-    sourceNetwork.chain === "Solana"
-      ? null
-      : evmBalances[sourceNetwork.chain];
-  const available =
-    sourceNetwork.chain === "Solana"
+    sourceIsSolana || sourceIsSui ? null : evmBalances[sourceNetwork.chain];
+  const available = sourceIsSui
+    ? (suiBalance.balance ?? 0)
+    : sourceIsSolana
       ? (solanaBalance.balance ?? 0)
       : selectedEvmBalance?.data
         ? Number(
@@ -287,17 +312,24 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
             ),
           )
         : 0;
-  const balanceLoading =
-    sourceNetwork.chain === "Solana"
+  const balanceLoading = sourceIsSui
+    ? suiBalance.isLoading
+    : sourceIsSolana
       ? solanaBalance.isLoading
       : Boolean(selectedEvmBalance?.isLoading);
-  const balanceKnown =
-    sourceNetwork.chain === "Solana"
+  const balanceKnown = sourceIsSui
+    ? suiBalance.balance !== null
+    : sourceIsSolana
       ? solanaBalance.balance !== null
       : Boolean(selectedEvmBalance?.data);
   const requiresSolana =
     sourceNetwork.chain === "Solana" ||
     destinationNetwork.chain === "Solana";
+  const requiresSui =
+    sourceNetwork.chain === "Sui" || destinationNetwork.chain === "Sui";
+  const unsupportedPair = requiresSui && requiresSolana;
+  const routeTime =
+    requiresSui && sourceNetwork.chain === "Ethereum" ? "~15–20 min" : "~1–2 min";
   const showFundingReminder = balanceKnown && available === 0;
   const exceedsBalance = Boolean(amount) && Number(amount) > available;
   const explorerUrl = useMemo(
@@ -317,9 +349,24 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
     bridgeAction.reset();
   };
 
+  const compatibleOtherSide = (
+    next: BridgeEndpoint,
+    other: BridgeEndpoint,
+  ) => {
+    const mixesSuiAndSolana =
+      (next.chain === "Sui" && other.chain === "Solana") ||
+      (next.chain === "Solana" && other.chain === "Sui");
+    if (!mixesSuiAndSolana) return other;
+    return BRIDGE_NETWORKS[0].chain === next.chain
+      ? BRIDGE_NETWORKS[1]
+      : BRIDGE_NETWORKS[0];
+  };
+
   const handleSourceChange = (next: BridgeEndpoint) => {
     if (next.chain === destinationNetwork.chain) {
       setDestinationNetwork(sourceNetwork);
+    } else {
+      setDestinationNetwork(compatibleOtherSide(next, destinationNetwork));
     }
     setSourceNetwork(next);
     setAmount("");
@@ -329,6 +376,8 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
   const handleDestinationChange = (next: BridgeEndpoint) => {
     if (next.chain === sourceNetwork.chain) {
       setSourceNetwork(destinationNetwork);
+    } else {
+      setSourceNetwork(compatibleOtherSide(next, sourceNetwork));
     }
     setDestinationNetwork(next);
     setAmount("");
@@ -537,7 +586,7 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
           <div className="flex items-center gap-2 text-[11px] text-white/50">
             <span className="flex items-center gap-1">
               <Clock className="h-3 w-3 text-white/40" />
-              ~1–2 min
+              {routeTime}
             </span>
             <span>·</span>
             <span className="flex items-center gap-1 text-white/60">
@@ -561,13 +610,24 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
 
       {/* Wallets Connector Row */}
       <div className="space-y-2">
-        <div className={cn("grid gap-2 [&>*]:w-full", requiresSolana && "sm:grid-cols-2")}>
+        <div className={cn("grid gap-2 [&>*]:w-full", (requiresSolana || requiresSui) && "sm:grid-cols-2")}>
           <ConnectWalletButton hideIcon />
           {requiresSolana ? <ConnectSolanaWalletButton /> : null}
+          {requiresSui ? <ConnectSuiWalletButton /> : null}
         </div>
         {requiresSolana && !solanaWalletAvailable ? (
           <p className="text-xs text-amber-200/80 bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5">
             No Solana wallet detected. Install Phantom or Backpack to bridge to/from Solana.
+          </p>
+        ) : null}
+        {requiresSui && !suiWalletAvailable ? (
+          <p className="text-xs text-amber-200/80 bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5">
+            No Sui wallet detected. Install Slush or Phantom to bridge to or from Sui.
+          </p>
+        ) : null}
+        {unsupportedPair ? (
+          <p className="text-xs text-amber-200/80 bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5">
+            Sui routes use an EVM network. Pick Arc, Ethereum, Base, Polygon, or Arbitrum on the other side.
           </p>
         ) : null}
       </div>
@@ -624,7 +684,11 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
           </div>
 
           <p className="pt-1 text-[11px] text-white/35">
-            Circle&apos;s validator set typically completes cross-chain attestation in ~1–2 minutes.
+            {requiresSui && sourceNetwork.chain === "Ethereum"
+              ? "Ethereum standard attestation waits for finality, usually about 15–20 minutes. Sui then mints in a wallet signature."
+              : requiresSui
+                ? "Standard CCTP transfer. You sign the Sui transaction in your Sui wallet. Sui gas is paid in SUI."
+                : "Circle's validator set typically completes cross-chain attestation in ~1–2 minutes."}
           </p>
         </div>
       ) : null}
@@ -652,6 +716,11 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
               {requiresSolana ? (
                 <p className="text-[11px] text-white/40">
                   Ensure your Solana wallet has SOL for transaction fees.
+                </p>
+              ) : null}
+              {requiresSui ? (
+                <p className="text-[11px] text-white/40">
+                  Sui transactions need a little SUI for gas. Arc to Sui asks for a second signature to mint.
                 </p>
               ) : null}
             </div>
@@ -691,7 +760,9 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
         type="button"
         disabled={
           !connectorReady ||
+          unsupportedPair ||
           (requiresSolana && !bridgeAction.solanaReady) ||
+          (requiresSui && !bridgeAction.suiReady) ||
           !amount ||
           Number(amount) <= 0 ||
           exceedsBalance ||
@@ -718,7 +789,9 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
         className={cn(
           "w-full min-h-[50px] rounded-xl font-semibold text-sm sm:text-base transition-all flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(16,185,129,0.20)] active:scale-[0.99]",
           !connectorReady ||
+            unsupportedPair ||
             (requiresSolana && !bridgeAction.solanaReady) ||
+            (requiresSui && !bridgeAction.suiReady) ||
             !amount ||
             Number(amount) <= 0 ||
             exceedsBalance ||
@@ -732,11 +805,15 @@ export function BridgeWidget({ embedded = false }: BridgeWidgetProps) {
         ) : null}
         {!connectorReady
           ? "Connect Browser Wallet"
-          : requiresSolana && !bridgeAction.solanaReady
-            ? "Connect Solana Wallet"
-            : bridgeAction.isLoading
-              ? "Bridge in progress…"
-              : `Bridge to ${destinationNetwork.label}`}
+          : unsupportedPair
+            ? "Choose an EVM route"
+            : requiresSolana && !bridgeAction.solanaReady
+              ? "Connect Solana Wallet"
+              : requiresSui && !bridgeAction.suiReady
+                ? "Connect Sui Wallet"
+                : bridgeAction.isLoading
+                  ? "Bridge in progress…"
+                  : `Bridge to ${destinationNetwork.label}`}
       </button>
 
       <p className="text-center text-[10px] leading-4 text-white/30">

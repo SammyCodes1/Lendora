@@ -16,7 +16,9 @@ import { useAccount, useChainId, useReadContracts, useSwitchChain } from "wagmi"
 import erc20Abi from "@/constants/abis/ERC20.json";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
 import { useSolanaWallet } from "@/hooks/useSolanaWallet";
+import { executeSuiTransaction, useSuiWallet } from "@/hooks/useSuiWallet";
 import { appKit, createAppKitAdapter, ArcMainnet } from "@/lib/appkit";
+import { EVM_CCTP, runSuiCctpBridge, type EvmCctpChain } from "@/lib/suiCctp";
 
 export type AppKitStatus =
   | "idle"
@@ -45,7 +47,19 @@ export type SolanaBridgeNetwork = {
   label: string;
 };
 
-export type BridgeEndpoint = BridgeNetwork | SolanaBridgeNetwork;
+export type SuiBridgeNetwork = {
+  chain: "Sui";
+  chainId: null;
+  label: string;
+};
+
+export type BridgeEndpoint = BridgeNetwork | SolanaBridgeNetwork | SuiBridgeNetwork;
+
+function isEvmCctpChain(
+  chain: BridgeEndpoint["chain"],
+): chain is EvmCctpChain {
+  return chain in EVM_CCTP;
+}
 export type BridgeEvent = AppKitActions[keyof AppKitActions];
 
 type BridgeInput = {
@@ -135,11 +149,12 @@ async function adapterForConnector(connector: ReturnType<typeof useAccount>["con
 }
 
 export function useBridge() {
-  const { connector } = useAccount();
+  const { address, connector } = useAccount();
   const {
     publicKey: solanaPublicKey,
     provider: solanaProvider,
   } = useSolanaWallet();
+  const { address: suiAddress } = useSuiWallet();
   const chainId = useChainId();
   const { switchChainAsync } = useSwitchChain();
   const [bridgeKit] = useState(() => new AppKit());
@@ -252,8 +267,11 @@ export function useBridge() {
       const { source, destination, amount } = input;
       const sourceIsSolana = source.chain === "Solana";
       const destinationIsSolana = destination.chain === "Solana";
+      const sourceIsSui = source.chain === "Sui";
+      const destinationIsSui = destination.chain === "Sui";
       const usesSolana = sourceIsSolana || destinationIsSolana;
-      const evmSource = sourceIsSolana ? null : source;
+      const usesSui = sourceIsSui || destinationIsSui;
+      const evmSource = sourceIsSolana || sourceIsSui ? null : source;
 
       if (!amount || Number(amount) <= 0) {
         throw new Error("Enter a valid USDC amount");
@@ -261,11 +279,22 @@ export function useBridge() {
       if (source.chain === destination.chain) {
         throw new Error("Source and destination networks must be different");
       }
+      if (usesSui && usesSolana) {
+        throw new Error(
+          "Bridge Sui with Arc, Ethereum, Base, Polygon, or Arbitrum.",
+        );
+      }
       if (!connector) {
         throw new Error("Connect your EVM browser wallet");
       }
       if (usesSolana && !solanaPublicKey) {
         throw new Error("Connect your Solana browser wallet");
+      }
+      if (usesSui && !suiAddress) {
+        throw new Error("Connect your Sui wallet");
+      }
+      if (usesSui && !address) {
+        throw new Error("Connect your EVM browser wallet");
       }
 
       setError(null);
@@ -301,6 +330,83 @@ export function useBridge() {
         }
 
         setStatus("confirming");
+        if (usesSui && address && suiAddress) {
+          const evmChainName = sourceIsSui ? destination.chain : source.chain;
+          if (!isEvmCctpChain(evmChainName)) {
+            throw new Error(
+              "Bridge Sui with Arc, Ethereum, Base, Polygon, or Arbitrum.",
+            );
+          }
+          bridgeStartedAtRef.current = performance.now();
+          onEventRef.current = onEvent;
+          const reportStep = (
+            key: "approve" | "burn" | "attestation" | "mint",
+            update: {
+              state: "active" | "success";
+              label?: string;
+              explorerUrl?: string;
+            },
+          ) => {
+            const now = performance.now();
+            if (update.state === "active") {
+              stepStartedAtRef.current[key] = now;
+              updateProgress(key, update);
+              onEvent?.({} as BridgeEvent);
+              return;
+            }
+            const startedAt = stepStartedAtRef.current[key];
+            updateProgress(key, {
+              ...update,
+              finalityMs:
+                startedAt === undefined
+                  ? 0
+                  : Math.max(0, Math.round(now - startedAt)),
+            });
+            onEvent?.({} as BridgeEvent);
+          };
+          const outcome = await runSuiCctpBridge({
+            source: sourceIsSui ? "Sui" : evmChainName,
+            destination: destinationIsSui ? "Sui" : evmChainName,
+            amount,
+            evmAddress: address,
+            suiAddress,
+            signAndExecute: executeSuiTransaction,
+            prepareEvm: async (chain) => {
+              await switchChainAsync({ chainId: EVM_CCTP[chain].chainId });
+              const provider = await connector.getProvider();
+              return provider as EIP1193Provider;
+            },
+            onStep: reportStep,
+          });
+          const completedAt = performance.now();
+          setFinalityMs(
+            bridgeStartedAtRef.current === null
+              ? null
+              : Math.max(0, Math.round(completedAt - bridgeStartedAtRef.current)),
+          );
+          const bridgeResult = {
+            amount,
+            token: "USDC",
+            state: "success",
+            steps: [
+              {
+                name: "burn",
+                state: "success",
+                explorerUrl: outcome.burnExplorerUrl,
+              },
+              { name: "fetchAttestation", state: "success" },
+              {
+                name: "mint",
+                state: "success",
+                explorerUrl: outcome.mintExplorerUrl,
+              },
+            ],
+          } as BridgeResult;
+          setResult(bridgeResult);
+          setStatus("success");
+          return bridgeResult;
+        }
+
         updateProgress("approve", { state: "active" });
         stepStartedAtRef.current.approve = performance.now();
         const adapter = await adapterForConnector(connector);
@@ -420,11 +526,13 @@ export function useBridge() {
       }
     },
     [
+      address,
       bridgeKit,
       chainId,
       connector,
       solanaProvider,
       solanaPublicKey,
+      suiAddress,
       switchChainAsync,
       updateProgress,
     ],
@@ -439,6 +547,7 @@ export function useBridge() {
     finalityMs,
     evmReady: Boolean(connector),
     solanaReady: Boolean(solanaPublicKey),
+    suiReady: Boolean(suiAddress),
     isLoading: status === "switching" || status === "confirming",
     reset: () => {
       setStatus("idle");
