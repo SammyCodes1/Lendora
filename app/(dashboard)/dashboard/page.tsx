@@ -7,6 +7,7 @@ import {
   BarChart2,
   CheckCircle2,
   Clock,
+  Coins,
   RefreshCw,
   Shield,
   TrendingDown,
@@ -24,14 +25,18 @@ import type { MarketAsset } from "@/components/modals/types";
 import { useArcLendAccount } from "@/hooks/useArcLendAccount";
 import { useUserAccountData, useUserBalance } from "@/hooks/useLendingPool";
 import { useLiveMarkets } from "@/hooks/useLiveMarkets";
+import { AccruedYieldLine } from "@/components/markets/YieldTrust";
 import {
   assetUsdValue,
+  dashboardAccruedUsd,
   dashboardBorrowedMarkets,
   dashboardBorrowPowerUsedPercent,
   dashboardHealthFactor,
+  dashboardMonthlySupplyUsd,
   dashboardNetApyPercent,
   dashboardSuppliedMarkets,
   dashboardTotals,
+  formatUsdDisplay,
   maxBorrowableAmount,
 } from "@/lib/markets";
 import { cn } from "@/lib/utils";
@@ -131,14 +136,17 @@ function DashboardTopStats({
   const totalSupplied = Number(formatUnits(totals.suppliedUsd, 8));
   const totalBorrowed = Number(formatUnits(totals.borrowedUsd, 8));
   const netApy = dashboardNetApyPercent(markets);
+  const accruedUsd = dashboardAccruedUsd(markets);
+  const monthlyUsd = dashboardMonthlySupplyUsd(markets);
   const hfValue = dashboardHealthFactor(accountData?.healthFactor);
   const borrowPowerUsed = dashboardBorrowPowerUsedPercent(
     accountData?.totalDebtUSD ?? 0n,
     accountData?.availableBorrowsUSD ?? 0n,
   );
+  const suppliedMarkets = dashboardSuppliedMarkets(markets);
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {/* Net worth */}
       <GlassCard glowOnHover className="p-5">
         <div className="flex items-center justify-between text-xs text-white/45">
@@ -216,12 +224,37 @@ function DashboardTopStats({
         <div className="mt-2 text-xs text-white/40">
           {netApy !== null && netApy < 0
             ? "Borrow interest exceeds supply yield across your positions"
-            : "Compound annual yield on net collateral"}
+            : "Supply yield minus borrow cost on net worth"}
+        </div>
+      </GlassCard>
+
+      <GlassCard glowOnHover className="p-5">
+        <div className="flex items-center justify-between text-xs text-white/45">
+          <span>Earnings</span>
+          <Coins className="h-4 w-4 text-white/40" />
+        </div>
+        <div className="mt-3 font-mono text-2xl font-semibold text-white">
+          {!isConnected ? (
+            "$0.00"
+          ) : isAccountPending ? (
+            <Skeleton height={32} className="w-28 rounded-lg" />
+          ) : suppliedMarkets.length === 0 ? (
+            "—"
+          ) : (
+            <span className="text-emerald-300">
+              {formatUsdDisplay(accruedUsd)}
+            </span>
+          )}
+        </div>
+        <div className="mt-2 text-xs text-white/40">
+          {!isConnected || suppliedMarkets.length === 0
+            ? "Supply to start earning. APY is 0% until the pool has borrowers."
+            : `Accrued now · est. ${formatUsdDisplay(monthlyUsd)} / month`}
         </div>
       </GlassCard>
 
       {/* Health factor */}
-      <GlassCard glowOnHover className="p-5 sm:col-span-2 lg:col-span-1">
+      <GlassCard glowOnHover className="p-5">
         <div className="flex items-center justify-between text-xs text-white/45">
           <span>Health factor</span>
           <Shield className="h-4 w-4 text-white/40" />
@@ -324,6 +357,12 @@ function YourSuppliesSection({
                           maximumFractionDigits: 2,
                         })}
                       </p>
+                      <AccruedYieldLine
+                        accrued={market.accruedSupply}
+                        symbol={market.symbol}
+                        apy={market.supplyApy}
+                        market={market}
+                      />
                     </div>
                   </div>
 
@@ -415,9 +454,20 @@ function YourSuppliesSection({
                             maximumFractionDigits: 2,
                           })}
                         </p>
+                        <AccruedYieldLine
+                          accrued={market.accruedSupply}
+                          symbol={market.symbol}
+                          apy={market.supplyApy}
+                          market={market}
+                        />
                       </td>
-                      <td className="px-5 py-3.5 font-mono text-emerald-400">
-                        {market.supplyApy}
+                      <td className="px-5 py-3.5">
+                        <p className="font-mono text-emerald-400">
+                          {market.supplyApy}
+                        </p>
+                        <p className="mt-0.5 font-mono text-[11px] text-white/40">
+                          Util {market.utilization.toFixed(market.utilization > 0 && market.utilization < 0.1 ? 2 : 1)}%
+                        </p>
                       </td>
                       <td className="px-5 py-3.5 text-center">
                         <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-xs text-emerald-300">

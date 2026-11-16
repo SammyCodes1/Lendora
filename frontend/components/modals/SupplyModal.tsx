@@ -2,7 +2,7 @@
 
 import { ArrowUpCircle, Award, CheckCircle2, CircleDollarSign, Euro, ExternalLink, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import type { Abi } from "viem";
+import { formatUnits, type Abi } from "viem";
 import erc20Abi from "@/constants/abis/ERC20.json";
 import { GlassButton } from "@/components/ui/GlassButton";
 import { StatBadge } from "@/components/ui/StatBadge";
@@ -18,7 +18,14 @@ import deployments from "@/constants/deployments.json";
 import { useTransactionToast } from "@/hooks/useTransactionToast";
 import { TokenInput } from "@/components/ui/TokenInput";
 import { UsdcIcon, EurcIcon } from "@/components/ui/TokenMark";
-import { formatRemainingCap, formatReserveCap } from "@/lib/markets";
+import {
+  formatRemainingCap,
+  formatReserveCap,
+  formatUsdDisplay,
+  poolHasBorrowers,
+  projectedYieldUsd,
+  supplyAprAtUtilization,
+} from "@/lib/markets";
 import type { MarketAsset } from "./types";
 import {
   ARCSCAN_TX,
@@ -38,6 +45,56 @@ type SupplyModalProps = {
   market: MarketAsset | null;
   onClose: () => void;
 };
+
+function SupplyYieldPreview({
+  market,
+  amount,
+}: {
+  market: MarketAsset;
+  amount: bigint;
+}) {
+  const principalUsd = Number(formatUnits((amount * market.price) / 1_000_000n, 8));
+  const idle = !poolHasBorrowers(market);
+  const yearly = projectedYieldUsd(principalUsd, market.supplyApyValue, 365);
+  const monthly = projectedYieldUsd(principalUsd, market.supplyApyValue, 30);
+  const at50 = projectedYieldUsd(principalUsd, supplyAprAtUtilization(50), 365);
+  const at80 = projectedYieldUsd(principalUsd, supplyAprAtUtilization(80), 365);
+
+  if (idle) {
+    return (
+      <div className="rounded-2xl border border-amber-200/15 bg-amber-200/[0.06] px-3 py-2 text-xs leading-5 text-amber-100/80">
+        <p>Est. / year {formatUsdDisplay(yearly)} until someone borrows.</p>
+        {amount > 0n ? (
+          <p className="mt-1 text-amber-100/65">
+            At 50% utilization this would be about {formatUsdDisplay(at50)} / year;
+            at the 80% kink, about {formatUsdDisplay(at80)} / year.
+          </p>
+        ) : (
+          <p className="mt-1 text-amber-100/65">
+            Yield is paid by borrowers. Utilization 0% → APY 0%.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5 rounded-2xl border border-emerald-200/15 bg-emerald-200/[0.06] px-3 py-2 text-xs leading-5 text-emerald-100/80">
+      <div className="flex justify-between">
+        <span>Est. / year</span>
+        <span className="font-mono text-emerald-100">{formatUsdDisplay(yearly)}</span>
+      </div>
+      <div className="flex justify-between">
+        <span>Est. / 30 days</span>
+        <span className="font-mono text-emerald-100">{formatUsdDisplay(monthly)}</span>
+      </div>
+      <p className="text-emerald-100/70">
+        Borrowers pay this rate. Utilization {market.utilization.toFixed(1)}% · kink at 80%.
+        Your aToken balance grows automatically — no claim needed.
+      </p>
+    </div>
+  );
+}
 
 const erc20WriteAbi = erc20Abi as Abi;
 
@@ -137,9 +194,7 @@ export function SupplyModal({ open, market, onClose }: SupplyModalProps) {
             </span>
           </div>
           <StatBadge label="Supply APY" value={market.supplyApy} />
-          <p className="rounded-2xl border border-emerald-200/15 bg-emerald-200/[0.06] px-3 py-2 text-xs leading-5 text-emerald-100/75">
-            Supplying updates the reserve index. Any pending interest becomes part of your supplied aToken balance.
-          </p>
+          <SupplyYieldPreview market={market} amount={parsedAmount} />
         </div>
 
         {exceedsSupplyCap ? (

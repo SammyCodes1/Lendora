@@ -1,26 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Wallet } from "lucide-react";
-import { formatUnits, type Abi, type Hash } from "viem";
-import {
-  useChainId,
-  usePublicClient,
-  useSwitchChain,
-} from "wagmi";
-import lendingPoolAbi from "@/constants/abis/LendingPool.json";
-import deployments from "@/constants/deployments.json";
+import { useRouter } from "next/navigation";
+import { formatUnits } from "viem";
 import { PageTransition } from "@/components/layout/PageTransition";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { SupplyModal } from "@/components/modals/SupplyModal";
-import { useArcLendAccount } from "@/hooks/useArcLendAccount";
 import { WithdrawModal } from "@/components/modals/WithdrawModal";
 import type { MarketAsset } from "@/components/modals/types";
-import { errorMessage } from "@/components/modals/modalUtils";
-import { useWithdrawAction } from "@/hooks/useLendingPool";
 import { useLiveMarkets } from "@/hooks/useLiveMarkets";
-import { useOnchainYieldListener } from "@/hooks/useOnchainYieldListener";
-import { showToast } from "@/lib/toast";
 import {
   AssetFilterBar,
   DepositMarketsTable,
@@ -42,13 +31,8 @@ type ModalState = {
 export default function LendPage() {
   const [modal, setModal] = useState<ModalState>(null);
   const [assetFilter, setAssetFilter] = useState<LendoraAssetFilter>("ALL");
-  const { address, source } = useArcLendAccount();
-  const chainId = useChainId();
-  const { switchChainAsync } = useSwitchChain();
-  const publicClient = usePublicClient({ chainId: 5042 });
-  const withdrawAction = useWithdrawAction();
-  const { markets, isLoading, isError, isPaused, refetch } = useLiveMarkets();
-  useOnchainYieldListener();
+  const router = useRouter();
+  const { markets, isLoading, isError, isPaused } = useLiveMarkets();
 
   useEffect(() => {
     const pending = readPendingSupply();
@@ -78,21 +62,9 @@ export default function LendPage() {
     setModal({ type: "withdraw", market });
   }, []);
 
-  const [claimingSymbol, setClaimingSymbol] = useState<
-    MarketAsset["symbol"] | null
-  >(null);
-  const [isClaimingAll, setIsClaimingAll] = useState(false);
-  const [claimHashes, setClaimHashes] = useState<
-    Partial<Record<MarketAsset["symbol"], Hash>>
-  >({});
-
-  const claimableMarkets = useMemo(
-    () =>
-      markets.filter(
-        (market) => market.userSupply > 0n && market.accruedSupply > 0n,
-      ),
-    [markets],
-  );
+  const openBorrow = useCallback(() => {
+    router.push("/borrow");
+  }, [router]);
 
   const totalDepositsUsd = markets.reduce(
     (sum, market) => sum + market.totalSupplyUsd,
@@ -103,132 +75,13 @@ export default function LendPage() {
     0n,
   );
 
-  const ensureArc = useCallback(async () => {
-    if (!address) {
-      throw new Error("Connect your wallet before withdrawing yield.");
-    }
-    if (!publicClient) {
-      throw new Error("Arc client is unavailable.");
-    }
-    if (source === "wallet" && chainId !== 5042) {
-      await switchChainAsync({ chainId: 5042 });
-    }
-  }, [address, chainId, publicClient, source, switchChainAsync]);
-
-  const claimMarket = useCallback(
-    async (market: MarketAsset) => {
-      if (market.accruedSupply <= 0n || !address) return;
-      setClaimingSymbol(market.symbol);
-      try {
-        await ensureArc();
-        let amount =
-          market.accruedSupply < market.poolCash
-            ? market.accruedSupply
-            : market.poolCash;
-        if (amount <= 0n) {
-          throw new Error(
-            "No free pool cash to withdraw yield right now. Wait for repayments.",
-          );
-        }
-        try {
-          await publicClient!.simulateContract({
-            address: deployments.lendingPool as `0x${string}`,
-            abi: lendingPoolAbi as Abi,
-            functionName: "withdraw",
-            args: [market.address, amount, address],
-            account: address,
-          });
-        } catch {
-          let lo = 0n;
-          let hi = amount;
-          let best = 0n;
-          while (lo <= hi) {
-            const mid = (lo + hi) / 2n;
-            if (mid === 0n) {
-              lo = 1n;
-              continue;
-            }
-            try {
-              await publicClient!.simulateContract({
-                address: deployments.lendingPool as `0x${string}`,
-                abi: lendingPoolAbi as Abi,
-                functionName: "withdraw",
-                args: [market.address, mid, address],
-                account: address,
-              });
-              best = mid;
-              lo = mid + 1n;
-            } catch {
-              hi = mid - 1n;
-            }
-          }
-          amount = best;
-          if (amount <= 0n) {
-            throw new Error(
-              "Yield cannot be withdrawn safely right now (liquidity or health factor).",
-            );
-          }
-        }
-
-        const hash = await withdrawAction.withdraw(market.address, amount);
-        if (hash) {
-          console.info(
-            `[ArcLend] On-chain yield claim submitted: https://explorer.arc.io/tx/${hash}`,
-          );
-          await publicClient!.waitForTransactionReceipt({ hash });
-          console.info(
-            `[ArcLend] On-chain yield claim confirmed on Arc Mainnet: https://explorer.arc.io/tx/${hash}`,
-          );
-          setClaimHashes((current) => ({
-            ...current,
-            [market.symbol]: hash,
-          }));
-          showToast(
-            "success",
-            `${formatUnits(amount, 6)} ${market.symbol} yield claimed`,
-            { txHash: hash },
-          );
-        } else {
-          showToast(
-            "success",
-            `${formatUnits(amount, 6)} ${market.symbol} yield withdrawn`,
-          );
-        }
-        await refetch();
-      } catch (error) {
-        showToast(
-          "error",
-          errorMessage(error) || `Could not withdraw ${market.symbol} yield`,
-        );
-      } finally {
-        setClaimingSymbol(null);
-      }
-    },
-    [address, ensureArc, publicClient, refetch, withdrawAction],
-  );
-
-  const claimAll = useCallback(async () => {
-    if (claimableMarkets.length === 0) return;
-    console.info(
-      `[ArcLend] Claiming pending yield across ${claimableMarkets.length} markets...`,
-    );
-    setIsClaimingAll(true);
-    try {
-      for (const market of claimableMarkets) {
-        await claimMarket(market);
-      }
-    } finally {
-      setIsClaimingAll(false);
-    }
-  }, [claimableMarkets, claimMarket]);
-
   return (
     <PageTransition>
       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 pb-12 sm:px-6 lg:px-8">
         <PageHeader
           icon={<Wallet />}
           title="Deposit"
-          description="Deposit USDC and EURC to earn yield and enable borrowing on Lendora."
+          description="Deposit USDC and EURC to earn borrower-paid yield and enable borrowing on Lendora."
           stats={[
             {
               label: "Total deposits",
@@ -265,6 +118,7 @@ export default function LendPage() {
           markets={markets}
           disabled={isPaused}
           onSupply={openSupply}
+          onBorrow={openBorrow}
         />
 
         <AssetFilterBar value={assetFilter} onChange={setAssetFilter} />
@@ -273,11 +127,6 @@ export default function LendPage() {
           markets={markets}
           isLoading={isLoading}
           onWithdraw={openWithdraw}
-          onClaim={(market) => void claimMarket(market)}
-          onClaimAll={() => void claimAll()}
-          claimingSymbol={claimingSymbol}
-          isClaimingAll={isClaimingAll}
-          claimHashes={claimHashes}
         />
 
         <DepositMarketsTable

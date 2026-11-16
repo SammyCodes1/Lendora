@@ -270,3 +270,111 @@ export function dashboardBorrowPowerUsedPercent(
   if (capacity <= 0n) return 0;
   return Number((totalDebtUsd * 10_000n) / capacity) / 100;
 }
+
+/** Matches InterestRateModel.sol kinked curve. */
+export const RATE_MODEL = {
+  BASE_APR: 2,
+  SLOPE1: 10,
+  SLOPE2: 100,
+  OPTIMAL_UTILIZATION: 80,
+} as const;
+
+export function borrowAprAtUtilization(utilizationPercent: number) {
+  const utilization = Math.max(0, utilizationPercent);
+  if (utilization <= RATE_MODEL.OPTIMAL_UTILIZATION) {
+    return (
+      RATE_MODEL.BASE_APR +
+      (utilization / RATE_MODEL.OPTIMAL_UTILIZATION) * RATE_MODEL.SLOPE1
+    );
+  }
+  const excess = utilization - RATE_MODEL.OPTIMAL_UTILIZATION;
+  const remaining = 100 - RATE_MODEL.OPTIMAL_UTILIZATION;
+  return (
+    RATE_MODEL.BASE_APR +
+    RATE_MODEL.SLOPE1 +
+    (excess / remaining) * RATE_MODEL.SLOPE2
+  );
+}
+
+export function supplyAprAtUtilization(utilizationPercent: number) {
+  if (utilizationPercent <= 0) return 0;
+  return (
+    borrowAprAtUtilization(utilizationPercent) * (utilizationPercent / 100)
+  );
+}
+
+export function projectedYieldUsd(
+  principalUsd: number,
+  aprPercent: number,
+  days: number,
+) {
+  if (!(principalUsd > 0) || !(aprPercent > 0) || days <= 0) return 0;
+  return principalUsd * (aprPercent / 100) * (days / 365);
+}
+
+export function formatUtilization(utilization: number) {
+  const value = Math.max(0, Math.min(100, utilization));
+  if (value > 0 && value < 0.1) return `${value.toFixed(2)}%`;
+  return `${value.toFixed(value >= 10 ? 0 : 1)}%`;
+}
+
+export function formatAccruedUnits(amount: bigint) {
+  const value = Number(formatUnits(amount, 6));
+  if (!Number.isFinite(value) || value === 0) return "0.00";
+  if (value > 0 && value < 0.000001) return "<0.000001";
+  const digits = value >= 1 ? 2 : value >= 0.01 ? 4 : 6;
+  return value.toLocaleString(undefined, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
+
+export function poolHasBorrowers(market: {
+  totalBorrow: bigint;
+  utilization: number;
+}) {
+  return market.totalBorrow > 0n && market.utilization > 0;
+}
+
+export function supplyApyCaption(market: {
+  totalBorrow: bigint;
+  utilization: number;
+}) {
+  if (!poolHasBorrowers(market)) {
+    return "No borrows in this pool yet. Yield is paid by borrowers.";
+  }
+  if (market.utilization >= RATE_MODEL.OPTIMAL_UTILIZATION) {
+    return `Utilization ${formatUtilization(market.utilization)} is above the 80% kink. Rates are elevated and withdrawals can be tight.`;
+  }
+  return `Borrowers pay this rate. Utilization ${formatUtilization(market.utilization)} · kink at 80%.`;
+}
+
+export type DashboardEarningsMarket = DashboardPositionMarket & {
+  accruedSupply: bigint;
+  utilization: number;
+  totalBorrow: bigint;
+};
+
+export function dashboardAccruedUsd(markets: DashboardEarningsMarket[]) {
+  return markets.reduce((sum, market) => {
+    if (market.userSupply <= 0n) return sum;
+    return (
+      sum +
+      Number(
+        formatUnits(
+          assetUsdValue(market.accruedSupply, market.price),
+          USD_DECIMALS,
+        ),
+      )
+    );
+  }, 0);
+}
+
+export function dashboardMonthlySupplyUsd(markets: DashboardPositionMarket[]) {
+  return markets.reduce((sum, market) => {
+    const supplyUsd = Number(
+      formatUnits(assetUsdValue(market.userSupply, market.price), USD_DECIMALS),
+    );
+    return sum + supplyUsd * (market.supplyApyValue / 100) / 12;
+  }, 0);
+}

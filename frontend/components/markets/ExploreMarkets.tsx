@@ -2,7 +2,6 @@
 
 import { formatUnits, type Hash } from "viem";
 import {
-  Activity,
   CheckCircle2,
   Coins,
   ExternalLink,
@@ -16,12 +15,19 @@ import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { AssetMark } from "@/components/ui/MarketVisuals";
 import type { MarketAsset } from "@/components/modals/types";
 import {
+  AccruedYieldLine,
+  SupplyApyCaption,
+  UtilizationTrack,
+} from "@/components/markets/YieldTrust";
+import {
   capacityFilledPercent,
   filterLendoraMarkets,
   formatRemainingCap,
   formatReserveCap,
   formatUsdDisplay,
   maxBorrowableAmount,
+  poolHasBorrowers,
+  projectedYieldUsd,
   type LendoraAssetFilter,
 } from "@/lib/markets";
 import { cn } from "@/lib/utils";
@@ -213,39 +219,6 @@ function units(value: bigint) {
   return Number(formatUnits(value, 6));
 }
 
-function generateApySparkline(baseApy: number, symbol: string) {
-  const count = 12;
-  const width = 280;
-  const height = 44;
-  const padding = 4;
-
-  const variations =
-    symbol === "USDC"
-      ? [0, 0.08, -0.05, 0.12, 0.04, -0.08, 0.15, 0.09, 0.02, -0.04, 0.11, 0]
-      : [0, -0.06, 0.04, -0.02, 0.08, 0.01, -0.05, 0.06, -0.01, 0.03, -0.02, 0];
-
-  const minRate = baseApy - 0.2;
-  const maxRate = baseApy + 0.2;
-  const range = maxRate - minRate || 1;
-  const points: { x: number; y: number }[] = [];
-
-  for (let i = 0; i < count; i++) {
-    const x = (i / (count - 1)) * width;
-    const rate = baseApy + (variations[i] ?? 0);
-    const normalized = (rate - minRate) / range;
-    const y = height - padding - normalized * (height - 2 * padding);
-    points.push({ x: Number(x.toFixed(1)), y: Number(y.toFixed(1)) });
-  }
-
-  const linePath = points.reduce(
-    (acc, pt, idx) => (idx === 0 ? `M ${pt.x},${pt.y}` : `${acc} L ${pt.x},${pt.y}`),
-    "",
-  );
-  const areaPath = `${linePath} L ${width},${height} L 0,${height} Z`;
-
-  return { linePath, areaPath, width, height };
-}
-
 export function FeaturedDepositBoard({
   markets,
   disabled,
@@ -277,10 +250,6 @@ export function FeaturedDepositBoard({
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {featuredMarkets.map((market) => {
-          const sparkline = generateApySparkline(
-            isBorrow ? market.borrowAprValue : market.supplyApyValue,
-            market.symbol,
-          );
           const filled = isBorrow
             ? capacityFilledPercent(
                 market.totalBorrow,
@@ -294,7 +263,8 @@ export function FeaturedDepositBoard({
                 market.isSupplyCapped,
                 market.utilization,
               );
-          const gradientId = `featured-${mode}-grad-${market.symbol.toLowerCase()}`;
+          const idlePool = !poolHasBorrowers(market);
+          const apyValue = isBorrow ? market.borrowApr : market.supplyApy;
 
           return (
             <GlassCard
@@ -304,7 +274,6 @@ export function FeaturedDepositBoard({
               className="group relative flex flex-col justify-between overflow-hidden p-4 sm:p-6 transition-all duration-300 hover:border-emerald-500/30"
             >
               <div>
-                {/* Header */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
                     <AssetMark symbol={market.symbol} size="md" />
@@ -318,85 +287,48 @@ export function FeaturedDepositBoard({
                         </span>
                       </div>
                       <p className="mt-0.5 truncate text-xs text-white/40">
-                        Arc Mainnet Core Spoke
+                        Arc Mainnet
                       </p>
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
-                    <div className="font-mono text-xl sm:text-2xl font-bold text-emerald-400">
-                      {isBorrow ? market.borrowApr : market.supplyApy}
+                    <div
+                      className={cn(
+                        "font-mono text-xl font-bold sm:text-2xl",
+                        idlePool && !isBorrow
+                          ? "text-white/55"
+                          : isBorrow
+                            ? "text-sky-300"
+                            : "text-emerald-400",
+                      )}
+                    >
+                      {apyValue}
                     </div>
-                    <div className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider text-white/40">
+                    <div className="text-[9px] font-medium uppercase tracking-wider text-white/40 sm:text-[10px]">
                       {isBorrow ? "Borrow APY" : "Deposit APY"}
                     </div>
                   </div>
                 </div>
 
-                {/* Sparkline Display Board */}
                 <div className="mt-4 rounded-xl border border-white/[0.06] bg-black/20 p-3">
-                  <div className="flex items-center justify-between text-[11px] text-white/45">
-                    <span>30-Day APY Trajectory</span>
-                    <span className="font-mono text-emerald-400/90">
-                      Avg {isBorrow ? market.borrowApr : market.supplyApy}
-                    </span>
-                  </div>
-                  <div className="mt-2 h-11 w-full">
-                    <svg
-                      viewBox={`0 0 ${sparkline.width} ${sparkline.height}`}
-                      preserveAspectRatio="none"
-                      className="h-full w-full overflow-visible"
-                    >
-                      <defs>
-                        <linearGradient
-                          id={gradientId}
-                          x1="0"
-                          y1="0"
-                          x2="0"
-                          y2="1"
-                        >
-                          <stop
-                            offset="0%"
-                            stopColor="#10b981"
-                            stopOpacity="0.32"
-                          />
-                          <stop
-                            offset="100%"
-                            stopColor="#10b981"
-                            stopOpacity="0.0"
-                          />
-                        </linearGradient>
-                      </defs>
-                      <path
-                        d={sparkline.areaPath}
-                        fill={`url(#${gradientId})`}
-                      />
-                      <path
-                        d={sparkline.linePath}
-                        fill="none"
-                        stroke="#34d399"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </div>
+                  <UtilizationTrack utilization={market.utilization} />
+                  <SupplyApyCaption market={market} className="mt-2" />
                 </div>
 
-                {/* Key Metrics Grid */}
-                <div className="mt-4 grid grid-cols-3 gap-1.5 sm:gap-2 rounded-xl border border-white/[0.05] bg-white/[0.02] p-2.5 sm:p-3 text-xs">
+                <div className="mt-4 grid grid-cols-3 gap-1.5 rounded-xl border border-white/[0.05] bg-white/[0.02] p-2.5 text-xs sm:gap-2 sm:p-3">
                   <div className="min-w-0">
-                    <div className="truncate text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40">
+                    <div className="truncate text-[9px] uppercase tracking-wider text-white/40 sm:text-[10px]">
                       {isBorrow ? "Total Borrowed" : "Total Deposits"}
                     </div>
-                    <div className="mt-1 truncate font-mono text-xs sm:text-sm font-medium text-white">
+                    <div className="mt-1 truncate font-mono text-xs font-medium text-white sm:text-sm">
                       {formatUsdDisplay(usd(isBorrow ? market.totalBorrowUsd : market.totalSupplyUsd))}
                     </div>
                   </div>
                   <div className="min-w-0">
-                    <div className="truncate text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40">
+                    <div className="truncate text-[9px] uppercase tracking-wider text-white/40 sm:text-[10px]">
                       Available
                     </div>
-                    <div className="mt-1 truncate font-mono text-xs sm:text-sm font-medium text-white">
+                    <div className="mt-1 truncate font-mono text-xs font-medium text-white sm:text-sm">
                       {formatUsdDisplay(usd(market.availableLiquidityUsd))}
                     </div>
                   </div>
@@ -404,10 +336,10 @@ export function FeaturedDepositBoard({
                     className="min-w-0 cursor-help"
                     title={getCapacityTooltip(filled, market, isBorrow)}
                   >
-                    <div className="truncate text-[9px] sm:text-[10px] uppercase tracking-wider text-white/40">
+                    <div className="truncate text-[9px] uppercase tracking-wider text-white/40 sm:text-[10px]">
                       Cap Filled
                     </div>
-                    <div className="mt-1 flex items-center h-5">
+                    <div className="mt-1 flex h-5 items-center">
                       <CapacityMeter
                         value={filled}
                         market={market}
@@ -419,11 +351,10 @@ export function FeaturedDepositBoard({
                 </div>
               </div>
 
-              {/* Action CTA */}
-              <div className="mt-5">
+              <div className={cn("mt-5 grid gap-2", idlePool && !isBorrow && onBorrow ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1")}>
                 <GlassButton
                   variant="primary"
-                  className="w-full justify-center min-h-[44px]"
+                  className="min-h-[44px] w-full justify-center"
                   disabled={disabled}
                   onClick={() => {
                     if (isBorrow) {
@@ -435,6 +366,16 @@ export function FeaturedDepositBoard({
                 >
                   {disabled ? "Paused" : `${isBorrow ? "Borrow" : "Deposit"} ${market.symbol}`}
                 </GlassButton>
+                {idlePool && !isBorrow && onBorrow ? (
+                  <GlassButton
+                    variant="ghost"
+                    className="min-h-[44px] w-full justify-center"
+                    disabled={disabled}
+                    onClick={() => onBorrow(market)}
+                  >
+                    Borrow {market.symbol}
+                  </GlassButton>
+                ) : null}
               </div>
             </GlassCard>
           );
@@ -508,7 +449,10 @@ export function DepositMarketsTable({
                     <p className="truncate text-xs text-white/40">{market.name}</p>
                   </div>
                 </div>
-                <p className="shrink-0 font-mono text-lg font-semibold text-white">{market.supplyApy}</p>
+                <div className="shrink-0 text-right">
+                  <p className="font-mono text-lg font-semibold text-white">{market.supplyApy}</p>
+                  <SupplyApyCaption market={market} className="mt-1 max-w-[11rem] text-right" />
+                </div>
               </div>
               <dl className="grid grid-cols-2 gap-3 text-xs text-white/45">
                 <div>
@@ -596,7 +540,10 @@ export function DepositMarketsTable({
                       </div>
                     </div>
                   </td>
-                  <td className="px-5 py-4 font-mono text-white">{market.supplyApy}</td>
+                  <td className="px-5 py-4">
+                    <p className="font-mono text-white">{market.supplyApy}</p>
+                    <SupplyApyCaption market={market} className="mt-1 max-w-[16rem]" />
+                  </td>
                   <td className="px-5 py-4 text-right font-mono text-white">
                     <AnimatedNumber value={usd(market.totalSupplyUsd)} prefix="$" decimals={2} />
                   </td>
@@ -799,42 +746,23 @@ export function YourDepositsTable({
   markets,
   isLoading,
   onWithdraw,
-  onClaim,
-  onClaimAll,
-  claimingSymbol,
-  isClaimingAll,
-  claimHashes,
 }: {
   markets: MarketAsset[];
   isLoading: boolean;
   onWithdraw: (market: MarketAsset) => void;
-  onClaim: (market: MarketAsset) => void;
-  onClaimAll: () => void;
-  claimingSymbol: MarketAsset["symbol"] | null;
-  isClaimingAll: boolean;
-  claimHashes: Partial<Record<MarketAsset["symbol"], Hash>>;
 }) {
   const positions = markets.filter((market) => market.userSupply > 0n);
-  const canClaim = positions.some((market) => market.accruedSupply > 0n);
 
   return (
     <GlassCard depth="background" className="overflow-hidden p-0">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] px-5 py-4">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/35">
-            Your deposits
-          </p>
-          <h2 className="mt-1 text-lg font-semibold text-white">USDC and EURC supplied</h2>
-        </div>
-        <GlassButton
-          variant="primary"
-          className="min-h-9 px-3 py-1.5 text-xs"
-          disabled={isClaimingAll || claimingSymbol !== null || !canClaim}
-          onClick={onClaimAll}
-        >
-          {isClaimingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <Coins className="h-4 w-4" />}
-          Withdraw all yield
-        </GlassButton>
+      <div className="border-b border-white/[0.08] px-5 py-4">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/35">
+          Your deposits
+        </p>
+        <h2 className="mt-1 text-lg font-semibold text-white">USDC and EURC supplied</h2>
+        <p className="mt-1 text-xs leading-5 text-white/40">
+          Yield compounds in your aToken. Withdraw anytime the pool has cash.
+        </p>
       </div>
       {isLoading ? (
         <div className="space-y-3 p-5">
@@ -850,9 +778,7 @@ export function YourDepositsTable({
           {positions.map((market) => {
             const price = Number(formatUnits(market.price, market.priceDecimals));
             const total = units(market.userSupply);
-            const pending = units(market.accruedSupply);
-            const claiming = isClaimingAll || claimingSymbol === market.symbol;
-            const claimHash = claimHashes[market.symbol];
+            const monthly = projectedYieldUsd(total * price, market.supplyApyValue, 30);
             return (
               <div key={market.symbol} className="grid gap-3 px-5 py-4 sm:grid-cols-[1fr_auto_auto]">
                 <div className="flex items-center gap-3">
@@ -863,41 +789,27 @@ export function YourDepositsTable({
                       {total.toLocaleString(undefined, { maximumFractionDigits: 6 })} · $
                       {(total * price).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                     </p>
-                    {pending > 0 ? (
-                      <p className="mt-0.5 flex items-center gap-1 font-mono text-[11px] text-[#86efac]">
-                        <Activity className="h-3 w-3" />
-                        +{pending.toLocaleString(undefined, { maximumFractionDigits: 6 })} pending
-                      </p>
-                    ) : null}
-                    {claimHash ? (
-                      <a
-                        href={`https://explorer.arc.io/tx/${claimHash}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-1.5 inline-flex items-center gap-1.5 rounded-md border border-emerald-400/25 bg-emerald-400/10 px-2 py-0.5 font-mono text-[11px] text-emerald-300 transition hover:border-emerald-400/50 hover:bg-emerald-400/20"
-                      >
-                        <CheckCircle2 className="h-3 w-3 text-emerald-400" />
-                        <span>On-chain: {claimHash.slice(0, 6)}...{claimHash.slice(-4)}</span>
-                        <ExternalLink className="h-3 w-3 opacity-70" />
-                      </a>
-                    ) : null}
+                    <AccruedYieldLine
+                      accrued={market.accruedSupply}
+                      symbol={market.symbol}
+                      apy={market.supplyApy}
+                      market={market}
+                    />
+                    <p className="mt-0.5 font-mono text-[11px] text-white/35">
+                      Est. {formatUsdDisplay(monthly)} / month
+                    </p>
                   </div>
                 </div>
-                <p className="font-mono text-sm text-white sm:self-center">{market.supplyApy}</p>
+                <div className="sm:self-center">
+                  <p className="font-mono text-sm text-white">{market.supplyApy}</p>
+                  <p className="mt-0.5 font-mono text-[11px] text-white/40">
+                    Util {market.utilization.toFixed(market.utilization > 0 && market.utilization < 0.1 ? 2 : 1)}%
+                  </p>
+                </div>
                 <div className="flex gap-2 sm:justify-end">
-                  <GlassButton
-                    variant="primary"
-                    className="min-h-9 flex-1 px-3 py-1.5 text-xs sm:flex-none"
-                    disabled={market.accruedSupply === 0n || claiming}
-                    onClick={() => onClaim(market)}
-                  >
-                    {claiming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Coins className="h-4 w-4" />}
-                    Yield
-                  </GlassButton>
                   <GlassButton
                     variant="ghost"
                     className="min-h-9 flex-1 px-3 py-1.5 text-xs sm:flex-none"
-                    disabled={claiming}
                     onClick={() => onWithdraw(market)}
                   >
                     Withdraw
