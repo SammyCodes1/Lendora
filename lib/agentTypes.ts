@@ -33,6 +33,8 @@ export type AgentActionParams =
       tokenOut: AgentAsset;
       amountIn: string;
       slippageBps: number;
+      /** Optional router preference; omitted = best of Tower and Peach. */
+      route?: "tower" | "peach";
     }
   | {
       asset: AgentAsset;

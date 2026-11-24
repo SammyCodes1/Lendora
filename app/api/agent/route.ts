@@ -85,7 +85,8 @@ const functionDeclarations = [
   },
   {
     name: "swap",
-    description: "Swap one token for another on Arc via DEX aggregator",
+    description:
+      "Swap one token for another on Arc. Lendora quotes both Tower Exchange and the Peach aggregator and uses the better guaranteed output unless the user names a router",
     parametersJsonSchema: {
       type: "object",
       properties: {
@@ -93,6 +94,11 @@ const functionDeclarations = [
         tokenOut: { type: "string", description: "The token to buy (e.g. EURC)" },
         amountIn: { type: "string", description: "The amount to swap, as a decimal string" },
         slippageBps: { type: "number", description: "Max slippage in basis points (e.g. 50 for 0.5%)" },
+        route: {
+          type: "string",
+          enum: ["tower", "peach"],
+          description: "Only set when the user explicitly asks for Tower or Peach; otherwise omit to use the best route",
+        },
       },
       required: ["tokenIn", "tokenOut", "amountIn"],
     },
@@ -858,11 +864,15 @@ function parseDeterministicSwap(message: string): DeterministicResult | null {
       ? Math.round(Number(bpsSlippage[1]))
       : 100;
 
+  const routeMatch = message.match(/\b(?:via|on|through|using|with)\s+(tower|peach)\b/i);
   const params = {
     tokenIn,
     tokenOut,
     amountIn: amountMatch[1],
     slippageBps,
+    ...(routeMatch
+      ? { route: routeMatch[1].toLowerCase() as "tower" | "peach" }
+      : {}),
   };
   return {
     type: "action",
@@ -1152,7 +1162,7 @@ function summarizeAction(tool: AgentTool, params: Record<string, unknown>): stri
     case "repay":
       return `I'll prepare a repayment for ${String(params.amount ?? "the requested amount")} ${String(params.asset ?? "asset")}.`;
     case "swap":
-      return `I'll prepare a swap from ${String(params.tokenIn ?? "the input token")} to ${String(params.tokenOut ?? "the output token")} for ${String(params.amountIn ?? "the requested amount")}.`;
+      return `I'll prepare a swap from ${String(params.tokenIn ?? "the input token")} to ${String(params.tokenOut ?? "the output token")} for ${String(params.amountIn ?? "the requested amount")}${params.route === "peach" ? " via Peach" : params.route === "tower" ? " via Tower Exchange" : ", using the better of Tower Exchange and Peach"}.`;
     case "sendToken":
       return `I'll prepare a transfer of ${String(params.amount ?? "the requested amount")} ${String(params.asset ?? "token")} to ${String(params.recipientName ?? params.recipient ?? "the recipient")}.`;
     case "bridge":

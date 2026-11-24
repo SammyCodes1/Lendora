@@ -39,9 +39,15 @@ import {
   type TowerPreparedSwap,
   type TowerQuoteData,
 } from "@/lib/towerSwap";
+import {
+  assertPeachPreparedSwap,
+  isPeachQuoteExpired,
+  PEACH_EXECUTION_ROUTER,
+  type PeachPreparedSwap,
+} from "@/lib/peachSwap";
 
 export type SwapToken = SwapTokenSymbol;
-export type RouteKey = "tower";
+export type RouteKey = "tower" | "peach";
 
 export type SwapRouteQuote = {
   key: RouteKey;
@@ -57,6 +63,8 @@ export type SwapRouteQuote = {
   priceImpact?: number;
   routeLabel?: string;
   quote?: TowerQuoteData;
+  /** Peach quote including the exact signed transaction the user confirms. */
+  peach?: PeachPreparedSwap;
   isIndicative?: boolean;
 };
 
@@ -78,6 +86,9 @@ export type SwapStepUpdate = {
 type QuoteApiResponse = {
   error?: string;
   quote?: unknown;
+  best?: RouteKey;
+  routes?: { tower?: { quote?: unknown }; peach?: unknown };
+  errors?: { tower?: string; peach?: string };
 };
 
 type PrepareApiResponse = {
@@ -124,6 +135,31 @@ function toRouteQuote(quote: TowerQuoteData): SwapRouteQuote {
   };
 }
 
+function toPeachRouteQuote(peach: PeachPreparedSwap): SwapRouteQuote {
+  return {
+    key: "peach",
+    output: BigInt(peach.expectedOutput),
+    minOut: BigInt(peach.minOut),
+    router: PEACH_EXECUTION_ROUTER,
+    label: "Peach",
+    detail: "Peach aggregator. Signed route via the Peach Execution Router.",
+    feeBps: 0,
+    routeLabel: "Peach Aggregator",
+    peach,
+  };
+}
+
+/** Best route: executable before indicative, then highest guaranteed output. */
+export function pickBestRoute(quotes: SwapRouteQuote[]): SwapRouteQuote | null {
+  return quotes.reduce<SwapRouteQuote | null>((best, current) => {
+    if (!best) return current;
+    if (Boolean(best.isIndicative) !== Boolean(current.isIndicative)) {
+      return current.isIndicative ? best : current;
+    }
+    return current.minOut > best.minOut ? current : best;
+  }, null);
+}
+
 function parsePrepared(payload: PrepareApiResponse): TowerPreparedSwap {
   const quote = parseTowerQuote(payload.quote);
   const swap = parseTowerTxPayload(payload.swap, "Tower swap");
@@ -162,9 +198,11 @@ export function useSwap() {
 
       const towerAmountIn = towerSwapAmountIn(parsedAmount);
 
-      // Tower Exchange quote
+      // Tower Exchange + Peach quotes (both fetched in parallel server-side)
       let towerQuote: SwapRouteQuote | null = null;
+      let peachQuote: SwapRouteQuote | null = null;
       let towerApiError: string | null = null;
+      let peachApiError: string | null = null;
       try {
         const response = await fetch("/api/swap/quote", {
           method: "POST",
@@ -174,13 +212,31 @@ export function useSwap() {
             tokenOut,
             amountIn,
             slippageBps,
+            ...(address ? { userAddress: address } : {}),
           }),
         });
-        const payload = (await response.json()) as QuoteApiResponse & { error?: string };
-        if (response.ok && payload.quote) {
-          towerQuote = toRouteQuote(parseTowerQuote(payload.quote));
-        } else if (payload.error) {
-          towerApiError = payload.error;
+        const payload = (await response.json()) as QuoteApiResponse;
+        const rawTower = payload.routes?.tower?.quote ?? payload.quote;
+        if (response.ok && rawTower) {
+          towerQuote = toRouteQuote(parseTowerQuote(rawTower));
+        } else {
+          towerApiError = payload.errors?.tower ?? payload.error ?? null;
+        }
+        if (response.ok && payload.routes?.peach && address) {
+          try {
+            peachQuote = toPeachRouteQuote(
+              assertPeachPreparedSwap(payload.routes.peach, {
+                tokenIn: fromToken.address,
+                tokenOut: toToken.address,
+                inputAmount: parsedAmount.toString(),
+                executor: address,
+              }),
+            );
+          } catch (caught) {
+            peachApiError = caught instanceof Error ? caught.message : "Invalid Peach quote";
+          }
+        } else {
+          peachApiError = payload.errors?.peach ?? null;
         }
       } catch {}
 
@@ -259,13 +315,17 @@ export function useSwap() {
         } catch {}
       }
 
-      if (!towerQuote) {
-        throw new Error(towerApiError ?? "No executable Tower Exchange route is available");
+      const routes = [towerQuote, peachQuote].filter(
+        (route): route is SwapRouteQuote => route !== null,
+      );
+      if (routes.length === 0) {
+        throw new Error(
+          towerApiError ?? peachApiError ?? "No executable swap route is available",
+        );
       }
-
-      return [towerQuote];
+      return routes;
     },
-    [publicClient],
+    [address, publicClient],
   );
 
   const quoteSwap = useCallback(
@@ -276,9 +336,8 @@ export function useSwap() {
       slippageBps = 50,
     ): Promise<SwapRouteQuote> => {
       const allQuotes = await quoteRoutes(tokenIn, tokenOut, amountIn, slippageBps);
-      const best = allQuotes.reduce((prev, current) =>
-        !prev || current.output > prev.output ? current : prev,
-      );
+      const best = pickBestRoute(allQuotes);
+      if (!best) throw new Error("No executable swap route is available");
       return best;
     },
     [quoteRoutes],
@@ -339,6 +398,68 @@ export function useSwap() {
         let hash: Hash;
         const submittedAt = performance.now();
 
+        if (best.key === "peach") {
+          // Send exactly the transaction the user confirmed. Never re-quote
+          // silently: an expired plan needs a fresh quote and confirmation.
+          const peach = assertPeachPreparedSwap(best.peach, {
+            tokenIn: fromToken.address,
+            tokenOut: toToken.address,
+            inputAmount: parsedAmount.toString(),
+            executor: address,
+          });
+          if (isPeachQuoteExpired(peach)) {
+            throw new Error("This Peach quote has expired. Refresh the quote and confirm the new terms.");
+          }
+          const allowance = await publicClient.readContract({
+            address: fromToken.address,
+            abi: erc20Abi,
+            functionName: "allowance",
+            args: [address, PEACH_EXECUTION_ROUTER],
+          });
+          if (allowance < parsedAmount) {
+            onStep?.("approve", { state: "active" });
+            const approvalStartedAt = performance.now();
+            // Exact-amount approval to the pinned Peach Execution Router proxy.
+            approvalHash = await writeContractAsync({
+              chainId: TOWER_SWAP_CHAIN_ID,
+              address: fromToken.address,
+              abi: erc20Abi,
+              functionName: "approve",
+              args: [PEACH_EXECUTION_ROUTER, parsedAmount],
+            });
+            onStep?.("approve", { state: "active", hash: approvalHash });
+            const approvalReceipt = await publicClient.waitForTransactionReceipt({
+              hash: approvalHash,
+            });
+            if (approvalReceipt.status !== "success") {
+              throw new Error("Token approval reverted onchain");
+            }
+            onStep?.("approve", {
+              state: "success",
+              hash: approvalHash,
+              finalityMs: Math.max(0, Math.round(performance.now() - approvalStartedAt)),
+            });
+          } else {
+            onStep?.("approve", { state: "success", finalityMs: 0 });
+          }
+          if (isPeachQuoteExpired(peach)) {
+            throw new Error("The Peach quote expired during approval. Refresh the quote and confirm the new terms.");
+          }
+          // Simulate the signed plan before asking the wallet to send it.
+          await publicClient.call({
+            account: address,
+            to: peach.swap.to,
+            data: peach.swap.data,
+            value: 0n,
+          });
+          onStep?.("swap", { state: "active" });
+          hash = await sendTransactionAsync({
+            chainId: TOWER_SWAP_CHAIN_ID,
+            to: peach.swap.to,
+            data: peach.swap.data,
+            value: 0n,
+          });
+        } else {
         let prepared: TowerPreparedSwap | null = null;
           try {
             const prepareResponse = await fetch("/api/swap/prepare", {
@@ -350,6 +471,7 @@ export function useSwap() {
                 amountIn,
                 slippageBps,
                 userAddress: address,
+                route: "tower",
               }),
             });
             if (prepareResponse.ok) {
@@ -361,7 +483,13 @@ export function useSwap() {
           } catch {}
 
           if (prepared) {
-            const spender = (prepared.approval?.to as Address) ?? TOWER_SWAP_EXECUTOR;
+            if (fromTowerQuoteAmount(prepared.quote.minOut, toToken.decimals) < best.minOut) {
+              throw new Error(
+                "The Tower price moved below the minimum you confirmed. Refresh the quote and confirm the new terms.",
+              );
+            }
+            // prepared.approval.to is the input token; the validated spender is the Tower executor.
+            const spender: Address = TOWER_SWAP_EXECUTOR;
             const allowance = await publicClient.readContract({
               address: fromToken.address,
               abi: erc20Abi,
@@ -468,6 +596,7 @@ export function useSwap() {
               ],
             });
           }
+        }
 
         setTxHash(hash);
         onStep?.("swap", { state: "active", hash });

@@ -23,7 +23,7 @@ import { GlassButton } from "@/components/ui/GlassButton";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { TokenMark } from "@/components/ui/TokenMark";
 import { useDismissibleDropdown } from "@/hooks/useDismissibleDropdown";
-import { useSwap, type RouteKey, type SwapRouteQuote } from "@/hooks/useSwap";
+import { pickBestRoute, useSwap, type RouteKey, type SwapRouteQuote } from "@/hooks/useSwap";
 import { ARC_DEX_TOKENS } from "@/lib/arcDex";
 import { showToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
@@ -43,6 +43,10 @@ const ROUTE_METAS: Record<RouteKey, { label: string; detail: string }> = {
   tower: {
     label: "Tower Exchange",
     detail: "Official DEX router on Arc.",
+  },
+  peach: {
+    label: "Peach",
+    detail: "Aggregator routing across Arc DEXs.",
   },
 };
 
@@ -211,8 +215,7 @@ export function SwapWidget() {
   }, [amount, fromToken.decimals]);
 
   const bestRoute = useMemo(() => {
-    if (quotes.length === 0) return null;
-    return quotes.reduce((best, quote) => (!best || quote.output > best.output ? quote : best), quotes[0]);
+    return pickBestRoute(quotes);
   }, [quotes]);
 
   const activeRoute = useMemo(() => {
@@ -616,7 +619,18 @@ export function SwapWidget() {
             </div>
           </div>
 
-          <div className="mt-3 grid gap-2.5 sm:gap-3 grid-cols-1">
+          {bestRoute && quotes.length > 0 ? (
+            <p className="mt-3 text-[10px] text-white/45">
+              Best route:{" "}
+              <span className="font-medium text-emerald-300">
+                {ROUTE_METAS[bestRoute.key].label}
+              </span>
+              {activeRoute && activeRoute.key !== bestRoute.key
+                ? ` · using ${ROUTE_METAS[activeRoute.key].label}`
+                : ""}
+            </p>
+          ) : null}
+          <div className="mt-2 grid gap-2.5 sm:gap-3 grid-cols-2">
             {(Object.keys(ROUTE_METAS) as RouteKey[]).map((key) => {
               const quote = quotes.find((item) => item.key === key);
               const selected = activeRoute?.key === key;
