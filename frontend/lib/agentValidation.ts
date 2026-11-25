@@ -1981,7 +1981,17 @@ export async function validateAgentAction(
       if (tokenIn === tokenOut) {
         return hardBlock(
           walletKey,
-          `Tower Exchange cannot swap ${tokenIn} to ${tokenOut}.`,
+          `Lendora cannot swap ${tokenIn} to ${tokenOut}.`,
+        );
+      }
+      if (
+        params.route !== undefined &&
+        params.route !== "tower" &&
+        params.route !== "peach"
+      ) {
+        return hardBlock(
+          walletKey,
+          "Swaps can only use the Tower Exchange or Peach routers.",
         );
       }
       const inputToken = ARC_DEX_TOKENS[tokenIn];

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAddress, isAddress, parseUnits } from "viem";
 import { enforceRateLimit } from "@/lib/server/rateLimit";
 import { prepareTowerSwap, TowerApiError } from "@/lib/server/towerClient";
+import { fetchPeachSwap, PeachApiError } from "@/lib/server/peachClient";
 import {
   isSupportedTowerPair,
   isSwapTokenSymbol,
@@ -28,7 +29,16 @@ export async function POST(request: Request) {
       amountIn?: unknown;
       slippageBps?: unknown;
       userAddress?: unknown;
+      route?: unknown;
+      acceptedMinOut?: unknown;
     };
+    const route = body.route === undefined ? "tower" : body.route;
+    if (route !== "tower" && route !== "peach") {
+      return NextResponse.json(
+        { error: "Choose the Tower or Peach route." },
+        { status: 400 },
+      );
+    }
     if (!isSwapTokenSymbol(body.tokenIn) || !isSwapTokenSymbol(body.tokenOut)) {
       return NextResponse.json(
         { error: "Choose two supported Arc tokens to swap." },
@@ -70,6 +80,35 @@ export async function POST(request: Request) {
       );
     }
     const slippageBps = parseSlippageBps(body.slippageBps ?? 50);
+    if (route === "peach") {
+      // Peach quotes are signed transactions. A refreshed plan is only
+      // returned when it guarantees at least what the user confirmed;
+      // otherwise the user must review and confirm the new terms.
+      if (typeof body.acceptedMinOut !== "string" || !/^[0-9]+$/.test(body.acceptedMinOut)) {
+        return NextResponse.json(
+          { error: "Confirm a Peach quote before preparing the swap." },
+          { status: 400 },
+        );
+      }
+      const peach = await fetchPeachSwap({
+        tokenIn: body.tokenIn,
+        tokenOut: body.tokenOut,
+        inputAmount: inputAmount.toString(),
+        slippageBps,
+        userAddress: getAddress(body.userAddress),
+      });
+      if (BigInt(peach.minOut) < BigInt(body.acceptedMinOut)) {
+        return NextResponse.json(
+          {
+            error: "The Peach price moved below the minimum you confirmed. Review and confirm the new quote.",
+            requoteRequired: true,
+            peach,
+          },
+          { status: 409 },
+        );
+      }
+      return NextResponse.json({ route: "peach", peach });
+    }
     const prepared = await prepareTowerSwap({
       tokenIn: body.tokenIn,
       tokenOut: body.tokenOut,
@@ -78,11 +117,12 @@ export async function POST(request: Request) {
       userAddress: getAddress(body.userAddress),
     });
     return NextResponse.json({
+      route: "tower",
       ...prepared,
       routeLabel: towerRouteLabel(prepared.quote),
     });
   } catch (error) {
-    if (error instanceof TowerApiError) {
+    if (error instanceof TowerApiError || error instanceof PeachApiError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
     return NextResponse.json(

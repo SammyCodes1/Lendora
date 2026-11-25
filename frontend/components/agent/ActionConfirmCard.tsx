@@ -115,6 +115,7 @@ const arcDestination: BridgeNetwork = {
 
 const swapRouteLabels: Record<SwapRouteQuote["key"], string> = {
   tower: "Tower Exchange router",
+  peach: "Peach aggregator router",
 };
 const WALLET_DOMAIN_ADDRESS = deployments.WalletDomain as Address;
 const MARKET_USDC_ADDRESS = deployments.markets.USDC.asset as Address;
@@ -417,11 +418,36 @@ export function ActionConfirmCard({
       if (action.tool === "swap") {
         const tokenIn = params.tokenIn as SwapToken;
         const tokenOut = params.tokenOut as SwapToken;
-        const quote = await swapAction.quoteSwap(
-          tokenIn,
-          tokenOut,
-          String(params.amountIn),
-        );
+        const slippageBps = Number(params.slippageBps) || 50;
+        const requestedRoute =
+          params.route === "tower" || params.route === "peach"
+            ? params.route
+            : null;
+        let quote: SwapRouteQuote;
+        if (requestedRoute) {
+          const routes = await swapAction.quoteRoutes(
+            tokenIn,
+            tokenOut,
+            String(params.amountIn),
+            slippageBps,
+          );
+          const match = routes.find(
+            (route) => route.key === requestedRoute && !route.isIndicative,
+          );
+          if (!match) {
+            throw new Error(
+              `${swapRouteLabels[requestedRoute]} has no executable quote for this swap right now.`,
+            );
+          }
+          quote = match;
+        } else {
+          quote = await swapAction.quoteSwap(
+            tokenIn,
+            tokenOut,
+            String(params.amountIn),
+            slippageBps,
+          );
+        }
         setSwapQuote(quote);
         setReview({
           eyebrow: "Swap review",
@@ -438,7 +464,7 @@ export function ActionConfirmCard({
             swapRouteLabels[quote.key],
             `${tokenOut} wallet`,
           ],
-          detail: `The quote uses ${swapRouteLabels[quote.key]} with ${Number(params.slippageBps) / 100}% maximum slippage. Your wallet must approve and sign before funds can move.`,
+          detail: `The quote uses ${swapRouteLabels[quote.key]} with ${slippageBps / 100}% maximum slippage (minimum received ${formatUnits(quote.minOut, ARC_DEX_TOKENS[tokenOut].decimals)} ${tokenOut}). Your wallet approves only the exact input amount and must sign before funds can move.${quote.key === "peach" ? " Peach quotes expire after about two minutes; refresh if it expires." : ""}`,
         });
         return;
       }

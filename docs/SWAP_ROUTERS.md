@@ -1,5 +1,10 @@
 # Swap routers: Tower Exchange + Peach
 
+The public Lendora app is built from the `frontend/` directory (not the repo
+root). Production is served at `https://lendora-alpha.vercel.app`. Changes to
+the root `app/`, `hooks/` and `lib/` copies are not enough; the same swap
+code must also land under `frontend/` or Peach will not appear on the live UI.
+
 Lendora's swap page and the AI assistant's `swap` action quote two routers on
 Arc Mainnet (chain `5042`) and use the one with the higher **guaranteed
 (minimum) output**. Users can switch routes in the swap widget, and the
